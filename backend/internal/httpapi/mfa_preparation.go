@@ -41,6 +41,11 @@ func (h *MFAReadinessHandler) Get(c fiber.Ctx) error {
 	if err != nil {
 		return mfaReadinessFailure(c, err)
 	}
+	// The contract requires an array, including when there are no blockers.
+	// A nil Go slice would serialize as null and reject valid enrollment clients.
+	if result.Blockers == nil {
+		result.Blockers = []string{}
+	}
 	c.Set("Cache-Control", "private, no-store")
 	return c.JSON(fiber.Map{"data": fiber.Map{"email_verified": result.Facts.EmailVerified, "account_disabled": result.Facts.AccountDisabled, "password_credential_present": result.Facts.PasswordCredentialPresent, "google_identity_present": result.Facts.GoogleIdentityPresent, "mfa_enrollment_available": result.MFAEnrollmentAvailable, "mfa_enrolled": result.MFAEnrolled, "step_up_available": result.StepUpAvailable, "step_up_policy_configured": result.StepUpPolicyConfigured, "session_assurance_provenance_available": result.SessionAssuranceProvenanceAvailable, "recovery_codes_available": result.RecoveryCodesAvailable, "session_authenticated_at": result.SessionAuthenticatedAt.Format(time.RFC3339Nano), "session_age_seconds": result.SessionAgeSeconds, "blockers": result.Blockers, "observed_at": result.ObservedAt.Format(time.RFC3339Nano)}, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
 }
