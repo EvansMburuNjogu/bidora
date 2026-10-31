@@ -95,6 +95,13 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 - Run browser, responsive, keyboard/accessibility and security-sensitive journey checks. Record real results separately from compilation and synthetic interception.
 - External provider credentials, paid activation, independent review, legal production retention and release acceptance remain separately recorded, not assumed passed.
 
+## Latest bootstrap — sandbox Owner (user-requested)
+
+- Created the requested sandbox identity through normal registration; server persistence confirms one Argon2 password identity, unverified email, zero active authenticators and zero Owner assignments. Registration returned 503 because managed SMTP is not yet active; this was not reported as successful verification or Owner creation.
+- Verified authenticated STARTTLS on Zoho's `smtp.zoho.com:587`; the alternate `smtppro` endpoint rejected authentication. A one-off operator command issued a real verification challenge through the existing identity use case and Zoho accepted the message. Acceptance/correlation evidence is retained privately on the server; inbox delivery is not confirmed.
+- Added a sandbox-only deployment command for verification and eventual Owner promotion. It permits only the sandbox runtime role/database with verified TLS, rejects production and unsafe inputs, uses the existing atomic bootstrap/audit/outbox service, and cannot activate SMTP or bypass email/TOTP eligibility. No secrets or personal account values committed.
+- Checks: six command guardrail cases, focused HTTP/settings tests and command compilation passed; server image built and one-off verification completed. Next: operator verifies email and enrolls an authenticator through the sandbox UI, then invoke guarded Owner promotion. Managed SMTP activation still requires a distinct eligible Owner checker; no bypass or fake approval applied.
+
 ## Latest deployment — sandbox environment (user-requested)
 
 - Created and pushed GitHub branch `sandbox`; server checkout `/opt/bidora-sandbox/app` uses fast-forward pulls. Correct configured SSH alias is `maalim-server`. Public web/API: `https://sandbox.bidora.africa` and `https://api-sandbox.bidora.africa`.
