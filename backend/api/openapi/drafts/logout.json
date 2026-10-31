@@ -1,0 +1,29 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Bidora pilot logout", "version": "0.1.0-draft", "description": "Approved current-session logout contract. An unregistered Fiber handler exists; no deployed route is claimed."},
+  "x-status": "handler-prepared-route-blocked",
+  "x-approval": {"date": "2026-10-18", "owner": "requesting user", "evidence": "approve and proceed", "remaining": ["live PostgreSQL evidence", "route activation review"]},
+  "paths": {
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutCurrentSession",
+        "summary": "Revoke the current browser session",
+        "description": "Requires the approved authenticated Origin and double-submit CSRF middleware. Revokes only the current session and appends minimal audit evidence in one control transaction. A concurrent revocation after validation is idempotent. Clears both host-only cookies only after successful commit.",
+        "security": [{"session": []}],
+        "parameters": [{"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}}],
+        "responses": {
+          "204": {"description": "Current validated session is revoked, or a concurrent revocation already achieved that state; both browser cookies are cleared. No response body.", "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}, "Set-Cookie": {"schema": {"type": "string"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"session": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}},
+    "schemas": {"ErrorResponse": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"type": "object"}}, "trace_id": {"type": "string"}, "retryable": {"type": "boolean"}}}}}},
+    "responses": {"Failure": {"description": "Safe generic failure with no token, cookie or database detail.", "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}}
+  }
+}

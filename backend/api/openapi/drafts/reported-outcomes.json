@@ -1,0 +1,434 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora reported outcomes",
+    "version": "0.2.0-draft",
+    "description": "Human-reported external outcomes only. Every record remains REPORTED_UNVERIFIED and does not establish an authoritative buyer decision, award, contract, withdrawal execution or accepted analytics fact."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/outcome-proof/uploads": {
+      "post": {
+        "summary": "Initiate a private PDF outcome-proof upload",
+        "description": "Requires tenderpreneur.bid.outcome.report; PDF only, maximum 25 MiB, checksum/size bound, ten-minute instructions.",
+        "responses": {
+          "201": {
+            "description": "Upload instructions"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "size_bytes",
+                  "sha256"
+                ],
+                "properties": {
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 26214400
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/outcome-proof/uploads/{upload_id}/complete": {
+      "post": {
+        "summary": "Complete immutable upload and queue fail-closed malware scanning",
+        "responses": {
+          "202": {
+            "description": "Quarantined proof and scan job"
+          },
+          "409": {
+            "description": "Expired or mismatch"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        },
+        "description": "Verifies exact PDF object version, size and SHA-256, records immutable QUARANTINED proof and queues fail-closed malware scanning."
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/outcomes": {
+      "post": {
+        "summary": "Append a reported outcome or correction",
+        "description": "Submitted bids only. Terminal outcomes require exact CLEAN outcome proof. Corrections supersede the exact active record. Always REPORTED_UNVERIFIED.",
+        "responses": {
+          "201": {
+            "description": "Immutable report"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Sequence, proof or active-record conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "outcome",
+                  "source_class",
+                  "reason",
+                  "reported_outcome_at",
+                  "expected_sequence",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "PENDING",
+                      "UNKNOWN",
+                      "WON",
+                      "LOST",
+                      "DISQUALIFIED",
+                      "CANCELLED",
+                      "WITHDRAWN"
+                    ]
+                  },
+                  "source_class": {
+                    "type": "string",
+                    "enum": [
+                      "BUYER_NOTICE",
+                      "EXTERNAL_PORTAL",
+                      "EMAIL",
+                      "INTERNAL_OBSERVATION",
+                      "OTHER"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "lessons": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "reported_outcome_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "proof_document_version_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Required for WON, LOST, DISQUALIFIED, CANCELLED and WITHDRAWN."
+                  },
+                  "supersedes_outcome_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Required for corrections and omitted on sequence zero."
+                  },
+                  "correction_reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000,
+                    "description": "Required for corrections and omitted on sequence zero."
+                  },
+                  "expected_sequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List bounded immutable outcome history",
+        "responses": {
+          "200": {
+            "description": "At most 100 outcome records"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "503": {
+            "description": "Unavailable"
+          },
+          "409": {
+            "description": "Bounded history exceeds 100 records"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/outcome": {
+      "get": {
+        "summary": "Read the current active reported outcome",
+        "responses": {
+          "200": {
+            "description": "Current REPORTED_UNVERIFIED leaf"
+          },
+          "404": {
+            "description": "No outcome"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

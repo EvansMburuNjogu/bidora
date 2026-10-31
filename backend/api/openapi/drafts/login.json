@@ -1,0 +1,177 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot login",
+    "version": "0.1.0-draft",
+    "description": "Approved Go-owned email/password browser-login contract. An unregistered Fiber handler exists; no deployed route is claimed."
+  },
+  "x-status": "handler-prepared-route-blocked",
+  "x-request-body-max-bytes": 4096,
+  "x-approval": {
+    "date": "2026-10-18",
+    "owner": "requesting user",
+    "evidence": "approve and proceed",
+    "remaining": [
+      "live PostgreSQL and Redis evidence",
+      "trusted-proxy deployment values",
+      "route activation review"
+    ]
+  },
+  "paths": {
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "loginWithPassword",
+        "summary": "Create an independent browser session",
+        "description": "Requires an exact approved HTTPS Origin but no pre-session CSRF value. Resolves the network scope through configured trusted proxies before atomic attempt control. Existing sessions remain valid. Successful primary authentication creates a five-minute browser-bound EMAIL_LOGIN transaction and delivers a cryptographically random six-digit code through explicit authenticated STARTTLS. No session exists until code completion; SMTP unavailability fails closed.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Primary authentication accepted; the latest single-use login code was delivered to the verified email and no session was issued."
+          },
+          "204": {
+            "description": "Session committed and both host-only cookies set. No response body.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "field_errors",
+              "trace_id",
+              "retryable"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "field_errors": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "trace_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Generic safe failure. Credential, token, email, client-IP and provider diagnostics are never returned.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Local Health API",
+    "version": "0.1.0",
+    "description": "Local-only, explicitly selected health-only profile. Readiness does not certify database or business capabilities.",
+    "license": {"name": "Private project — no redistribution license granted"}
+  },
+  "servers": [{"url": "http://127.0.0.1:8080", "description": "Local development only"}],
+  "security": [],
+  "tags": [{"name": "Health", "description": "Minimal operational health; no private infrastructure details"}],
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "getLiveness",
+        "summary": "Check process responsiveness",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Process is live",
+            "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LiveResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Check readiness for the selected health-only profile",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Health-only profile is ready, with no external dependency claim",
+            "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ReadyResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidRequest"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {
+            "description": "Not initialized or draining",
+            "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "NoStore": {"description": "Do not cache any health result", "schema": {"type": "string", "const": "no-store"}},
+      "RequestId": {"description": "Server-generated correlation UUID, matching body trace_id", "schema": {"type": "string", "format": "uuid"}}
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "Unexpected body or query, code INVALID_REQUEST",
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      },
+      "MethodNotAllowed": {
+        "description": "Only GET is allowed; HEAD has these headers but no body per HTTP semantics",
+        "headers": {"Allow": {"schema": {"type": "string", "const": "GET"}}, "Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      },
+      "RequestTooLarge": {
+        "description": "Request exceeds the local 4096-byte limit, code REQUEST_TOO_LARGE",
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      },
+      "InternalError": {
+        "description": "Safe generic INTERNAL_ERROR; raw cause never exposed",
+        "headers": {"Cache-Control": {"$ref": "#/components/headers/NoStore"}, "X-Request-ID": {"$ref": "#/components/headers/RequestId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      }
+    },
+    "schemas": {
+      "Meta": {
+        "type": "object", "additionalProperties": false, "required": ["trace_id"],
+        "properties": {"trace_id": {"type": "string", "format": "uuid"}}
+      },
+      "LiveResponse": {
+        "type": "object", "additionalProperties": false, "required": ["data", "meta"],
+        "properties": {
+          "data": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"type": "string", "const": "live"}}},
+          "meta": {"$ref": "#/components/schemas/Meta"}
+        }
+      },
+      "ReadyResponse": {
+        "type": "object", "additionalProperties": false, "required": ["data", "meta"],
+        "properties": {
+          "data": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"type": "string", "const": "ready"}}},
+          "meta": {"$ref": "#/components/schemas/Meta"}
+        }
+      },
+      "FieldError": {
+        "type": "object", "additionalProperties": false, "required": ["path", "code", "message"],
+        "properties": {"path": {"type": "string"}, "code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}}
+      },
+      "ErrorResponse": {
+        "type": "object", "additionalProperties": false, "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"],
+            "properties": {
+              "code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1},
+              "field_errors": {"type": "array", "items": {"$ref": "#/components/schemas/FieldError"}},
+              "trace_id": {"type": "string", "format": "uuid"}, "retryable": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Tenderpreneur Dashboard",
+    "version": "0.1.0-draft",
+    "description": "TP-F02 bounded organization dashboard composed through independently authorized Commercial and Opportunity owner ports. It is an operational recent-items view, not analytics, a global total, or action authority."
+  },
+  "x-status": "tp-f02-implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/dashboard": {
+      "get": {
+        "operationId": "getTenderpreneurDashboard",
+        "description": "Requires a current active Tenderpreneur membership/context and all source permissions needed for the complete response: tenderpreneur.organization.subscription.read, tenderpreneur.opportunity.read and tenderpreneur.bid.read. Any denied, unavailable or inconsistent source suppresses the complete response. Tenant/context headers are selectors only and routing remains server-owned.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-Bidora-Tenant-ID", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "X-Bidora-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}},
+          {"name": "limit", "in": "query", "required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 25}}
+        ],
+        "responses": {
+          "200": {"description": "Complete bounded dashboard with independent has_more indicators.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Response"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}},
+    "schemas": {
+      "Window": {"type": "object", "additionalProperties": false, "required": ["items", "has_more"], "properties": {"items": {"type": "array", "maxItems": 25, "items": {"type": "object"}}, "has_more": {"type": "boolean"}}},
+      "Dashboard": {"type": "object", "additionalProperties": false, "required": ["tenant_id", "observed_at", "subscription", "opportunities", "bids", "invoices", "payments", "financial_activity"], "properties": {"tenant_id": {"type": "string", "format": "uuid"}, "observed_at": {"type": "string", "format": "date-time"}, "subscription": {"type": "object"}, "opportunities": {"$ref": "#/components/schemas/Window"}, "bids": {"$ref": "#/components/schemas/Window"}, "invoices": {"$ref": "#/components/schemas/Window"}, "payments": {"$ref": "#/components/schemas/Window"}, "financial_activity": {"$ref": "#/components/schemas/Window"}}},
+      "Meta": {"type": "object", "additionalProperties": false, "required": ["trace_id", "next_cursor"], "properties": {"trace_id": {"type": "string"}, "next_cursor": {"type": ["string", "null"]}}},
+      "Response": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/Dashboard"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "Error": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "object"}}}
+    },
+    "responses": {"Failure": {"description": "Stable safe failure without partial dashboard data, database locators, provider diagnostics or unauthorized record counts.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}
+  },
+  "x-invariants": [
+    "every owner source rechecks current membership, context generation and exact capabilities",
+    "all tenant workflow reads use the server-owned routing assignment and one tenant database at a time",
+    "a source denial or failure returns no partial dashboard",
+    "has_more means only that the bounded recent window is incomplete and is never represented as a global total",
+    "dashboard data never grants mutation authority"
+  ]
+}

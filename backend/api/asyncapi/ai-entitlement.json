@@ -1,0 +1,116 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Bidora AI Entitlement Bridge",
+    "version": "1.0.0-contract-candidate",
+    "description": "The sole currently implemented broker contract: a tenant outbox requests a control-plane commercial reservation. Acknowledgements return through the server-routed control outbox dispatcher, not through this NATS subject."
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "deploymentNats": {
+      "host": "{host}",
+      "protocol": "nats-secure",
+      "description": "Deployment-owned TLS-authenticated NATS JetStream; runtime validates but never creates topology.",
+      "variables": {"host": {"default": "nats.example.test:4222"}},
+      "security": [{"$ref": "#/components/securitySchemes/credentialsFile"}]
+    }
+  },
+  "channels": {
+    "reservationRequests": {
+      "address": "bidora.v1.tenant.ai_entitlement.reserve_requested",
+      "messages": {"reservationRequestedV1": {"$ref": "#/components/messages/ReservationRequestedV1"}},
+      "bindings": {"nats": {"bindingVersion": "0.1.0"}}
+    }
+  },
+  "operations": {
+    "publishReservationRequest": {
+      "action": "send",
+      "channel": {"$ref": "#/channels/reservationRequests"},
+      "summary": "Publish a committed tenant outbox event with event-ID deduplication."
+    },
+    "consumeReservationRequest": {
+      "action": "receive",
+      "channel": {"$ref": "#/channels/reservationRequests"},
+      "summary": "Idempotently reserve or deny commercial entitlement in the control database.",
+      "bindings": {"nats": {"bindingVersion": "0.1.0"}}
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "credentialsFile": {
+        "type": "userPassword",
+        "description": "Private explicit NATS credentials file plus verified TLS roots. Values are never embedded in this contract."
+      }
+    },
+    "messages": {
+      "ReservationRequestedV1": {
+        "name": "tenant.ai_entitlement.reserve_requested.v1",
+        "title": "AI entitlement reservation request",
+        "summary": "Requests one idempotent commercial reservation for an exact tenant operation.",
+        "contentType": "application/json",
+        "headers": {"$ref": "#/components/schemas/JetStreamHeaders"},
+        "payload": {"$ref": "#/components/schemas/ReservationEnvelopeV1"},
+        "correlationId": {"location": "$message.payload#/payload/correlation_id"},
+        "bindings": {"nats": {"bindingVersion": "0.1.0"}},
+        "x-delivery": {
+          "guarantee": "at-least-once",
+          "stream": "BIDORA_TENANT_AI_ENTITLEMENT",
+          "durable_consumer": "control-commercial-ai-reservation-v1",
+          "explicit_ack": true,
+          "maximum_deliveries": 9,
+          "ack_wait_minimum_seconds": 90,
+          "retry_delays": ["PT30S", "PT2M", "PT10M", "PT30M", "PT2H", "PT6H", "PT12H", "P1D"],
+          "poison_or_conflict_disposition": "terminate",
+          "temporary_failure_disposition": "negative-acknowledge-with-delay",
+          "ordering": "No cross-aggregate ordering guarantee; aggregate_version is validated.",
+          "deduplication": "Nats-Msg-Id equals event_id; consumer transaction deduplicates event effects."
+        }
+      }
+    },
+    "schemas": {
+      "JetStreamHeaders": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["Nats-Msg-Id", "Nats-Expected-Stream"],
+        "properties": {
+          "Nats-Msg-Id": {"type": "string", "format": "uuid"},
+          "Nats-Expected-Stream": {"const": "BIDORA_TENANT_AI_ENTITLEMENT"}
+        }
+      },
+      "ReservationEnvelopeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "actor_id", "aggregate_type", "aggregate_id", "aggregate_version", "event_type", "schema_version", "payload", "occurred_at"],
+        "properties": {
+          "event_id": {"type": "string", "format": "uuid"},
+          "actor_id": {"type": "string", "format": "uuid"},
+          "aggregate_type": {"const": "ai_usage_checkpoint"},
+          "aggregate_id": {"type": "string", "format": "uuid"},
+          "aggregate_version": {"const": 1},
+          "event_type": {"const": "tenant.ai_entitlement.reserve_requested.v1"},
+          "schema_version": {"const": 1},
+          "payload": {"$ref": "#/components/schemas/ReservationPayloadV1"},
+          "occurred_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "ReservationPayloadV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checkpoint_id", "tenant_id", "target_id", "source_operation_id", "requester_user_id", "correlation_id", "target_type", "usage_kind", "request_hash", "assignment_generation", "estimated_credits"],
+        "properties": {
+          "checkpoint_id": {"type": "string", "format": "uuid"},
+          "tenant_id": {"type": "string", "format": "uuid"},
+          "target_id": {"type": "string", "format": "uuid"},
+          "source_operation_id": {"type": "string", "format": "uuid"},
+          "requester_user_id": {"type": "string", "format": "uuid"},
+          "correlation_id": {"type": "string", "format": "uuid"},
+          "target_type": {"enum": ["TENDER_ANALYSIS", "REQUIREMENT_REVIEW", "RESPONSE_DRAFT", "PROPOSAL_DRAFT"]},
+          "usage_kind": {"enum": ["DOCUMENT_PDF", "DOCUMENT_DOCX", "GENERATION_TEXT"]},
+          "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "assignment_generation": {"type": "integer", "format": "int64", "minimum": 1},
+          "estimated_credits": {"type": "integer", "format": "int64", "minimum": 1}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+-- name: LockSubmittedBidForOutcomeProof :one
+SELECT id,version FROM bid.workspaces WHERE id=sqlc.arg(bid_id) AND state='SUBMITTED' AND archived_at IS NULL FOR UPDATE;
+-- name: InsertOutcomeProofDocument :exec
+INSERT INTO documents.documents(id,opportunity_id,title,state,created_by,created_at,updated_at,version,document_kind,bid_id,external_action_evidence_id) VALUES(sqlc.arg(id),NULL,'Reported outcome proof','UPLOADING',sqlc.arg(actor_id),sqlc.arg(created_at),sqlc.arg(created_at),1,'OUTCOME_PROOF',sqlc.arg(bid_id),NULL);
+-- name: InsertOutcomeProofUpload :exec
+INSERT INTO documents.upload_sessions(id,document_id,opportunity_id,object_key,expected_media_type,expected_size_bytes,expected_sha256,state,expires_at,created_by,created_at,bid_id,external_action_evidence_id) VALUES(sqlc.arg(id),sqlc.arg(document_id),NULL,sqlc.arg(object_key),'application/pdf',sqlc.arg(size_bytes),sqlc.arg(sha256),'INITIATED',sqlc.arg(expires_at),sqlc.arg(actor_id),sqlc.arg(created_at),sqlc.arg(bid_id),NULL);
+-- name: GetOutcomeProofUpload :one
+SELECT u.id,u.document_id,u.bid_id,u.object_key,u.expected_size_bytes,u.expected_sha256,u.state,u.expires_at,u.completed_version_id FROM documents.upload_sessions u JOIN documents.documents d ON d.id=u.document_id AND d.document_kind='OUTCOME_PROOF' WHERE u.id=sqlc.arg(id) AND u.bid_id=sqlc.arg(bid_id) AND u.created_by=sqlc.arg(actor_id);
+-- name: LockOutcomeProofUpload :one
+SELECT u.id,u.document_id,u.bid_id,u.object_key,u.expected_size_bytes,u.expected_sha256,u.state,u.expires_at FROM documents.upload_sessions u JOIN documents.documents d ON d.id=u.document_id AND d.document_kind='OUTCOME_PROOF' WHERE u.id=sqlc.arg(id) AND u.bid_id=sqlc.arg(bid_id) AND u.created_by=sqlc.arg(actor_id) FOR UPDATE OF u;
+-- name: GetOutcomeProofCompletion :one
+SELECT u.id AS upload_id,u.document_id,u.completed_version_id AS version_id,j.id AS scan_job_id,v.scan_state FROM documents.upload_sessions u JOIN documents.documents d ON d.id=u.document_id AND d.document_kind='OUTCOME_PROOF' JOIN documents.document_versions v ON v.id=u.completed_version_id JOIN jobs.jobs j ON j.document_version_id=v.id AND j.kind='MALWARE_SCAN' WHERE u.id=sqlc.arg(id) AND u.bid_id=sqlc.arg(bid_id) AND u.created_by=sqlc.arg(actor_id);
+-- name: InsertOutcomeProofAudit :exec
+INSERT INTO bidora_audit.audit_events(id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at) VALUES(sqlc.arg(id),sqlc.arg(actor_id),sqlc.arg(action),sqlc.arg(target_type),sqlc.arg(target_id),sqlc.arg(occurred_at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('bid_id',sqlc.arg(bid_id)::uuid),1,sqlc.arg(occurred_at));
+-- name: GetReportedOutcomeIdempotency :one
+SELECT request_hash,state,response_status,response_ref,response_version FROM bidora_commands.idempotency_records WHERE actor_id=sqlc.arg(actor_id) AND operation='REPORT_BID_OUTCOME' AND key_hash=sqlc.arg(key_hash);
+-- name: LockBidForReportedOutcome :one
+SELECT w.id,w.version,coalesce((SELECT max(sequence) FROM bid.reported_outcomes WHERE bid_id=w.id),0)::integer AS current_sequence,
+ (SELECT id FROM bid.reported_outcomes o WHERE o.bid_id=w.id AND NOT EXISTS(SELECT 1 FROM bid.reported_outcomes x WHERE x.supersedes_outcome_id=o.id) ORDER BY o.sequence DESC LIMIT 1) AS active_outcome_id
+FROM bid.workspaces w WHERE w.id=sqlc.arg(bid_id) AND w.state='SUBMITTED' AND w.archived_at IS NULL FOR UPDATE;
+-- name: ValidateOutcomeProof :one
+SELECT v.id,v.sha256,v.size_bytes FROM documents.document_versions v JOIN documents.documents d ON d.id=v.document_id WHERE v.id=sqlc.arg(version_id) AND d.bid_id=sqlc.arg(bid_id) AND d.document_kind='OUTCOME_PROOF' AND v.media_type='application/pdf' AND v.size_bytes<=26214400 AND v.scan_state='CLEAN' AND v.expires_at IS NULL;
+-- name: InsertReportedOutcome :exec
+INSERT INTO bid.reported_outcomes(id,bid_id,sequence,outcome,verification_status,provenance,source_class,reason,lessons,reported_outcome_time_text,reported_outcome_at,recorded_at,reported_by,proof_document_version_id,supersedes_outcome_id,correction_reason) VALUES(sqlc.arg(id),sqlc.arg(bid_id),sqlc.arg(sequence),sqlc.arg(outcome),'REPORTED_UNVERIFIED','HUMAN_REPORTED_EXTERNAL_OUTCOME',sqlc.arg(source_class),sqlc.arg(reason),sqlc.narg(lessons),sqlc.arg(reported_text),sqlc.arg(reported_at),sqlc.arg(recorded_at),sqlc.arg(actor_id),sqlc.narg(proof_version_id),sqlc.narg(supersedes_id),sqlc.narg(correction_reason));
+-- name: GetReportedOutcome :one
+SELECT id,bid_id,sequence,outcome,verification_status,provenance,source_class,reason,lessons,reported_outcome_time_text,reported_outcome_at,recorded_at,reported_by,proof_document_version_id,supersedes_outcome_id,correction_reason FROM bid.reported_outcomes WHERE id=sqlc.arg(id);
+-- name: GetCurrentReportedOutcome :one
+SELECT o.id,o.bid_id,o.sequence,o.outcome,o.verification_status,o.provenance,o.source_class,o.reason,o.lessons,o.reported_outcome_time_text,o.reported_outcome_at,o.recorded_at,o.reported_by,o.proof_document_version_id,o.supersedes_outcome_id,o.correction_reason FROM bid.reported_outcomes o WHERE o.bid_id=sqlc.arg(bid_id) AND NOT EXISTS(SELECT 1 FROM bid.reported_outcomes x WHERE x.supersedes_outcome_id=o.id) ORDER BY sequence DESC LIMIT 1;
+-- name: ListReportedOutcomes :many
+SELECT id,bid_id,sequence,outcome,verification_status,provenance,source_class,reason,lessons,reported_outcome_time_text,reported_outcome_at,recorded_at,reported_by,proof_document_version_id,supersedes_outcome_id,correction_reason FROM bid.reported_outcomes WHERE bid_id=sqlc.arg(bid_id) ORDER BY sequence DESC LIMIT 101;
+-- name: InsertReportedOutcomeAudit :exec
+INSERT INTO bidora_audit.audit_events(id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at) VALUES(sqlc.arg(id),sqlc.arg(actor_id),'BidOutcomeReported','reported_outcome',sqlc.arg(outcome_id),sqlc.arg(occurred_at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('bid_id',sqlc.arg(bid_id)::uuid,'sequence',sqlc.arg(sequence)::integer,'reported_outcome',sqlc.arg(reported_outcome)::text,'verification_status','REPORTED_UNVERIFIED'),1,sqlc.arg(occurred_at));
+-- name: InsertReportedOutcomeOutbox :exec
+INSERT INTO bidora_eventing.outbox_events(id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,payload,occurred_at,next_attempt_at,created_at,actor_id) VALUES(sqlc.arg(id),'bid',sqlc.arg(bid_id),sqlc.arg(sequence),'bid.reported_outcome.recorded.v1',1,jsonb_build_object('outcome_id',sqlc.arg(outcome_id)::uuid,'sequence',sqlc.arg(sequence)::bigint,'reported_outcome',sqlc.arg(reported_outcome)::text,'verification_status','REPORTED_UNVERIFIED','authoritative_buyer_decision',false,'contract_award_confirmed',false),sqlc.arg(occurred_at),sqlc.arg(occurred_at),sqlc.arg(occurred_at),sqlc.arg(actor_id));

@@ -1,0 +1,20 @@
+-- name: LockOwnershipTransferGuard :one
+INSERT INTO bid.assignment_guards(user_id,blocked_by_operation_id,version,updated_at) VALUES(sqlc.arg(source_user_id),sqlc.arg(operation_id),1,sqlc.arg(at)) ON CONFLICT(user_id) DO UPDATE SET blocked_by_operation_id=EXCLUDED.blocked_by_operation_id,version=bid.assignment_guards.version+1,updated_at=EXCLUDED.updated_at WHERE bid.assignment_guards.blocked_by_operation_id IS NULL OR bid.assignment_guards.blocked_by_operation_id=EXCLUDED.blocked_by_operation_id RETURNING user_id,blocked_by_operation_id,version;
+-- name: GetOwnershipTransferEvent :one
+SELECT id,operation_id,sequence,source_user_id,target_user_id,workspace_count,requirement_count,review_count,actor_id,reason,occurred_at FROM bid.membership_ownership_transfer_events WHERE operation_id=sqlc.arg(operation_id) ORDER BY sequence DESC LIMIT 1;
+-- name: CountOwnershipTransferWork :one
+SELECT (SELECT count(*)::bigint FROM bid.workspaces w0 WHERE w0.owner_id=sqlc.arg(source_user_id) AND w0.archived_at IS NULL) AS workspace_count,(SELECT count(*)::bigint FROM bid.requirements r JOIN bid.workspaces w ON w.id=r.bid_id WHERE r.owner_id=sqlc.arg(source_user_id) AND r.status='OPEN' AND w.archived_at IS NULL) AS requirement_count,(SELECT count(*)::bigint FROM bid.review_threads t JOIN bid.workspaces w ON w.id=t.bid_id WHERE t.assigned_to=sqlc.arg(source_user_id) AND t.status='OPEN' AND w.archived_at IS NULL) AS review_count;
+-- name: TransferWorkspaceOwnership :execrows
+UPDATE bid.workspaces SET owner_id=sqlc.arg(target_user_id),version=version+1,updated_at=sqlc.arg(at) WHERE owner_id=sqlc.arg(source_user_id) AND archived_at IS NULL;
+-- name: TransferOpenRequirementOwnership :execrows
+UPDATE bid.requirements r SET owner_id=sqlc.arg(target_user_id),version=version+1,updated_at=sqlc.arg(at) FROM bid.workspaces w WHERE r.bid_id=w.id AND r.owner_id=sqlc.arg(source_user_id) AND r.status='OPEN' AND w.archived_at IS NULL;
+-- name: TransferOpenReviewAssignments :execrows
+UPDATE bid.review_threads t SET assigned_to=sqlc.arg(target_user_id),version=version+1 FROM bid.workspaces w WHERE t.bid_id=w.id AND t.assigned_to=sqlc.arg(source_user_id) AND t.status='OPEN' AND w.archived_at IS NULL;
+-- name: InsertOwnershipTransferEvent :exec
+INSERT INTO bid.membership_ownership_transfer_events(id,operation_id,sequence,source_user_id,target_user_id,workspace_count,requirement_count,review_count,actor_id,reason,occurred_at) VALUES(sqlc.arg(id),sqlc.arg(operation_id),sqlc.arg(sequence),sqlc.arg(source_user_id),sqlc.arg(target_user_id),sqlc.arg(workspace_count),sqlc.arg(requirement_count),sqlc.arg(review_count),sqlc.arg(actor_id),sqlc.arg(reason),sqlc.arg(occurred_at));
+-- name: InsertOwnershipTransferAudit :exec
+INSERT INTO bidora_audit.audit_events(id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at) VALUES(sqlc.arg(id),sqlc.arg(actor_id),'MembershipOwnershipTransferred','membership_offboarding',sqlc.arg(operation_id),sqlc.arg(occurred_at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('workspace_count',sqlc.arg(workspace_count)::integer,'requirement_count',sqlc.arg(requirement_count)::integer,'review_count',sqlc.arg(review_count)::integer),1,sqlc.arg(occurred_at));
+-- name: InsertOwnershipTransferOutbox :exec
+INSERT INTO bidora_eventing.outbox_events(id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,payload,occurred_at,next_attempt_at,created_at) VALUES(sqlc.arg(id),'membership_offboarding',sqlc.arg(operation_id),1,'membership.ownership_transferred.v1',1,jsonb_build_object('workspace_count',sqlc.arg(workspace_count)::integer,'requirement_count',sqlc.arg(requirement_count)::integer,'review_count',sqlc.arg(review_count)::integer),sqlc.arg(occurred_at),sqlc.arg(occurred_at),sqlc.arg(occurred_at));
+-- name: ClearOwnershipTransferGuard :execrows
+UPDATE bid.assignment_guards SET blocked_by_operation_id=NULL,version=version+1,updated_at=sqlc.arg(at) WHERE user_id=sqlc.arg(source_user_id) AND blocked_by_operation_id=sqlc.arg(operation_id);

@@ -1,0 +1,163 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora grounded AI proposal writing",
+    "version": "0.2.0-draft",
+    "description": "Exact CLEAN source text and fixed server prompts are counted as Unicode characters before a durable GENERATION_TEXT reservation. Maximum schema output is reserved; actual cited output is settled. Confirmed no-effect failures release, ambiguous provider outcomes settle the estimate and are never retried. Suggestions remain PROPOSED_UNVERIFIED until a human applies one as a new immutable proposal revision."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/versions/{proposal_version_id}/ai-writing-suggestions": {
+      "post": {
+        "summary": "Request entitlement-bound advisory introduction and closing suggestions grounded in exact CLEAN tender sources",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "proposal_version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_workspace_version",
+                  "expected_proposal_version"
+                ],
+                "properties": {
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_proposal_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable PENDING_RESERVATION request accepted; provider execution starts only after a matching reservation acknowledgement, and the proposal remains unchanged"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "409": {
+            "description": "Stale proposal or no clean source"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      },
+      "get": {
+        "summary": "List proposed unverified introduction and closing suggestions",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "proposal_version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most 20 runs; outputs remain PROPOSED_UNVERIFIED"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      }
+    }
+  }
+}

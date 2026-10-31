@@ -1,0 +1,230 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora requirements, assignments and readiness",
+    "version": "0.2.0-draft",
+    "description": "Human-owned compliance checklist and deterministic readiness blockers."
+  },
+  "x-status": "implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/requirements": {
+      "post": {
+        "operationId": "createBidRequirement",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.bid.requirement.manage. Creates an OPEN requirement against the workspace's exact verified source version. AI proposals must be accepted through this human command. The request requires an idempotency key, exact tenant/context selectors and CSRF protection; those selectors never grant authority.",
+        "responses": {
+          "201": {
+            "description": "Requirement created."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_version_id",
+                  "source_location",
+                  "text",
+                  "category",
+                  "mandatory",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "source_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "source_location": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "mandatory": {
+                    "type": "boolean"
+                  },
+                  "owner_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "due_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listBidRequirements",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.bid.readiness.read. Returns human-owned requirements without pricing.",
+        "responses": {
+          "200": {
+            "description": "Requirement list."
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/assignment": {
+      "patch": {
+        "operationId": "assignBidRequirement",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.bid.requirement.assign and an active verified owner membership. Uses both expected requirement and workspace versions. The request requires an idempotency key, exact tenant/context selectors and CSRF protection; those selectors never grant authority.",
+        "responses": {
+          "200": {
+            "description": "Requirement assigned."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "owner_id",
+                  "expected_workspace_version",
+                  "expected_requirement_version"
+                ],
+                "properties": {
+                  "owner_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "due_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_requirement_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/readiness": {
+      "get": {
+        "operationId": "getBidReadiness",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Deterministically reports decision, open mandatory, unassigned mandatory, overdue and expired-evidence blockers at the observed UTC instant. AI cannot override blockers. The calculation is observed server-side and does not mutate requirement status when evidence later expires.",
+        "responses": {
+          "200": {
+            "description": "Current readiness result."
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without private tenant or database details.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

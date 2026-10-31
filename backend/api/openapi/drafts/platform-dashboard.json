@@ -1,0 +1,42 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Platform Administration Dashboard",
+    "version": "0.1.0-draft",
+    "description": "PA-F10 bounded operational dashboard. It aggregates only audited control-plane commercial queues and never opens a tenant database or exposes provider, payment-instrument, routing, credential or tenant-private tender data."
+  },
+  "x-status": "pa-f10-implemented-not-verified",
+  "paths": {
+    "/v1/platform/dashboard": {
+      "get": {
+        "operationId": "getPlatformDashboard",
+        "description": "Requires a current Billing Administrator with platform.invoice.read and platform.payment.read, exact current platform context, TOTP-backed AAL2 no older than 15 minutes, no support-session context and no tenant affiliation. Every source queue independently reauthorizes and appends minimized audit evidence; any failure suppresses the entire dashboard response.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-Bidora-Platform-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}},
+          {"name": "limit", "in": "query", "required": true, "schema": {"type": "integer", "minimum": 1, "maximum": 25}}
+        ],
+        "responses": {
+          "200": {"description": "Bounded operational recency windows, not global totals or an atomic analytics snapshot.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Response"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}},
+    "schemas": {
+      "Money": {"type": "object", "additionalProperties": false, "required": ["currency", "amount_minor_units", "amount"], "properties": {"currency": {"const": "KES"}, "amount_minor_units": {"type": "integer"}, "amount": {"type": "string"}}},
+      "Window": {"type": "object", "additionalProperties": false, "required": ["items", "has_more"], "properties": {"items": {"type": "array", "maxItems": 25, "items": {"type": "object"}}, "has_more": {"type": "boolean"}}},
+      "Dashboard": {"type": "object", "additionalProperties": false, "required": ["observed_at", "invoices", "payments", "adjustments", "reversals"], "properties": {"observed_at": {"type": "string", "format": "date-time"}, "invoices": {"$ref": "#/components/schemas/Window"}, "payments": {"$ref": "#/components/schemas/Window"}, "adjustments": {"$ref": "#/components/schemas/Window"}, "reversals": {"$ref": "#/components/schemas/Window"}}},
+      "Meta": {"type": "object", "additionalProperties": false, "required": ["trace_id", "next_cursor"], "properties": {"trace_id": {"type": "string"}, "next_cursor": {"type": ["string", "null"]}}},
+      "Response": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/Dashboard"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "Error": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "object"}}}
+    },
+    "responses": {"Failure": {"description": "Stable safe failure without financial/provider diagnostics or partial dashboard data.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}
+  }
+}

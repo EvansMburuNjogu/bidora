@@ -1,0 +1,179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot bid archive",
+    "version": "1.1.0-draft",
+    "description": "Immutable read-only closure. Archive never deletes data, starts retention disposition, changes legal hold, anonymizes records or enables restoration."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/archive": {
+      "post": {
+        "summary": "Archive an eligible completed bid workspace",
+        "description": "Archives NO_BID, or SUBMITTED with one confirmation and a current terminal WON, LOST, DISQUALIFIED, CANCELLED or WITHDRAWN report. PENDING and UNKNOWN cannot close a submitted bid. Requires no open review, unexpired initiated upload or active job across Bid and source-opportunity documents.",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable archive evidence"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Archive capability required"
+          },
+          "409": {
+            "description": "Ineligible, blocked, already archived or stale"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      },
+      "get": {
+        "summary": "Read immutable archive evidence",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archive evidence"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "No archive evidence"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArchiveSemantics": {
+        "type": "object",
+        "properties": {
+          "archived": {
+            "const": true
+          },
+          "read_only": {
+            "const": true
+          },
+          "deleted": {
+            "const": false
+          },
+          "retention_disposition_started": {
+            "const": false
+          },
+          "legal_hold_changed": {
+            "const": false
+          },
+          "restoration_supported": {
+            "const": false
+          }
+        }
+      }
+    }
+  }
+}

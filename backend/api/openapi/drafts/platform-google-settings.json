@@ -1,0 +1,562 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora managed Google authentication",
+    "version": "0.1.0-draft"
+  },
+  "x-status": "implemented-not-verified",
+  "x-owner": "platform_settings",
+  "paths": {
+    "/v1/platform/settings/google": {
+      "get": {
+        "operationId": "getPlatformGoogleSettings",
+        "description": "Requires current platform.integration.read, exact server-validated context and recent TOTP AAL2 (15 minutes). Writes and tests additionally require effective PLATFORM_OWNER. Secrets are encrypted with deployment key material and separate Google AAD; reads/history never return secret values or ciphertext. Optimistic If-Match and actor-scoped idempotency protect writes. The governance fence requires a surviving verified password-and-TOTP Owner. Current settings are consumed by the existing state/nonce/PKCE OIDC and explicit-link flows; version changes invalidate in-flight callbacks. Signup/domain policy is rechecked in the identity commit transaction. No email auto-link or administrator grant. Existing authenticated sessions retain their session policy.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      },
+      "put": {
+        "operationId": "savePlatformGoogleSettings",
+        "description": "Requires current platform.integration.read, exact server-validated context and recent TOTP AAL2 (15 minutes). Writes and tests additionally require effective PLATFORM_OWNER. Secrets are encrypted with deployment key material and separate Google AAD; reads/history never return secret values or ciphertext. Optimistic If-Match and actor-scoped idempotency protect writes. The governance fence requires a surviving verified password-and-TOTP Owner. Current settings are consumed by the existing state/nonce/PKCE OIDC and explicit-link flows; version changes invalidate in-flight callbacks. Signup/domain policy is rechecked in the identity commit transaction. No email auto-link or administrator grant. Existing authenticated sessions retain their session policy.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]*\"$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteConfiguration"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/platform/settings/google/history": {
+      "get": {
+        "operationId": "getPlatformGoogleHistory",
+        "description": "Requires current platform.integration.read, exact server-validated context and recent TOTP AAL2 (15 minutes). Writes and tests additionally require effective PLATFORM_OWNER. Secrets are encrypted with deployment key material and separate Google AAD; reads/history never return secret values or ciphertext. Optimistic If-Match and actor-scoped idempotency protect writes. The governance fence requires a surviving verified password-and-TOTP Owner. Current settings are consumed by the existing state/nonce/PKCE OIDC and explicit-link flows; version changes invalidate in-flight callbacks. Signup/domain policy is rechecked in the identity commit transaction. No email auto-link or administrator grant. Existing authenticated sessions retain their session policy. Most recent 25 immutable redacted revisions.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/platform/settings/google/test": {
+      "post": {
+        "operationId": "testPlatformGoogleSettings",
+        "description": "Requires current platform.integration.read, exact server-validated context and recent TOTP AAL2 (15 minutes). Writes and tests additionally require effective PLATFORM_OWNER. Secrets are encrypted with deployment key material and separate Google AAD; reads/history never return secret values or ciphertext. Optimistic If-Match and actor-scoped idempotency protect writes. The governance fence requires a surviving verified password-and-TOTP Owner. Current settings are consumed by the existing state/nonce/PKCE OIDC and explicit-link flows; version changes invalidate in-flight callbacks. Signup/domain policy is rechecked in the identity commit transaction. No email auto-link or administrator grant. Existing authenticated sessions retain their session policy. Bounded Google JWKS probe only. Reachable keys do not verify client credentials; complete an actual OIDC sign-in. At most three claims per actor in ten minutes; uncertain/crashed claims remain pending without automatic retry. No secret is sent to this probe.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]*\"$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/auth/google/status": {
+      "get": {
+        "operationId": "getGoogleAuthenticationStatus",
+        "description": "Public exact-Origin readiness flags only, no identifiers or settings. Enabled requires deployed callbacks/trust roots and decryptable managed credentials. This is not proof of a successful provider login.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trace_id"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Configuration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "enabled",
+          "allow_signup",
+          "client_id",
+          "allowed_domains",
+          "secret_configured",
+          "connection_status",
+          "runtime_configured",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allow_signup": {
+            "type": "boolean"
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "allowed_domains": {
+            "type": "array",
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          "secret_configured": {
+            "type": "boolean"
+          },
+          "connection_status": {
+            "type": "string",
+            "enum": [
+              "UNTESTED",
+              "JWKS_REACHABLE_CREDENTIALS_UNVERIFIED",
+              "UNAVAILABLE"
+            ]
+          },
+          "runtime_configured": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WriteConfiguration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "allow_signup",
+          "client_id",
+          "allowed_domains"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "allow_signup": {
+            "type": "boolean"
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Empty only while disabled; otherwise the exact deployed Google OAuth client ID."
+          },
+          "allowed_domains": {
+            "type": "array",
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          "client_secret": {
+            "type": "string",
+            "format": "password",
+            "writeOnly": true,
+            "minLength": 8,
+            "maxLength": 1024,
+            "description": "Replacement only. Omit to preserve; null/empty is invalid. Required when changing a configured client ID or first enabling."
+          }
+        }
+      },
+      "EmptyCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {}
+      },
+      "ConfigurationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Configuration"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "HistoryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/Configuration"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "enabled",
+              "allow_signup"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "allow_signup": {
+                "type": "boolean"
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "TestResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "JWKS_REACHABLE_CREDENTIALS_UNVERIFIED",
+                  "UNAVAILABLE",
+                  "PENDING"
+                ]
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      }
+    }
+  }
+}

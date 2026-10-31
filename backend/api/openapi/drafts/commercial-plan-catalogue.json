@@ -1,0 +1,179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Phase 1 commercial plan catalogue",
+    "version": "0.2.0-draft",
+    "description": "Authenticated read-only source-defined Tenderpreneur plan catalogue. It cannot calculate VAT, create a subscription, initiate payment or grant entitlements."
+  },
+  "x-status": "tp-f05-mounted-implemented-not-verified",
+  "x-approval": {
+    "owner": "requesting user",
+    "evidence": "requesting user approved the recommended authenticated read-only Phase 1 plan catalogue boundary",
+    "exclusions": [
+      "subscription creation or mutation",
+      "VAT calculation",
+      "additional-licence or proration quote",
+      "invoice or payment operation",
+      "entitlement or allowance mutation"
+    ]
+  },
+  "paths": {
+    "/v1/shared/commercial/plans": {
+      "get": {
+        "operationId": "getPhase1CommercialPlans",
+        "summary": "Read the immutable Phase 1 Tenderpreneur plan catalogue",
+        "description": "Requires a current browser session and the exact approved HTTPS Origin. Accepts no body, query, tenant selector, context selector or database locator. Prices are exact KES decimal strings before VAT. Null limits and prices mean contracted or unavailable terms; they are never inferred. The response performs no commercial mutation. Paid-plan limits reset at the billing-month boundary, including annual subscriptions; Trial limits cover the full 14-day term; limits do not roll over. Exhaustion blocks new metered work without hiding retained data.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Source-defined catalogue with no subscription or entitlement effect.",
+            "headers": {
+              "Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}},
+              "Vary": {"schema": {"type": "string", "const": "Cookie, Origin"}}
+            },
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CatalogueResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}
+    },
+    "schemas": {
+      "CatalogueResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {"$ref": "#/components/schemas/CatalogueData"},
+          "meta": {"$ref": "#/components/schemas/Meta"}
+        }
+      },
+      "CatalogueData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["catalogue_version", "currency", "prices_include_vat", "vat_calculated", "subscription_activated", "entitlements_activated", "ai_credit_policy", "plans"],
+        "properties": {
+          "catalogue_version": {"type": "string", "const": "PHASE1_V1"},
+          "currency": {"type": "string", "const": "KES"},
+          "prices_include_vat": {"type": "boolean", "const": false},
+          "vat_calculated": {"type": "boolean", "const": false},
+          "subscription_activated": {"type": "boolean", "const": false},
+          "entitlements_activated": {"type": "boolean", "const": false},
+          "ai_credit_policy": {"$ref": "#/components/schemas/AICreditPolicy"},
+          "plans": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/components/schemas/Plan"}}
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "name", "catalogue_version", "available_cadences", "trial_days", "bid_workspace_allowance", "included_licences", "limits", "trial_base_price", "monthly_base_price", "annual_base_price", "additional_licence_monthly_price", "contract_required", "core_tender_assistant"],
+        "properties": {
+          "key": {"type": "string", "enum": ["TRIAL", "BASIC", "GROWTH", "PROFESSIONAL", "ENTERPRISE"]},
+          "name": {"type": "string", "enum": ["Trial", "Basic", "Growth", "Professional", "Enterprise"]},
+          "catalogue_version": {"type": "string", "const": "PHASE1_V1"},
+          "available_cadences": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"type": "string", "enum": ["TRIAL", "MONTHLY", "ANNUAL", "CONTRACT"]}},
+          "trial_days": {"type": ["integer", "null"], "minimum": 1},
+          "bid_workspace_allowance": {"$ref": "#/components/schemas/Allowance"},
+          "included_licences": {"type": ["integer", "null"], "minimum": 1},
+          "limits": {"$ref": "#/components/schemas/PlanLimits"},
+          "trial_base_price": {"oneOf": [{"type": "null"}, {"$ref": "#/components/schemas/Money"}]},
+          "monthly_base_price": {"oneOf": [{"type": "null"}, {"$ref": "#/components/schemas/Money"}]},
+          "annual_base_price": {"oneOf": [{"type": "null"}, {"$ref": "#/components/schemas/Money"}]},
+          "additional_licence_monthly_price": {"oneOf": [{"type": "null"}, {"$ref": "#/components/schemas/Money"}]},
+          "contract_required": {"type": "boolean"},
+          "core_tender_assistant": {"type": "string", "enum": ["INCLUDED", "NOT_SPECIFIED"]}
+        }
+      },
+      "PlanLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["storage_bytes", "completed_document_versions", "ai_credits", "concurrent_ai_jobs", "reset_period", "rollover"],
+        "properties": {
+          "storage_bytes": {"type": ["integer", "null"], "minimum": 1},
+          "completed_document_versions": {"type": ["integer", "null"], "minimum": 1},
+          "ai_credits": {"type": ["integer", "null"], "minimum": 1},
+          "concurrent_ai_jobs": {"type": ["integer", "null"], "minimum": 1},
+          "reset_period": {"type": "string", "enum": ["TRIAL_TERM", "BILLING_MONTH", "CONTRACT"]},
+          "rollover": {"type": "boolean", "const": false}
+        }
+      },
+      "AICreditPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pdf_page_credits", "docx_text_unit_characters", "docx_text_unit_credits", "generation_base_credits", "generation_text_unit_characters", "generation_text_unit_credits", "rollover", "duplicate_platform_retry_charge", "platform_rebuild_charge"],
+        "properties": {
+          "pdf_page_credits": {"type": "integer", "const": 1},
+          "docx_text_unit_characters": {"type": "integer", "const": 3000},
+          "docx_text_unit_credits": {"type": "integer", "const": 1},
+          "generation_base_credits": {"type": "integer", "const": 10},
+          "generation_text_unit_characters": {"type": "integer", "const": 3000},
+          "generation_text_unit_credits": {"type": "integer", "const": 1},
+          "rollover": {"type": "boolean", "const": false},
+          "duplicate_platform_retry_charge": {"type": "boolean", "const": false},
+          "platform_rebuild_charge": {"type": "boolean", "const": false}
+        }
+      },
+      "Allowance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["count", "period"],
+        "properties": {
+          "count": {"type": ["integer", "null"], "minimum": 1},
+          "period": {"type": "string", "enum": ["TRIAL_TERM", "BILLING_MONTH", "CONTRACT"]}
+        }
+      },
+      "Money": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["currency", "amount", "kind"],
+        "properties": {
+          "currency": {"type": "string", "const": "KES"},
+          "amount": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$"},
+          "kind": {"type": "string", "enum": ["FIXED", "FROM"]}
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trace_id"],
+        "properties": {"trace_id": {"type": "string", "minLength": 1}}
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message", "field_errors", "trace_id", "retryable"],
+            "properties": {
+              "code": {"type": "string"},
+              "message": {"type": "string"},
+              "field_errors": {"type": "array", "items": {"type": "object"}},
+              "trace_id": {"type": "string"},
+              "retryable": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without identity, tenant, subscription, payment or provider details.",
+        "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      }
+    }
+  }
+}

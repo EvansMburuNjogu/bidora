@@ -1,0 +1,234 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora proposal package preparation",
+    "version": "0.3.0-draft"
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/package-preparations": {
+      "post": {
+        "summary": "Record an immutable unapproved preparation manifest for deterministic PDF and DOCX exports",
+        "description": "Renders the exact current proposal revision, records manifest version 2 hashes, sizes, the proposal revision's exact letterhead_version_id, letterhead version number, template key and letterhead_content_hash, and time-specific readiness facts, and always returns UNAPPROVED_PREPARATION_ONLY. It does not approve, sign, seal, transmit or submit anything.",
+        "responses": {
+          "201": {
+            "description": "Immutable version-2 preparation manifest carrying the exact proposal letterhead version, template key and SHA-256 content hash"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Response-edit authority required"
+          },
+          "409": {
+            "description": "Proposal/workspace/idempotency conflict"
+          },
+          "422": {
+            "description": "Unsupported PDF character or artifact too large"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "proposal_version_id",
+                  "expected_proposal_version",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "proposal_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_proposal_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read at most 100 preparation manifests using an immutable keyset cursor",
+        "responses": {
+          "200": {
+            "description": "Manifest history with relative artifact regeneration metadata"
+          },
+          "400": {
+            "description": "Invalid cursor"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Bid not found"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/package-preparations/{manifest_id}": {
+      "get": {
+        "summary": "Read one immutable preparation manifest and safe relative PDF/DOCX retrieval metadata",
+        "responses": {
+          "200": {
+            "description": "Manifest metadata including immutable letterhead binding; no signed URL or storage key"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Manifest not found"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "manifest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

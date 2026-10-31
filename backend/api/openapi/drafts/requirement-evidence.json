@@ -1,0 +1,241 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora requirement evidence",
+    "version": "0.2.0-draft",
+    "description": "Private bid-evidence upload and evidence-backed requirement satisfaction."
+  },
+  "x-status": "implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/evidence/uploads": {
+      "post": {
+        "operationId": "initiateRequirementEvidenceUpload",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Reserves a private PDF/DOCX evidence upload under the existing 25 MiB, SHA-256 and ten-minute MinIO policy. An optional explicit RFC3339 evidence_expires_at must be future-facing and is preserved without AI inference. Requires tenderpreneur.bid.requirement.manage.",
+        "responses": {
+          "201": {
+            "description": "Checksum-, type- and exact-size-bound multipart upload policy."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "title",
+                  "media_type",
+                  "size_bytes",
+                  "sha256"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "media_type": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    ]
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 26214400
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "evidence_expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/evidence/uploads/{upload_id}/complete": {
+      "post": {
+        "operationId": "completeRequirementEvidenceUpload",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Binds an immutable MinIO version as QUARANTINED and queues only malware scanning; it does not run tender AI extraction.",
+        "responses": {
+          "202": {
+            "description": "Evidence version quarantined and scan queued."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "maxProperties": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/satisfy": {
+      "post": {
+        "operationId": "satisfyRequirementWithEvidence",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Atomically attaches one exact CLEAN, currently unexpired BID_EVIDENCE version and advances an OPEN requirement to SATISFIED. Requires nonblank location/justification and expected requirement/workspace versions. This is a human command; AI and scanner workers cannot satisfy a requirement.",
+        "responses": {
+          "200": {
+            "description": "Requirement satisfied with immutable evidence."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "document_version_id",
+                  "evidence_location",
+                  "justification",
+                  "expected_requirement_version",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "document_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "evidence_location": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "justification": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "expected_requirement_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/evidence": {
+      "get": {
+        "operationId": "listRequirementEvidence",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns at most 100 exact evidence links with explicit expiry and time-specific expired status, without signed URLs or storage keys.",
+        "responses": {
+          "200": {
+            "description": "Evidence records."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without raw document bytes, signed URLs, storage keys or scanner details.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

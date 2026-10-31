@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/.next*
+**/tsconfig.tsbuildinfo
+**/playwright-report
+**/test-results
+**/.env
+**/.env.*
+**/*.log
+**/.DS_Store
+backend/migrate
+backend/bin
+.pi
+deploy/sandbox/secrets

@@ -1,0 +1,97 @@
+name: bidora-sandbox
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: /opt/bidora-sandbox/secrets/postgres.env
+    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/run/tls/postgres.crt", "-c", "ssl_key_file=/run/tls/postgres.key", "-c", "password_encryption=scram-sha-256"]
+    volumes:
+      - control-data:/var/lib/postgresql/data
+      - /opt/bidora-sandbox/secrets/tls/postgres.crt:/run/tls/postgres.crt:ro
+      - /opt/bidora-sandbox/secrets/tls/postgres.key:/run/tls/postgres.key:ro
+      - /opt/bidora-sandbox/secrets/init-runtime.sql:/docker-entrypoint-initdb.d/10-runtime.sql:ro
+      - /opt/bidora-sandbox/secrets/require-tls.sh:/docker-entrypoint-initdb.d/20-require-tls.sh:ro
+    networks: [sandbox]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bidora_sandbox_control"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "/run/redis/redis.conf"]
+    volumes:
+      - /opt/bidora-sandbox/secrets/redis.conf:/run/redis/redis.conf:ro
+      - /opt/bidora-sandbox/secrets/tls/redis.crt:/run/tls/redis.crt:ro
+      - /opt/bidora-sandbox/secrets/tls/redis.key:/run/tls/redis.key:ro
+      - /opt/bidora-sandbox/secrets/tls/ca.crt:/run/tls/ca.crt:ro
+      - redis-data:/data
+    networks: [sandbox]
+  backend:
+    image: bidora-sandbox/backend:latest
+    build:
+      context: ../..
+      dockerfile: deploy/sandbox/backend.Dockerfile
+    restart: unless-stopped
+    env_file: /opt/bidora-sandbox/secrets/runtime.env
+    ports: ["127.0.0.1:18080:8080"]
+    volumes:
+      - /opt/bidora-sandbox/secrets/tls/ca.crt:/run/bidora/ca.crt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks: [sandbox]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  web:
+    image: bidora-sandbox/web:latest
+    build:
+      context: ../..
+      dockerfile: deploy/sandbox/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      BIDORA_API_ORIGIN: http://backend:8080
+      BIDORA_WEB_ORIGIN: https://sandbox.bidora.africa
+      BIDORA_BFF_CLIENT_IP_MODE: trusted-header
+    ports: ["127.0.0.1:3100:3000"]
+    networks: [sandbox]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  migrate:
+    image: bidora-sandbox/backend:latest
+    profiles: [tools]
+    env_file: /opt/bidora-sandbox/secrets/migrator.env
+    volumes:
+      - /opt/bidora-sandbox/secrets/tls/ca.crt:/run/bidora/ca.crt:ro
+    entrypoint: ["/usr/local/bin/migrate"]
+    command: ["-set", "control", "-target", "42"]
+    networks: [sandbox]
+  grants:
+    image: bidora-sandbox/backend:latest
+    profiles: [tools]
+    env_file: /opt/bidora-sandbox/secrets/migrator.env
+    volumes:
+      - /opt/bidora-sandbox/secrets/tls/ca.crt:/run/bidora/ca.crt:ro
+    entrypoint: ["/usr/local/bin/grant-runtime"]
+    command: ["-plane", "control", "-manifest-version", "1"]
+    networks: [sandbox]
+networks:
+  sandbox:
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24
+volumes:
+  control-data:
+  redis-data:

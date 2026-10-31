@@ -1,0 +1,312 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora unverified external-action evidence",
+    "version": "0.2.0-draft",
+    "description": "Human-reported evidence for an action performed outside Bidora. New reports require an exact approved package manifest and submission-report capability. Reports remain REPORTED_UNVERIFIED and never claim Bidora transmission, external acceptance or timeliness."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/submission-evidence-reports": {
+      "post": {
+        "summary": "Append an immutable human report of an external action without marking the bid submitted",
+        "description": "Links an exact package manifest, preserves the supplied RFC3339 timestamp text and records REPORTED_UNVERIFIED only. Corrections append and reference the prior report.",
+        "responses": {
+          "201": {
+            "description": "Unverified evidence report; submitted remains false"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Submission-report capability required"
+          },
+          "409": {
+            "description": "Package/workspace/correction/idempotency conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "package_manifest_id",
+                  "external_system_name",
+                  "reported_action_time",
+                  "report_note",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "package_manifest_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "external_system_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "external_reference": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "reported_action_time": {
+                    "type": "string",
+                    "format": "date-time",
+                    "maxLength": 100
+                  },
+                  "report_note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "supersedes_evidence_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read at most 100 unverified reports using a stable keyset cursor",
+        "responses": {
+          "200": {
+            "description": "Evidence history"
+          },
+          "400": {
+            "description": "Invalid cursor"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Bid not found"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/submission-evidence-reports/{evidence_id}": {
+      "get": {
+        "summary": "Read one immutable unverified external-action report",
+        "responses": {
+          "200": {
+            "description": "Report with explicit false submission and acceptance claims"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Report not found"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/submission-evidence-reconciliation": {
+      "get": {
+        "summary": "Read correction lineage, active report leaves and package-currency facts without accepting proof",
+        "description": "Reports correction lineage, exact approved-package currency and proof readiness. It never confirms submission by itself.",
+        "responses": {
+          "200": {
+            "description": "Bounded reconciliation with proof_policy_configured true; can_mark_submitted remains false until the confirmation command rechecks all evidence."
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Bid not found"
+          },
+          "409": {
+            "description": "More than 100 active reports"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

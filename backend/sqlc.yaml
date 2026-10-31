@@ -1,0 +1,176 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/control"
+    gen:
+      go:
+        package: "registrysql"
+        out: "internal/tenancy/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/identity"
+    gen:
+      go:
+        package: "identitysql"
+        out: "internal/identity/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/controlplane"
+    gen:
+      go:
+        package: "controlplanesql"
+        out: "internal/controlplane/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/platformadmin"
+    gen:
+      go:
+        package: "platformadminsql"
+        out: "internal/platformadmin/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/platformsettings"
+    gen:
+      go:
+        package: "platformsettingssql"
+        out: "internal/platformsettings/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/notification"
+    gen:
+      go:
+        package: "notificationsql"
+        out: "internal/notification/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/commercial"
+    gen:
+      go:
+        package: "commercialsql"
+        out: "internal/commercial/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/authorization"
+    gen:
+      go:
+        package: "authzsql"
+        out: "internal/authorization/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/tenant_common"
+    queries: "queries/eventing"
+    gen:
+      go:
+        package: "eventsql"
+        out: "internal/eventing/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema:
+      - "migrations/tenant_common"
+      - "migrations/tenant_tenderpreneur"
+    queries: "queries/organization"
+    gen:
+      go:
+        package: "organizationsql"
+        out: "internal/organization/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema:
+      - "migrations/tenant_common"
+      - "migrations/tenant_tenderpreneur"
+    queries: "queries/tenantevidence"
+    gen:
+      go:
+        package: "tenantevidencesql"
+        out: "internal/tenantevidence/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/tenant_common"
+    queries: "queries/entitlement"
+    gen:
+      go:
+        package: "entitlementsql"
+        out: "internal/entitlementcheckpoint/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema:
+      - "migrations/tenant_common"
+      - "migrations/tenant_tenderpreneur"
+    queries: "queries/opportunity"
+    gen:
+      go:
+        package: "capturesql"
+        out: "internal/opportunity/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false

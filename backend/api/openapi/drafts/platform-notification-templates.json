@@ -1,0 +1,660 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora managed notification templates",
+    "version": "0.1.0-draft"
+  },
+  "x-status": "implemented-not-verified",
+  "x-owner": "notification",
+  "paths": {
+    "/v1/platform/notification-templates": {
+      "get": {
+        "operationId": "listPlatformNotificationTemplates",
+        "description": "Requires exact current platform context and recent TOTP AAL2 (15 minutes), plus platform.integration.read or platform.announcement.manage. Saving/preferences/self-tests additionally require effective PLATFORM_OWNER. Only the nine existing EMAIL delivery types are exposed: no invented subscription, billing or support delivery. Required recovery/security/invitation messages cannot be disabled; only invitation reminders are optional. Updates use optimistic If-Match, actor-scoped UUID idempotency and atomic revision/audit/outbox writes. Static supported placeholders are strict and one-pass escaped; real tokens/codes are never exposed in previews/history. Template field lengths are UTF-8 byte limits.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/platform/notification-templates/{template_key}": {
+      "get": {
+        "operationId": "getPlatformNotificationTemplate",
+        "description": "Requires exact current platform context and recent TOTP AAL2 (15 minutes), plus platform.integration.read or platform.announcement.manage. Saving/preferences/self-tests additionally require effective PLATFORM_OWNER. Only the nine existing EMAIL delivery types are exposed: no invented subscription, billing or support delivery. Required recovery/security/invitation messages cannot be disabled; only invitation reminders are optional. Updates use optimistic If-Match, actor-scoped UUID idempotency and atomic revision/audit/outbox writes. Static supported placeholders are strict and one-pass escaped; real tokens/codes are never exposed in previews/history. Template field lengths are UTF-8 byte limits.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      },
+      "put": {
+        "operationId": "savePlatformNotificationTemplate",
+        "description": "Requires exact current platform context and recent TOTP AAL2 (15 minutes), plus platform.integration.read or platform.announcement.manage. Saving/preferences/self-tests additionally require effective PLATFORM_OWNER. Only the nine existing EMAIL delivery types are exposed: no invented subscription, billing or support delivery. Required recovery/security/invitation messages cannot be disabled; only invitation reminders are optional. Updates use optimistic If-Match, actor-scoped UUID idempotency and atomic revision/audit/outbox writes. Static supported placeholders are strict and one-pass escaped; real tokens/codes are never exposed in previews/history. Template field lengths are UTF-8 byte limits.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]*\"$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteTemplate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/platform/notification-templates/{template_key}/history": {
+      "get": {
+        "operationId": "getPlatformNotificationTemplateHistory",
+        "description": "Requires exact current platform context and recent TOTP AAL2 (15 minutes), plus platform.integration.read or platform.announcement.manage. Saving/preferences/self-tests additionally require effective PLATFORM_OWNER. Only the nine existing EMAIL delivery types are exposed: no invented subscription, billing or support delivery. Required recovery/security/invitation messages cannot be disabled; only invitation reminders are optional. Updates use optimistic If-Match, actor-scoped UUID idempotency and atomic revision/audit/outbox writes. Static supported placeholders are strict and one-pass escaped; real tokens/codes are never exposed in previews/history. Template field lengths are UTF-8 byte limits. Latest 25 immutable revisions.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/platform/notification-templates/{template_key}/preview": {
+      "post": {
+        "operationId": "previewPlatformNotificationTemplate",
+        "description": "Requires exact current platform context and recent TOTP AAL2 (15 minutes), plus platform.integration.read or platform.announcement.manage. Saving/preferences/self-tests additionally require effective PLATFORM_OWNER. Only the nine existing EMAIL delivery types are exposed: no invented subscription, billing or support delivery. Required recovery/security/invitation messages cannot be disabled; only invitation reminders are optional. Updates use optimistic If-Match, actor-scoped UUID idempotency and atomic revision/audit/outbox writes. Static supported placeholders are strict and one-pass escaped; real tokens/codes are never exposed in previews/history. Template field lengths are UTF-8 byte limits. Renders unsaved input with explicitly synthetic example values. Does not save or send; sensitive required placeholders must remain present.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteTemplate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    },
+    "/v1/platform/notification-templates/{template_key}/test": {
+      "post": {
+        "operationId": "testPlatformNotificationTemplate",
+        "description": "Requires exact current platform context and recent TOTP AAL2 (15 minutes), plus platform.integration.read or platform.announcement.manage. Saving/preferences/self-tests additionally require effective PLATFORM_OWNER. Only the nine existing EMAIL delivery types are exposed: no invented subscription, billing or support delivery. Required recovery/security/invitation messages cannot be disabled; only invitation reminders are optional. Updates use optimistic If-Match, actor-scoped UUID idempotency and atomic revision/audit/outbox writes. Static supported placeholders are strict and one-pass escaped; real tokens/codes are never exposed in previews/history. Template field lengths are UTF-8 byte limits. Sends synthetic values only to the requesting administrator's server-resolved verified email, using current exact-active SMTP and existing delivery evidence. SMTP_ACCEPTED is not recipient delivery. At most three claims per actor per ten minutes. Pending/ambiguous attempts are never automatically retried. Communications history exposes safe platform test outcomes, not recipients or bodies.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]*\"$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current persisted configuration or truthful operation result; private no-store response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, permission, version/idempotency conflict or unavailable dependency error."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trace_id"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "template_key",
+          "name",
+          "category",
+          "channel",
+          "mandatory",
+          "enabled",
+          "subject",
+          "body",
+          "version",
+          "updated_at",
+          "placeholders",
+          "test_available"
+        ],
+        "properties": {
+          "template_key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "category": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "const": "EMAIL"
+          },
+          "mandatory": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "placeholders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "test_available": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WriteTemplate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "subject",
+          "body",
+          "enabled"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EmptyCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {}
+      },
+      "TemplateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Template"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "ListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Template"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "HistoryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/Template"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "PreviewResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "subject",
+              "body",
+              "preview_only"
+            ],
+            "properties": {
+              "subject": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "preview_only": {
+                "type": "boolean",
+                "const": true
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "TestResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "SMTP_ACCEPTED",
+                  "UNAVAILABLE",
+                  "PENDING"
+                ]
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      }
+    }
+  }
+}

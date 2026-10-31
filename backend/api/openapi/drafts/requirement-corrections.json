@@ -1,0 +1,214 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora requirement corrections",
+    "version": "0.2.0-draft",
+    "description": "Append-only human requirement corrections with immutable source and revision history."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}": {
+      "patch": {
+        "summary": "Append a human-owned correction revision for an OPEN requirement",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requirement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_location",
+                  "text",
+                  "mandatory",
+                  "category",
+                  "correction_reason",
+                  "expected_requirement_version",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "source_location": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "mandatory": {
+                    "type": "boolean"
+                  },
+                  "category": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "correction_reason": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "expected_requirement_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New immutable correction revision"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "409": {
+            "description": "Satisfied requirement or version conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/history": {
+      "get": {
+        "summary": "List at most 100 immutable requirement-content revisions",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requirement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revision history"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ]
+      }
+    }
+  },
+  "x-status": "implemented-not-verified",
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    }
+  }
+}

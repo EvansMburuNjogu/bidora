@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { parsePlatformBillingDashboard } from "../src/lib/platform-dashboard-contract.ts";
+const id = "11111111-1111-4111-8111-111111111111";
+const tenant = "22222222-2222-4222-8222-222222222222";
+const at = "2026-10-18T12:00:00Z";
+const money = { currency: "KES", amount_minor_units: 1250, amount: "12.50" };
+const invoice = { id, tenant_id: tenant, invoice_number: "SYN-1", state: "ISSUED", version: 1, total: money, outstanding: money, issued_at: at };
+const payment = { id, tenant_id: tenant, invoice_id: tenant, state: "SETTLED", reconciliation_state: "COMPLETE", version: 2, amount: money, updated_at: at };
+const adjustment = { id, tenant_id: tenant, invoice_id: tenant, action: "ISSUE_CREDIT", state: "PENDING_APPROVAL", reason_code: "SYNTHETIC", version: 1, amount: money, created_at: at, expires_at: at };
+const reversal = { id, tenant_id: tenant, payment_id: tenant, payment_state: "REVERSED", queue_state: "PENDING", hold_state: null, amount: money, requested_at: at, applied_at: null };
+const window = (item) => ({ items: [item], has_more: true });
+const data = { observed_at: at, invoices: window(invoice), payments: window(payment), adjustments: window(adjustment), reversals: window(reversal) };
+const response = { data, meta: { trace_id: id, next_cursor: null } };
+test("billing overview accepts only complete bounded recency windows and safe detail locators", () => {
+  const parsed = parsePlatformBillingDashboard(response);
+  assert.equal(parsed?.windows.invoices.items[0].amount.amount, "12.50");
+  assert.equal(parsed?.windows["payment-reversals"].items[0].detail_href, null);
+  assert.equal(parsePlatformBillingDashboard({ ...response, data: { ...data, reversals: window({ ...reversal, queue_state: "APPLIED", applied_at: at }) } })?.windows["payment-reversals"].items[0].detail_href, `/platform/billing/payment-reversals/${tenant}`);
+  assert.equal(parsePlatformBillingDashboard({ ...response, data: { ...data, adjustments: null } }), null);
+  assert.equal(parsePlatformBillingDashboard({ ...response, data: { ...data, total_revenue: "5000" } }), null);
+  assert.equal(parsePlatformBillingDashboard({ ...response, data: { ...data, invoices: window({ ...invoice, database_name: "secret" }) } }), null);
+  assert.equal(parsePlatformBillingDashboard({ ...response, data: { ...data, payments: window({ ...payment, amount: { ...money, amount: "1250" } }) } }), null);
+});

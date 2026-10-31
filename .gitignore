@@ -1,0 +1,20 @@
+# Local dependencies, private configuration and build/test output.
+web/node_modules/
+web/.next/
+web/.next-*/
+backend/migrate
+*.log
+deploy/sandbox/secrets/
+deploy/sandbox/*.env
+!deploy/sandbox/*.env.example
+web/tsconfig.tsbuildinfo
+web/playwright-report/
+web/test-results/
+backend/bin/
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Private delegated-agent transcripts, locks and persistent AI usage ledger.
+.pi/backend-runs/

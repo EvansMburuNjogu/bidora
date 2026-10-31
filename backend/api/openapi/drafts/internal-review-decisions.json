@@ -1,0 +1,229 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora internal proposal review decisions",
+    "version": "0.2.0-draft",
+    "description": "Review decisions require the explicit tenderpreneur.bid.proposal.review capability. They remain non-approval evidence. Approval is a separate fresh-AAL2, two-person command."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/versions/{proposal_version_id}/internal-review-decisions": {
+      "post": {
+        "summary": "Append a non-approval REVIEW_COMPLETE or CHANGES_REQUESTED decision for the exact current proposal revision",
+        "responses": {
+          "200": {
+            "description": "Immutable reviewer decision"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Response-edit authority required"
+          },
+          "409": {
+            "description": "Stale reviewer sequence or proposal revision"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "proposal_version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "decision",
+                  "rationale",
+                  "expected_previous_sequence"
+                ],
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "REVIEW_COMPLETE",
+                      "CHANGES_REQUESTED"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "expected_previous_sequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read at most 200 immutable internal review decisions for an exact proposal revision",
+        "responses": {
+          "200": {
+            "description": "Decision history"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Proposal revision not found"
+          },
+          "409": {
+            "description": "Bound exceeded"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "proposal_version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/approval-policy-preparation": {
+      "get": {
+        "summary": "Read non-authoritative review facts while final approval policy remains unconfigured",
+        "responses": {
+          "200": {
+            "description": "Always reports approval_policy_configured false and eligible_for_approval false"
+          },
+          "403": {
+            "description": "Bid-read authority required"
+          },
+          "404": {
+            "description": "Current proposal not found"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

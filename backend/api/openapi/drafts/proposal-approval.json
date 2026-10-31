@@ -1,0 +1,179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot proposal approval",
+    "version": "0.2.0-draft",
+    "description": "Human approval of an exact immutable unapproved package manifest. Approval requires explicit capability, fresh TOTP-backed AAL2, a distinct proposal creator, the approver latest REVIEW_COMPLETE decision, current proposal/workspace versions, and transactional rechecks of review, requirement, response, evidence and expiry blockers. It does not sign or submit."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/package-preparations/{manifest_id}/approval": {
+      "post": {
+        "summary": "Approve the exact current package under the two-person pilot policy",
+        "description": "Requires tenderpreneur.bid.proposal.approve, a session created within 15 minutes, an approver distinct from the proposal-revision creator, the approver's latest REVIEW_COMPLETE decision, exact expected versions, idempotency and no current blockers. Does not sign or submit.",
+        "responses": {
+          "201": {
+            "description": "Immutable approval"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "403": {
+            "description": "Unauthorized or fresh authentication required"
+          },
+          "404": {
+            "description": "Package not found"
+          },
+          "409": {
+            "description": "Stale, already approved or blocked"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "manifest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_proposal_version",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "expected_proposal_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "maxLength": 5000
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read the immutable approval for an exact package manifest",
+        "responses": {
+          "200": {
+            "description": "Historical approval with approved=true, current_applicability_recheck_required=true, signed=false and submitted=false"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "No approval"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "manifest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

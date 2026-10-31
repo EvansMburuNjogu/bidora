@@ -1,0 +1,27 @@
+{
+  "openapi":"3.1.0",
+  "info":{"title":"Bidora editable proposal document","version":"0.2.0-draft"},
+  "paths":{
+    "/v1/tenderpreneur/bids/{bid_id}/proposal":{
+      "put":{
+        "summary":"Save an immutable editable proposal revision with current response and active letterhead-version snapshots",
+        "parameters":[
+          {"name":"bid_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+          {"name":"Idempotency-Key","in":"header","required":true,"schema":{"type":"string"}},
+          {"name":"X-Bidora-Tenant-ID","in":"header","required":true,"schema":{"type":"string","format":"uuid"}},
+          {"name":"X-Bidora-Context-Generation","in":"header","required":true,"schema":{"type":"integer","minimum":1}},
+          {"name":"X-CSRF-Token","in":"header","required":true,"schema":{"type":"string"}}
+        ],
+        "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["title","recipient","letterhead_lines","introduction","closing","change_note","expected_proposal_version","expected_workspace_version"],"properties":{"title":{"type":"string","maxLength":300},"recipient":{"type":"string","maxLength":1000},"letterhead_lines":{"type":"array","maxItems":10,"items":{"type":"string","maxLength":300}},"introduction":{"type":"string","maxLength":10000},"closing":{"type":"string","maxLength":10000},"change_note":{"type":"string","maxLength":2000},"expected_proposal_version":{"type":"integer","minimum":0},"expected_workspace_version":{"type":"integer","minimum":1}}}}}},
+        "responses":{"200":{"description":"Saved immutable proposal revision carrying its exact letterhead_version_id, version number, template key and SHA-256 letterhead_content_hash"},"400":{"description":"Invalid"},"403":{"description":"Denied"},"409":{"description":"Version or response conflict"},"503":{"description":"Unavailable"}}
+      },
+      "get":{"summary":"Read the current editable proposal and exact response snapshots","parameters":[{"name":"bid_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Tenant-ID","in":"header","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Context-Generation","in":"header","required":true,"schema":{"type":"integer","minimum":1}}],"responses":{"200":{"description":"Current proposal; pre-letterhead historical revisions expose null letterhead binding"},"404":{"description":"Not found"},"503":{"description":"Unavailable"}}}
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/history":{
+      "get":{"summary":"List immutable proposal revision metadata","parameters":[{"name":"bid_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Tenant-ID","in":"header","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Context-Generation","in":"header","required":true,"schema":{"type":"integer","minimum":1}}],"responses":{"200":{"description":"At most 100 revisions"},"403":{"description":"Denied"},"503":{"description":"Unavailable"}}}
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/versions/{proposal_version_id}/export/{format}":{
+      "get":{"summary":"Render deterministic bytes for one immutable proposal revision while preserving its bound letterhead reference","parameters":[{"name":"bid_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"proposal_version_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"format","in":"path","required":true,"schema":{"type":"string","enum":["pdf","docx"]}},{"name":"X-Bidora-Tenant-ID","in":"header","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Context-Generation","in":"header","required":true,"schema":{"type":"integer","minimum":1}}],"responses":{"200":{"description":"Private no-store download with SHA-256, Digest and ETag headers","content":{"application/pdf":{},"application/vnd.openxmlformats-officedocument.wordprocessingml.document":{}}},"403":{"description":"Denied"},"404":{"description":"Revision not found"},"413":{"description":"Source or output too large"},"422":{"description":"Text cannot be represented safely in the requested format"},"503":{"description":"Unavailable"}}}
+    }
+  }
+}

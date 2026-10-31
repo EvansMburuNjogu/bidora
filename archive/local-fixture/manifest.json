@@ -1,0 +1,137 @@
+[
+  {
+    "original": "backend/internal/localprofile/config.go",
+    "archived": "backend/internal/localprofile/config.go",
+    "sha256": "b83770b0ad320dbc465a8193579921a0e0e95ece799cf6c7071979eebe54ea80"
+  },
+  {
+    "original": "backend/internal/localprofile/load.go",
+    "archived": "backend/internal/localprofile/load.go",
+    "sha256": "a26e286ce9e46c73165d0f634436cb5411ac34d1f7b0636a8630ba372f1be222"
+  },
+  {
+    "original": "backend/internal/localprofile/postgres.go",
+    "archived": "backend/internal/localprofile/postgres.go",
+    "sha256": "1ece6930ea61073d1ffcd994eb943117cb453854f5c3e4634aea7bb0e9344435"
+  },
+  {
+    "original": "backend/internal/localcheck/check.go",
+    "archived": "backend/internal/localcheck/check.go",
+    "sha256": "dd49dc478646a5bca987adff159a1a979333560be5196c98fc1a6697eb7d6e69"
+  },
+  {
+    "original": "backend/internal/localpostgres/tools.go",
+    "archived": "backend/internal/localpostgres/tools.go",
+    "sha256": "7c389d45935535f50329688e2a4ac07bdd6bedf024090e7a6b1127236385976a"
+  },
+  {
+    "original": "backend/internal/localbootstrap/credential.go",
+    "archived": "backend/internal/localbootstrap/credential.go",
+    "sha256": "26db5a59c8ee8954990d6c5c38ccad28a09e22bf280eb229215a4919ee8ac5ac"
+  },
+  {
+    "original": "backend/internal/localbootstrap/diagnostics.go",
+    "archived": "backend/internal/localbootstrap/diagnostics.go",
+    "sha256": "664194d0d13c475aea4594d3cbbedcd90d846d8c9ced0d7b8befc43ef6f429fc"
+  },
+  {
+    "original": "backend/internal/localbootstrap/plan.go",
+    "archived": "backend/internal/localbootstrap/plan.go",
+    "sha256": "fe6b1e6d8d7457df21d40266febbb906e1202374aae6d0ba2f973bd4a7a701ff"
+  },
+  {
+    "original": "backend/internal/localbootstrap/store_unix.go",
+    "archived": "backend/internal/localbootstrap/store_unix.go",
+    "sha256": "c579afea0265382b4e00daeb3cce6dfac897903e0ae140bf65e516e9b5d6061e"
+  },
+  {
+    "original": "backend/internal/localbudget/guard.go",
+    "archived": "backend/internal/localbudget/guard.go",
+    "sha256": "96ef67c83abf114c5d5802a9a081a1077b4095d874738170cb03e74f4aa1cc97"
+  },
+  {
+    "original": "backend/internal/localbudget/storage.go",
+    "archived": "backend/internal/localbudget/storage.go",
+    "sha256": "22bbbee5a4af53e7c2c983f33476483c9f018ebff0427558b5f4a215147586f9"
+  },
+  {
+    "original": "backend/internal/localbudget/storage_unix.go",
+    "archived": "backend/internal/localbudget/storage_unix.go",
+    "sha256": "0fb57641df9deb53dd328eff9b479416edf36622ba755249ddcd0ba8fd1c7be8"
+  },
+  {
+    "original": "backend/internal/localbudget/storage_unsupported.go",
+    "archived": "backend/internal/localbudget/storage_unsupported.go",
+    "sha256": "3c69f4f46360f9860af144df3407f92a93b5f749de0d7b877c293b609863a21b"
+  },
+  {
+    "original": "backend/tests/localprofile/config_test.go",
+    "archived": "backend/tests/localprofile/config_test.go",
+    "sha256": "90d9a1821e4b358d4833939a98df2beadb9e2ac260cc4e5bd6230e13466d9f8a"
+  },
+  {
+    "original": "backend/tests/localprofile/load_test.go",
+    "archived": "backend/tests/localprofile/load_test.go",
+    "sha256": "9ffaed5775e3c0300329cdda8f113c03d9d4fe7b891082de1b9b0bb624eeabc8"
+  },
+  {
+    "original": "backend/tests/localprofile/postgres_test.go",
+    "archived": "backend/tests/localprofile/postgres_test.go",
+    "sha256": "130e8dbcf14469222c804a8fc3d4e51d0000a2343ec84ffb2970e09e15bb74e4"
+  },
+  {
+    "original": "backend/tests/localcheck/check_test.go",
+    "archived": "backend/tests/localcheck/check_test.go",
+    "sha256": "a391f52238c90721f216d41167e20ae1e24dec80aee4381731974f7516a0acd1"
+  },
+  {
+    "original": "backend/tests/localcheck/command_test.go",
+    "archived": "backend/tests/localcheck/command_test.go",
+    "sha256": "f9af55cda85a28493d8e09a610d7e90d009416f463cc6a6750c09fe9b1d4bf6a"
+  },
+  {
+    "original": "backend/tests/localpostgres/tools_test.go",
+    "archived": "backend/tests/localpostgres/tools_test.go",
+    "sha256": "f2e01ae455ae633180a610631004cd59b291a1588c62a1e034b18aa221ae2ded"
+  },
+  {
+    "original": "backend/tests/localbootstrap/credential_test.go",
+    "archived": "backend/tests/localbootstrap/credential_test.go",
+    "sha256": "c5605387bd6ddc5394ac2a2db7384fcdc893574a894ddf369c387a6301ff82f8"
+  },
+  {
+    "original": "backend/tests/localbootstrap/diagnostics_test.go",
+    "archived": "backend/tests/localbootstrap/diagnostics_test.go",
+    "sha256": "2fe83c25f471b736af30947427d0ff0f9be0f73fd37a71e9627160a7ab0a71da"
+  },
+  {
+    "original": "backend/tests/localbootstrap/plan_test.go",
+    "archived": "backend/tests/localbootstrap/plan_test.go",
+    "sha256": "3c55dc3eda34a9501e0766e0fb31dd909261298ffa7c0b99182bc5c604357b66"
+  },
+  {
+    "original": "backend/tests/localbootstrap/store_test.go",
+    "archived": "backend/tests/localbootstrap/store_test.go",
+    "sha256": "a68de6ba15244848ea4c16c28ceb9a0ac06636a5ef271acfa2888b23af5bd987"
+  },
+  {
+    "original": "backend/tests/localbudget/guard_test.go",
+    "archived": "backend/tests/localbudget/guard_test.go",
+    "sha256": "504b428ef9e3e37077d342d526dd1de6bbe87bf86f31676de42549c58595b3c5"
+  },
+  {
+    "original": "backend/cmd/local-check/main.go",
+    "archived": "backend/cmd/local-check/main.go",
+    "sha256": "9fa174ae003a66042927c71228678f1942bdd633188db206fa8107c337d2260e"
+  },
+  {
+    "original": "backend/go.mod",
+    "archived": "backend/go.mod.snapshot",
+    "sha256": "2589af7496c881d64ced13ddf5834a6efa66cdfdfb0c73c893ca99f0df61a878"
+  },
+  {
+    "original": "backend/go.sum",
+    "archived": "backend/go.sum.snapshot",
+    "sha256": "f8726efdcc1c6d4223fa2707b40f1a113fa2bc6feec736679150a61d33494deb"
+  }
+]

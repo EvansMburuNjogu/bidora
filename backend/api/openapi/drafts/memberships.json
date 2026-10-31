@@ -1,0 +1,71 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Bidora active membership directory", "version": "0.2.0-draft", "description": "Current-user memberships, deny-filtered effective capabilities, and narrowly bounded capture-contributor revocation. Role labels are never returned as authority."},
+  "x-status": "tp-f01-active-context-directory-implemented-not-verified",
+  "x-approval": {"date": "2026-10-18", "owner": "requesting user", "evidence": "proceed with best recommendation", "remaining": ["server-persisted active-context selection is not part of TP-F01; requests use exact tenant and generation selectors", "administrator/last-admin policy", "deployment acceptance"]},
+  "paths": {
+    "/v1/me/memberships": {
+      "get": {
+        "operationId": "listCurrentActiveMemberships",
+        "security": [{"browserSession": []}],
+        "description": "Returns only ACTIVE memberships in ACTIVE tenants for the current verified, enabled identity. Capabilities contain active ALLOW facts after same-capability DENY precedence. Tenant IDs and context generations remain selectors, not bearer authority.",
+        "responses": {
+          "200": {"description": "Current active membership directory.", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["memberships"], "properties": {"memberships": {"type": "array", "items": {"$ref": "#/components/schemas/Membership"}}}}, "meta": {"type": "object"}}}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/shared/memberships": {
+      "get": {
+        "operationId": "listManagedCaptureContributorMemberships",
+        "security": [{"browserSession": []}],
+        "description": "Requires current deny-first tenant.memberships.manage authority. Returns only ACTIVE memberships whose sole active grant is the fixed capture-contributor ALLOW grant; administrators and arbitrary roles are excluded.",
+        "parameters": [
+          {"name": "X-Bidora-Tenant-ID", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "X-Bidora-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}}
+        ],
+        "responses": {
+          "200": {"description": "Managed capture contributors ordered by canonical email lookup and membership ID.", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["memberships"], "properties": {"memberships": {"type": "array", "items": {"$ref": "#/components/schemas/ManagedMembership"}}}}, "meta": {"type": "object"}}}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/shared/memberships/{membership_id}": {
+      "delete": {
+        "operationId": "revokeCaptureContributorMembership",
+        "security": [{"browserSession": []}],
+        "description": "Requires exact Origin, session-bound CSRF, current tenant context and deny-first tenant.memberships.manage. The target must be ACTIVE, have only the fixed capture-contributor ALLOW grant, and have zero unarchived workspace ownership, open requirement ownership and open review assignment under a server-routed continuity preflight. Active work requires the BID-ADR-021 offboarding flow. Administrator and arbitrary-role memberships are ineligible.",
+        "parameters": [
+          {"name": "membership_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string"}},
+          {"name": "X-Bidora-Tenant-ID", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "X-Bidora-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}}
+        ],
+        "responses": {
+          "204": {"description": "Capture-contributor membership and grant revoked atomically."},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}},
+    "schemas": {
+      "Membership": {"type": "object", "additionalProperties": false, "required": ["membership_id", "tenant_id", "tenant_type", "tenant_name", "context_generation", "capabilities"], "properties": {"membership_id": {"type": "string", "format": "uuid"}, "tenant_id": {"type": "string", "format": "uuid"}, "tenant_type": {"type": "string", "const": "TENDERPRENEUR"}, "tenant_name": {"type": "string"}, "context_generation": {"type": "integer", "minimum": 1}, "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}},
+      "ManagedMembership": {"type": "object", "additionalProperties": false, "required": ["membership_id", "email", "context_generation"], "properties": {"membership_id": {"type": "string", "format": "uuid"}, "email": {"type": "string", "format": "email"}, "context_generation": {"type": "integer", "minimum": 1}}},
+      "ErrorResponse": {"type": "object"}
+    },
+    "responses": {"Failure": {"description": "Safe failure without private tenant or database details.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}}
+  }
+}

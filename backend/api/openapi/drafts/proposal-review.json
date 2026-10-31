@@ -1,0 +1,12 @@
+{
+  "openapi":"3.1.0",
+  "info":{"title":"Bidora proposal AI application and approval readiness","version":"0.1.0-draft"},
+  "paths":{
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/ai-writing-suggestions/{suggestion_id}/apply":{
+      "post":{"summary":"Human-edit and apply an AI suggestion as a new immutable proposal revision","parameters":[{"name":"bid_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"suggestion_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"Idempotency-Key","in":"header","required":true,"schema":{"type":"string"}},{"name":"X-Bidora-Tenant-ID","in":"header","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Context-Generation","in":"header","required":true,"schema":{"type":"integer","minimum":1}},{"name":"X-CSRF-Token","in":"header","required":true,"schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["introduction","closing","review_note","expected_suggestion_version","expected_proposal_version","expected_workspace_version"],"properties":{"introduction":{"type":"string","maxLength":10000},"closing":{"type":"string","maxLength":10000},"review_note":{"type":"string","maxLength":2000},"expected_suggestion_version":{"type":"integer","minimum":1},"expected_proposal_version":{"type":"integer","minimum":1},"expected_workspace_version":{"type":"integer","minimum":1}}}}}},"responses":{"200":{"description":"New human-owned proposal revision"},"400":{"description":"Invalid"},"403":{"description":"Denied"},"409":{"description":"Suggestion/proposal/workspace conflict"},"503":{"description":"Unavailable"}}}
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/proposal/approval-readiness":{
+      "get":{"summary":"Read deterministic blockers before any future approval operation","parameters":[{"name":"bid_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Tenant-ID","in":"header","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"X-Bidora-Context-Generation","in":"header","required":true,"schema":{"type":"integer","minimum":1}}],"responses":{"200":{"description":"Readiness includes unresolved-review and expired-evidence blockers at the observed UTC instant; it is advisory preparation and is not approval"},"403":{"description":"Denied"},"503":{"description":"Unavailable"}}}
+    }
+  }
+}

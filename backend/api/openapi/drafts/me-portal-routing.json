@@ -1,0 +1,213 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora shared-login portal routing",
+    "version": "0.3.0-draft",
+    "description": "Canonical current-account routing contract. Account type selects an allowlisted portal destination but never grants tenant or platform authority. TP-F01 requires at least one current active Tenderpreneur membership before returning the Tenderpreneur destination."
+  },
+  "x-status": "tp-f01-tenderpreneur-workspace-entry-implemented-not-verified",
+  "x-approval": {
+    "owner": "requesting user",
+    "evidence": "requesting user explicitly approved the BID-API-010 portal-routing contract and requested BID-AUTH-003 account-type implementation",
+    "scope": [
+      "one shared login",
+      "one Phase 1 account type",
+      "server-owned portal redirect",
+      "self-selection of Tenderpreneur or Procurement only"
+    ],
+    "exclusions": [
+      "platform role bootstrap or mutation",
+      "tenant creation or membership authority",
+      "active tenant context selection",
+      "frontend implementation"
+    ]
+  },
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "operationId": "getCurrentAccountPortal",
+        "summary": "Resolve the current account's portal destination",
+        "description": "Requires a current browser session and exact approved HTTPS Origin. Accepts no body or query. The server returns one allowlisted destination from the immutable Phase 1 account type, current Tenderpreneur membership presence or current platform-assurance facts. This response is navigation metadata only: it is not a tenant selector, membership, capability grant or database locator.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Current account type and safe portal destination.",
+            "headers": {
+              "Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}},
+              "Vary": {"schema": {"type": "string", "const": "Cookie, Origin"}}
+            },
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MePortalResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/me/account-type": {
+      "post": {
+        "operationId": "selectCurrentAccountType",
+        "summary": "Select a Tenderpreneur or Procurement account type once",
+        "description": "Requires the verified current browser account, exact approved HTTPS Origin, session-bound CSRF and an idempotency key. The strict application/json body is limited to 4 KiB and rejects duplicate or unknown members. Only an UNASSIGNED account may self-select TENDERPRENEUR or PROCUREMENT. PLATFORM_ADMIN is invitation/bootstrap only. Selection creates no tenant, membership, capability, subscription or database routing authority and cannot be changed through this endpoint. The account-type update, idempotency result, minimal audit and outbox fact commit atomically; the existing session remains valid because this selection grants no authority.",
+        "x-max-body-bytes": 4096,
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
+          {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["account_type"],
+                "properties": {
+                  "account_type": {"type": "string", "enum": ["TENDERPRENEUR", "PROCUREMENT"]}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "Account type selected, or a matching idempotent replay completed. No body."},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"},
+      "csrfCookie": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_csrf"}
+    },
+    "schemas": {
+      "MePortalResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {"$ref": "#/components/schemas/MePortalData"},
+          "meta": {"$ref": "#/components/schemas/Meta"}
+        }
+      },
+      "MePortalData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["account_type", "portal", "platform_context_generation", "capabilities", "session", "required_actions"],
+        "properties": {
+          "account_type": {"type": "string", "enum": ["UNASSIGNED", "TENDERPRENEUR", "PROCUREMENT", "PLATFORM_ADMIN"]},
+          "portal": {
+            "oneOf": [
+              {"type": "null"},
+              {"$ref": "#/components/schemas/PortalDestination"}
+            ]
+          },
+          "session": {"$ref": "#/components/schemas/SessionSummary"},
+          "required_actions": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["SELECT_ACCOUNT_TYPE", "ESTABLISH_TENDERPRENEUR_MEMBERSHIP", "ENROLL_PLATFORM_MFA", "COMPLETE_PLATFORM_STEP_UP"]},
+            "uniqueItems": true,
+            "maxItems": 4
+          },
+          "platform_context_generation": {
+            "description": "Non-null only for an eligible PLATFORM_ADMIN account. It is a stale-context selector for platform APIs, never authority.",
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "capabilities": {
+            "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for all other account types. Every platform operation still rechecks current authority.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          }
+        }
+      },
+      "PortalDestination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "path"],
+        "properties": {
+          "key": {"type": "string", "enum": ["TENDERPRENEUR", "PROCUREMENT", "PLATFORM_ADMIN"]},
+          "path": {"type": "string", "enum": ["/tenderpreneur", "/procurement", "/platform"]}
+        }
+      },
+      "SessionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assurance_level", "idle_expires_at", "absolute_expires_at"],
+        "properties": {
+          "assurance_level": {"type": "string", "enum": ["AAL1", "AAL2"]},
+          "idle_expires_at": {"type": "string", "format": "date-time"},
+          "absolute_expires_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trace_id"],
+        "properties": {"trace_id": {"type": "string", "minLength": 1}}
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message", "field_errors", "trace_id", "retryable"],
+            "properties": {
+              "code": {"type": "string"},
+              "message": {"type": "string"},
+              "field_errors": {"type": "array", "items": {"type": "object"}},
+              "trace_id": {"type": "string"},
+              "retryable": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without identity, membership, platform-assignment, secret or database details.",
+        "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      }
+    }
+  },
+  "x-invariants": [
+    "UNASSIGNED returns portal null and required action SELECT_ACCOUNT_TYPE",
+    "TENDERPRENEUR resolves only to /tenderpreneur and only while at least one current ACTIVE membership in an ACTIVE Tenderpreneur tenant exists for the verified enabled identity",
+    "TENDERPRENEUR without an eligible membership returns no portal and required action ESTABLISH_TENDERPRENEUR_MEMBERSHIP; this action itself creates no tenant or authority",
+    "PROCUREMENT resolves only to /procurement",
+    "PLATFORM_ADMIN without a current active platform assignment is denied rather than routed",
+    "PLATFORM_ADMIN with missing MFA or insufficient assurance returns portal null and the applicable required action",
+    "PLATFORM_ADMIN with a current assignment, enrolled MFA and AAL2 resolves only to /platform",
+    "account type and platform_context_generation never grant tenant membership, capability, active context or database routing",
+    "an eligible PLATFORM_ADMIN response includes the current platform_context_generation used as a stale-context selector by platform APIs",
+    "a caller cannot self-select PLATFORM_ADMIN or change an assigned account type",
+    "inconsistent or unknown persisted state fails closed rather than choosing a default portal"
+  ],
+  "x-safe-error-codes": [
+    "INVALID_REQUEST",
+    "SESSION_INVALID",
+    "BROWSER_REQUEST_FORBIDDEN",
+    "ACCOUNT_TYPE_ALREADY_SELECTED",
+    "ACCOUNT_TYPE_SELECTION_CONFLICT",
+    "PLATFORM_ACCESS_FORBIDDEN",
+    "PORTAL_RESOLUTION_UNAVAILABLE"
+  ]
+}

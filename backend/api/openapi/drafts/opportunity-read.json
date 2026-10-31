@@ -1,0 +1,314 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora opportunity and bid reads",
+    "version": "0.2.0-draft",
+    "description": "TP-F07 tenant-isolated opportunity and Bid workspace directory reads. Pricing is never included; cursors never grant authority."
+  },
+  "x-status": "tp-f07-runtime-mounted-implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/opportunities": {
+      "get": {
+        "operationId": "listOpportunities",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.opportunity.read with deny precedence. Stable newest-first keyset pagination, limit 1\u2013100.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded opportunity page."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/opportunities/{opportunity_id}": {
+      "get": {
+        "operationId": "getOpportunity",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns the current exact source snapshot and bounded exact-title/buyer possible-duplicate hints. Hints never merge or reject records.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private opportunity detail."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids": {
+      "get": {
+        "operationId": "listBids",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.bid.read with deny precedence. Supports state, owner_id and explicit ACTIVE/ARCHIVED archive_state filters and stable keyset pagination. No financial content is selected.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DECISION_PENDING",
+                "BID",
+                "NO_BID",
+                "SUBMITTED"
+              ]
+            }
+          },
+          {
+            "name": "archive_state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "ARCHIVED"
+              ],
+              "default": "ACTIVE"
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded bid page without pricing."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}": {
+      "get": {
+        "operationId": "getBid",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns bid workspace, exact verified source snapshot and bounded immutable human decision history. No pricing fields are exposed.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private bid detail without pricing."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "parameters": {
+      "TenantID": {
+        "name": "X-Bidora-Tenant-ID",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ContextGeneration": {
+        "name": "X-Bidora-Context-Generation",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without foreign-tenant or database details.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-runtime-mounted-operations": [
+    "listOpportunities",
+    "getOpportunity",
+    "listBids",
+    "getBid"
+  ]
+}

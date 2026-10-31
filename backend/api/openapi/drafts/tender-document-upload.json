@@ -1,0 +1,331 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora tender document upload",
+    "version": "0.2.0-draft",
+    "description": "TP-F09 private immutable PDF/DOCX upload, exact completion, fail-closed quarantine, deterministic measurement, durable AI entitlement and cited analysis."
+  },
+  "x-status": "tp-f09-runtime-composed-implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/documents/uploads": {
+      "post": {
+        "operationId": "initiateTenderDocumentUpload",
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "description": "Requires tenderpreneur.opportunity.document.upload. Reserves an opaque MinIO object and returns a ten-minute checksum- and exact-size-bound multipart POST policy. Only PDF and DOCX up to 25 MiB are accepted.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/OpportunityID"
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiateUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Upload reserved; URL and required form fields are private and short-lived."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/documents/uploads/{upload_id}/complete": {
+      "post": {
+        "operationId": "completeTenderDocumentUpload",
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "description": "Reconciles the owned upload against MinIO version, media type, byte size and SHA-256. Creates an immutable QUARANTINED version, queues scanning and records analysis as WAITING_FOR_CLEAN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/OpportunityID"
+          },
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Version quarantined; Location identifies the analysis job, which cannot run before CLEAN."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "getOwnedDocumentJob",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns only the current user's tenant-routed scan or analysis job metadata; it never returns document bytes or extracted private content.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current durable job state."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      },
+      "csrfCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_csrf"
+      }
+    },
+    "parameters": {
+      "OpportunityID": {
+        "name": "opportunity_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "TenantID": {
+        "name": "X-Bidora-Tenant-ID",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ContextGeneration": {
+        "name": "X-Bidora-Context-Generation",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "CSRF": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43
+        }
+      }
+    },
+    "schemas": {
+      "InitiateUpload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "media_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 26214400
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without tenant storage keys, credentials or private document content.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-processing-sequence": [
+    "QUARANTINED",
+    "CLEAN",
+    "MEASURING",
+    "PENDING_RESERVATION",
+    "READY_FOR_PROVIDER",
+    "PROCESSING",
+    "COMPLETED"
+  ],
+  "x-entitlement-transport": {
+    "subject": "bidora.v1.tenant.ai_entitlement.reserve_requested",
+    "stream": "BIDORA_TENANT_AI_ENTITLEMENT",
+    "durable_consumer": "control-commercial-ai-reservation-v1",
+    "delivery": "at-least-once-idempotent",
+    "maximum_deliveries": 9
+  }
+}

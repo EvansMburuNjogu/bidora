@@ -1,0 +1,67 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot session CSRF bootstrap",
+    "version": "0.1.0-draft",
+    "description": "Approved CSRF-only authenticated bootstrap. This is deliberately separate from the future complete GET /v1/me contract."
+  },
+  "x-status": "implemented-local-http-verified",
+  "x-approval": {
+    "date": "2026-10-18",
+    "owner": "requesting user",
+    "evidence": "selected option 1",
+    "exclusions": ["GET /v1/me", "memberships", "capabilities", "preferences", "active context", "required actions"]
+  },
+  "paths": {
+    "/v1/auth/session/bootstrap": {
+      "get": {
+        "operationId": "bootstrapSessionCSRF",
+        "summary": "Restore the current session's CSRF value to browser memory",
+        "description": "Requires the current session cookie, its matching CSRF cookie and an exact approved HTTPS Origin. Accepts no query or body. Validation precedes idle touch. The response contains no identity, membership, capability, context or database-routing data.",
+        "security": [{"session": [], "csrfCookie": []}],
+        "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}],
+        "responses": {
+          "200": {
+            "description": "Validated session-bound CSRF value.",
+            "headers": {"Cache-Control": {"schema": {"type": "string", "const": "no-store"}}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BootstrapResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"},
+      "csrfCookie": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_csrf"}
+    },
+    "schemas": {
+      "BootstrapResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {"type": "object", "additionalProperties": false, "required": ["csrf_token"], "properties": {"csrf_token": {"type": "string", "minLength": 43, "maxLength": 43}}},
+          "meta": {"type": "object", "additionalProperties": false, "required": ["trace_id"], "properties": {"trace_id": {"type": "string"}}}
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"type": "object"}}, "trace_id": {"type": "string"}, "retryable": {"type": "boolean"}}}}
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe generic failure without session or CSRF disclosure.",
+        "headers": {"Cache-Control": {"schema": {"type": "string", "const": "no-store"}}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+      }
+    }
+  }
+}

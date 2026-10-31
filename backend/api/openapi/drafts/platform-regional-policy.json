@@ -1,0 +1,1103 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Countries and Operational Policies",
+    "version": "0.1.0-draft",
+    "description": "Managed global regional/feature/maintenance policy and restricted development request metadata. Implementation and live verification are separate; no legal production retention decision or destructive cleanup is activated."
+  },
+  "x-status": "source-connected-verification-separate",
+  "paths": {
+    "/v1/shared/platform/countries": {
+      "get": {
+        "operationId": "getSharedOrganizationCountryOptions",
+        "description": "Authenticated exact-Origin shared global reference projection: enabled countries, one default and effective organization-intake flag. Commercial billing remains KES.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedCountriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/countries": {
+      "get": {
+        "operationId": "listConfiguredPlatformCountries",
+        "description": "Exact current context, read capability and recent TOTP. No secret or tenant-private data.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPlatformCountry",
+        "description": "Current manage capability/recent TOTP, optimistic version and actor-scoped idempotency. State/history/receipt/audit/outbox are atomic. No existing organization/price/tax rewrite. Creation requires a previously unconfigured ISO reference code; disabled default is rejected.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Context"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/Key"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountryWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/countries/reference": {
+      "get": {
+        "operationId": "listPlatformCountryReferences",
+        "description": "Exact current context, read capability and recent TOTP. No secret or tenant-private data. Selectable ISO/tzdb references, not automatically enabled markets.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryReferencesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/countries/{code}": {
+      "put": {
+        "operationId": "updatePlatformCountry",
+        "description": "Current manage capability/recent TOTP, optimistic version and actor-scoped idempotency. State/history/receipt/audit/outbox are atomic. No existing organization/price/tax rewrite. Exactly one enabled default must remain; country code is immutable.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Code"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/Key"
+          },
+          {
+            "$ref": "#/components/parameters/Version"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountryWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/countries/{code}/history": {
+      "get": {
+        "operationId": "listPlatformCountryHistory",
+        "description": "Exact current context, read capability and recent TOTP. No secret or tenant-private data. At most 25 immutable revisions, newest first.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Code"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/operational-policy": {
+      "get": {
+        "operationId": "getPlatformOperationalPolicy",
+        "description": "Exact current context, read capability and recent TOTP. No secret or tenant-private data. Maintenance/retention policy read capability required.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updatePlatformOperationalPolicy",
+        "description": "Current manage capability/recent TOTP, optimistic version and actor-scoped idempotency. State/history/receipt/audit/outbox are atomic. No existing organization/price/tax rewrite. Effective Owner and maintenance manage required. UTC maintenance and feature checks affect subsequent tenant business calls; authentication/recovery/admin access remain. No deletion, production metadata collection, legal holds or mandatory-security toggles.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Context"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/Key"
+          },
+          {
+            "$ref": "#/components/parameters/Version"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationalPolicyWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/operational-policy/history": {
+      "get": {
+        "operationId": "listPlatformOperationalPolicyHistory",
+        "description": "Exact current context, read capability and recent TOTP. No secret or tenant-private data. At most 25 immutable revisions.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyHistoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/platform/audit/actions/{audit_id}/request-metadata": {
+      "get": {
+        "operationId": "getRestrictedPlatformRequestMetadata",
+        "description": "Exact current context, both platform.audit.read and platform.security.event.read, recent TOTP. Returns only successful authenticated Platform request metadata joined through the tenant-null allowlisted audit projection, within the configured 7–90-day development visibility period. Access appends a minimal immutable audit fact. No data is collected in production by this feature; 404 also covers absent/expired data.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AuditID"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmed current server data; private/no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestMetadataResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "parameters": {
+      "Context": {
+        "in": "header",
+        "name": "X-Bidora-Platform-Context-Generation",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "CSRF": {
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "Key": {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Version": {
+        "in": "header",
+        "name": "If-Match",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\"[1-9][0-9]*\"$"
+        }
+      },
+      "Code": {
+        "in": "path",
+        "name": "code",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        }
+      },
+      "AuditID": {
+        "in": "path",
+        "name": "audit_id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "schemas": {
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trace_id"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Country": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "country_code",
+          "currency",
+          "language",
+          "timezone",
+          "enabled",
+          "is_default",
+          "name",
+          "locale",
+          "version",
+          "updated_at"
+        ],
+        "properties": {
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}$"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CountryWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "country_code",
+          "currency",
+          "language",
+          "timezone",
+          "enabled",
+          "is_default"
+        ],
+        "properties": {
+          "country_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}$"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "is_default": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CountryReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "name",
+          "currency",
+          "language",
+          "languages",
+          "zone",
+          "zones"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "zone": {
+            "type": "string"
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "OperationalPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organization_registration_enabled",
+          "ai_features_enabled",
+          "document_uploads_enabled",
+          "max_document_bytes",
+          "maintenance_enabled",
+          "maintenance_message",
+          "maintenance_starts_at",
+          "maintenance_ends_at",
+          "restricted_metadata_retention_days",
+          "version",
+          "updated_at"
+        ],
+        "properties": {
+          "organization_registration_enabled": {
+            "type": "boolean"
+          },
+          "ai_features_enabled": {
+            "type": "boolean"
+          },
+          "document_uploads_enabled": {
+            "type": "boolean"
+          },
+          "max_document_bytes": {
+            "type": "integer",
+            "minimum": 1048576,
+            "maximum": 26214400
+          },
+          "maintenance_enabled": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "maxLength": 240,
+            "description": "Single-line public message, required when maintenance is enabled; at most 240 UTF-8 bytes."
+          },
+          "maintenance_starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "maintenance_ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "restricted_metadata_retention_days": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 90,
+            "default": 90,
+            "description": "Development restricted metadata visibility, not production retention or physical deletion."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OperationalPolicyWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organization_registration_enabled",
+          "ai_features_enabled",
+          "document_uploads_enabled",
+          "max_document_bytes",
+          "maintenance_enabled",
+          "maintenance_message",
+          "maintenance_starts_at",
+          "maintenance_ends_at",
+          "restricted_metadata_retention_days"
+        ],
+        "properties": {
+          "organization_registration_enabled": {
+            "type": "boolean"
+          },
+          "ai_features_enabled": {
+            "type": "boolean"
+          },
+          "document_uploads_enabled": {
+            "type": "boolean"
+          },
+          "max_document_bytes": {
+            "type": "integer",
+            "minimum": 1048576,
+            "maximum": 26214400
+          },
+          "maintenance_enabled": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "maxLength": 240,
+            "description": "Single-line public message, required when maintenance is enabled; at most 240 UTF-8 bytes."
+          },
+          "maintenance_starts_at": {
+            "type": "string",
+            "description": "RFC3339 with explicit offset (normalized UTC), or empty string for no bound."
+          },
+          "maintenance_ends_at": {
+            "type": "string",
+            "description": "RFC3339 with explicit offset (normalized UTC), or empty string; must follow start."
+          },
+          "restricted_metadata_retention_days": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 90,
+            "default": 90,
+            "description": "Development restricted metadata visibility, not production retention or physical deletion."
+          }
+        }
+      },
+      "SharedCountryOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "countries",
+          "default_country",
+          "billing_currency",
+          "organization_registration_enabled"
+        ],
+        "properties": {
+          "countries": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/Country"
+            }
+          },
+          "default_country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "billing_currency": {
+            "const": "KES"
+          },
+          "organization_registration_enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RequestMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ip_address",
+          "browser",
+          "observed_at"
+        ],
+        "properties": {
+          "ip_address": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "ipv4"
+              },
+              {
+                "type": "string",
+                "format": "ipv6"
+              }
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "Untrusted browser header; not a device identity or authorization fact."
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "field_errors",
+              "trace_id",
+              "retryable"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "field_errors": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "trace_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "CountryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Country"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CountriesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/Country"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CountryReferencesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/CountryReference"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "PolicyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OperationalPolicy"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "PolicyHistoryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/OperationalPolicy"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "SharedCountriesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SharedCountryOptions"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "RequestMetadataResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RequestMetadata"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Stable safe failure",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

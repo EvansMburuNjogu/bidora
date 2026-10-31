@@ -1,0 +1,6976 @@
+{
+  "$defs": {
+    "ai_requirement_review__ErrorResponse": {
+      "type": "object"
+    },
+    "bid_archive__ArchiveSemantics": {
+      "properties": {
+        "archived": {
+          "const": true
+        },
+        "deleted": {
+          "const": false
+        },
+        "legal_hold_changed": {
+          "const": false
+        },
+        "read_only": {
+          "const": true
+        },
+        "restoration_supported": {
+          "const": false
+        },
+        "retention_disposition_started": {
+          "const": false
+        }
+      },
+      "type": "object"
+    },
+    "commercial_adjustments__AdjustmentResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "amount_minor_units": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "credit_note_id": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "credit_number": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency": {
+              "const": "KES"
+            },
+            "entitlement_disposition_executed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "expires_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "invoice_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "payment_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "provider_refund_executed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "refund_operation_id": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "state": {
+              "enum": [
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "REJECTED"
+              ],
+              "type": "string"
+            },
+            "version": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "invoice_id",
+            "payment_id",
+            "action",
+            "state",
+            "version",
+            "amount_minor_units",
+            "currency",
+            "expires_at",
+            "provider_refund_executed",
+            "entitlement_disposition_executed"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "additionalProperties": false,
+          "properties": {
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "commercial_adjustments__Decision": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "enum": [
+            "APPROVED",
+            "REJECTED"
+          ],
+          "type": "string"
+        },
+        "expected_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "reason",
+        "expected_version"
+      ],
+      "type": "object"
+    },
+    "commercial_adjustments__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "commercial_adjustments__Proposal": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "ISSUE_CREDIT",
+            "REQUEST_REFUND"
+          ],
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "entitlement_disposition": {
+          "enum": [
+            "NO_ENTITLEMENT_CHANGE",
+            "REDUCE_ADDITIONAL_LICENCES_AT_RENEWAL",
+            "END_PAID_ACCESS_ON_REFUND_SETTLEMENT",
+            "REVIEW_REQUIRED"
+          ],
+          "type": "string"
+        },
+        "expected_invoice_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_payment_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "invoice_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "proposal_reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason_code": {
+          "enum": [
+            "SERVICE_CREDIT",
+            "DUPLICATE_PAYMENT_REFUND",
+            "SERVICE_FAILURE_REFUND",
+            "PAYMENT_REVERSAL_CORRECTION",
+            "OTHER_CONTRACTUAL_REFUND"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "invoice_id",
+        "action",
+        "reason_code",
+        "amount_minor_units",
+        "entitlement_disposition",
+        "proposal_reason",
+        "expected_invoice_version",
+        "expected_payment_version"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__Invoice": {
+      "additionalProperties": false,
+      "properties": {
+        "arithmetic_profile": {
+          "const": "KES_COMMERCIAL_V1"
+        },
+        "cadence": {
+          "type": "string"
+        },
+        "catalogue_version": {
+          "type": "string"
+        },
+        "credit": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "due_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "entitlements_activated": {
+          "type": "boolean"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "invoice_number": {
+          "pattern": "^BDR-INV-[0-9]{4}-[0-9]{8}$",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/commercial_financial_documents__InvoiceLine"
+          },
+          "maxItems": 100,
+          "minItems": 2,
+          "type": "array"
+        },
+        "outstanding": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "payment_initiated": {
+          "type": "boolean"
+        },
+        "plan_key": {
+          "type": "string"
+        },
+        "purchase_kind": {
+          "enum": [
+            "PLAN_BASE",
+            "ADDITIONAL_LICENCE"
+          ],
+          "type": "string"
+        },
+        "quantity": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "ISSUED",
+            "PAYMENT_PENDING",
+            "PAID",
+            "PARTIALLY_CREDITED",
+            "CREDITED",
+            "VOID",
+            "REVIEW_REQUIRED"
+          ],
+          "type": "string"
+        },
+        "subtotal": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "tax": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "taxable": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "term_end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "term_start": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "total": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "invoice_number",
+        "state",
+        "version",
+        "purchase_kind",
+        "plan_key",
+        "catalogue_version",
+        "cadence",
+        "quantity",
+        "term_start",
+        "term_end",
+        "arithmetic_profile",
+        "subtotal",
+        "credit",
+        "taxable",
+        "tax",
+        "total",
+        "outstanding",
+        "issued_at",
+        "due_at",
+        "lines",
+        "payment_initiated",
+        "entitlements_activated"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__InvoiceLine": {
+      "additionalProperties": false,
+      "properties": {
+        "description_code": {
+          "type": "string"
+        },
+        "gross_amount": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "line_kind": {
+          "enum": [
+            "PLAN_BASE",
+            "ADDITIONAL_LICENCE",
+            "APPROVED_CREDIT",
+            "VAT"
+          ],
+          "type": "string"
+        },
+        "line_number": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "net_amount": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "quantity": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tax_amount": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "tax_code": {
+          "type": "string"
+        },
+        "unit_amount": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        }
+      },
+      "required": [
+        "line_number",
+        "line_kind",
+        "description_code",
+        "quantity",
+        "unit_amount",
+        "net_amount",
+        "tax_code",
+        "tax_amount",
+        "gross_amount"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__InvoiceResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/commercial_financial_documents__Invoice"
+        },
+        "meta": {
+          "$ref": "#/$defs/commercial_financial_documents__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__InvoiceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "cadence": {
+          "type": "string"
+        },
+        "catalogue_version": {
+          "type": "string"
+        },
+        "due_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "invoice_number": {
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "outstanding": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "plan_key": {
+          "type": "string"
+        },
+        "purchase_kind": {
+          "type": "string"
+        },
+        "quantity": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "state": {
+          "type": "string"
+        },
+        "subscription_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "subtotal": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "tax": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "total": {
+          "$ref": "#/$defs/commercial_financial_documents__Money"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "subscription_id",
+        "invoice_number",
+        "state",
+        "version",
+        "purchase_kind",
+        "plan_key",
+        "catalogue_version",
+        "cadence",
+        "quantity",
+        "subtotal",
+        "tax",
+        "total",
+        "outstanding",
+        "issued_at",
+        "due_at"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__IssueInvoiceRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "cadence": {
+          "enum": [
+            "MONTHLY",
+            "ANNUAL",
+            "CONTRACT"
+          ],
+          "type": "string"
+        },
+        "expected_subscription_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "plan_key": {
+          "enum": [
+            "BASIC",
+            "GROWTH",
+            "PROFESSIONAL",
+            "ENTERPRISE"
+          ],
+          "type": "string"
+        },
+        "purchase_kind": {
+          "enum": [
+            "PLAN_BASE",
+            "ADDITIONAL_LICENCE"
+          ],
+          "type": "string"
+        },
+        "purchase_operation_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "subscription_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscription_id",
+        "purchase_operation_id",
+        "purchase_kind",
+        "plan_key",
+        "cadence",
+        "quantity",
+        "expected_subscription_version"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_documents__Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "currency": {
+          "const": "KES"
+        }
+      },
+      "required": [
+        "currency",
+        "amount_minor_units",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_reads__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_reads__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "next_cursor"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_reads__PageResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "type": "object"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/commercial_financial_reads__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "commercial_financial_reads__RecordResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/commercial_financial_reads__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "commercial_payment_operations__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "commercial_payment_operations__Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "pattern": "^[1-9][0-9]*\\.[0-9]{2}$",
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "currency": {
+          "const": "KES"
+        }
+      },
+      "required": [
+        "currency",
+        "amount_minor_units",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "commercial_payment_operations__Payment": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "$ref": "#/$defs/commercial_payment_operations__Money"
+        },
+        "entitlement_effect": {
+          "enum": [
+            "PLAN_ACTIVATION",
+            "ADDITIONAL_LICENCES",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "entitlements_activated": {
+          "description": "True only when the same settlement transaction committed its exact plan or additional-licence effect.",
+          "type": "boolean"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "invoice_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "paid": {
+          "description": "True only for an atomic SETTLED accounting effect.",
+          "type": "boolean"
+        },
+        "receipt_id": {
+          "description": "Non-null only after atomic settlement.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reconciliation_state": {
+          "enum": [
+            "NOT_REQUIRED",
+            "DUE",
+            "LEASED",
+            "RETRY_WAIT",
+            "HELD",
+            "COMPLETE"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "CREATED",
+            "PROVIDER_CREATE_PENDING",
+            "AWAITING_CUSTOMER",
+            "PROVIDER_PENDING",
+            "FAILED",
+            "CANCELLED",
+            "REVIEW_REQUIRED",
+            "SETTLED",
+            "REVERSED",
+            "REFUND_PENDING",
+            "PARTIALLY_REFUNDED",
+            "REFUNDED"
+          ],
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "invoice_id",
+        "state",
+        "version",
+        "amount",
+        "reconciliation_state",
+        "paid",
+        "entitlements_activated",
+        "receipt_id",
+        "entitlement_effect",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "commercial_payment_operations__PaymentResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/commercial_payment_operations__Payment"
+        },
+        "meta": {
+          "additionalProperties": false,
+          "properties": {
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__AICreditPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "docx_text_unit_characters": {
+          "const": 3000,
+          "type": "integer"
+        },
+        "docx_text_unit_credits": {
+          "const": 1,
+          "type": "integer"
+        },
+        "duplicate_platform_retry_charge": {
+          "const": false,
+          "type": "boolean"
+        },
+        "generation_base_credits": {
+          "const": 10,
+          "type": "integer"
+        },
+        "generation_text_unit_characters": {
+          "const": 3000,
+          "type": "integer"
+        },
+        "generation_text_unit_credits": {
+          "const": 1,
+          "type": "integer"
+        },
+        "pdf_page_credits": {
+          "const": 1,
+          "type": "integer"
+        },
+        "platform_rebuild_charge": {
+          "const": false,
+          "type": "boolean"
+        },
+        "rollover": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pdf_page_credits",
+        "docx_text_unit_characters",
+        "docx_text_unit_credits",
+        "generation_base_credits",
+        "generation_text_unit_characters",
+        "generation_text_unit_credits",
+        "rollover",
+        "duplicate_platform_retry_charge",
+        "platform_rebuild_charge"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__Allowance": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "period": {
+          "enum": [
+            "TRIAL_TERM",
+            "BILLING_MONTH",
+            "CONTRACT"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "period"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__CatalogueData": {
+      "additionalProperties": false,
+      "properties": {
+        "ai_credit_policy": {
+          "$ref": "#/$defs/commercial_plan_catalogue__AICreditPolicy"
+        },
+        "catalogue_version": {
+          "const": "PHASE1_V1",
+          "type": "string"
+        },
+        "currency": {
+          "const": "KES",
+          "type": "string"
+        },
+        "entitlements_activated": {
+          "const": false,
+          "type": "boolean"
+        },
+        "plans": {
+          "items": {
+            "$ref": "#/$defs/commercial_plan_catalogue__Plan"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "type": "array"
+        },
+        "prices_include_vat": {
+          "const": false,
+          "type": "boolean"
+        },
+        "subscription_activated": {
+          "const": false,
+          "type": "boolean"
+        },
+        "vat_calculated": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "catalogue_version",
+        "currency",
+        "prices_include_vat",
+        "vat_calculated",
+        "subscription_activated",
+        "entitlements_activated",
+        "ai_credit_policy",
+        "plans"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__CatalogueResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/commercial_plan_catalogue__CatalogueData"
+        },
+        "meta": {
+          "$ref": "#/$defs/commercial_plan_catalogue__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2}$",
+          "type": "string"
+        },
+        "currency": {
+          "const": "KES",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "FIXED",
+            "FROM"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "currency",
+        "amount",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__Plan": {
+      "additionalProperties": false,
+      "properties": {
+        "additional_licence_monthly_price": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/commercial_plan_catalogue__Money"
+            }
+          ]
+        },
+        "annual_base_price": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/commercial_plan_catalogue__Money"
+            }
+          ]
+        },
+        "available_cadences": {
+          "items": {
+            "enum": [
+              "TRIAL",
+              "MONTHLY",
+              "ANNUAL",
+              "CONTRACT"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "bid_workspace_allowance": {
+          "$ref": "#/$defs/commercial_plan_catalogue__Allowance"
+        },
+        "catalogue_version": {
+          "const": "PHASE1_V1",
+          "type": "string"
+        },
+        "contract_required": {
+          "type": "boolean"
+        },
+        "core_tender_assistant": {
+          "enum": [
+            "INCLUDED",
+            "NOT_SPECIFIED"
+          ],
+          "type": "string"
+        },
+        "included_licences": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "key": {
+          "enum": [
+            "TRIAL",
+            "BASIC",
+            "GROWTH",
+            "PROFESSIONAL",
+            "ENTERPRISE"
+          ],
+          "type": "string"
+        },
+        "limits": {
+          "$ref": "#/$defs/commercial_plan_catalogue__PlanLimits"
+        },
+        "monthly_base_price": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/commercial_plan_catalogue__Money"
+            }
+          ]
+        },
+        "name": {
+          "enum": [
+            "Trial",
+            "Basic",
+            "Growth",
+            "Professional",
+            "Enterprise"
+          ],
+          "type": "string"
+        },
+        "trial_base_price": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/commercial_plan_catalogue__Money"
+            }
+          ]
+        },
+        "trial_days": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "catalogue_version",
+        "available_cadences",
+        "trial_days",
+        "bid_workspace_allowance",
+        "included_licences",
+        "limits",
+        "trial_base_price",
+        "monthly_base_price",
+        "annual_base_price",
+        "additional_licence_monthly_price",
+        "contract_required",
+        "core_tender_assistant"
+      ],
+      "type": "object"
+    },
+    "commercial_plan_catalogue__PlanLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "ai_credits": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "completed_document_versions": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "concurrent_ai_jobs": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reset_period": {
+          "enum": [
+            "TRIAL_TERM",
+            "BILLING_MONTH",
+            "CONTRACT"
+          ],
+          "type": "string"
+        },
+        "rollover": {
+          "const": false,
+          "type": "boolean"
+        },
+        "storage_bytes": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "storage_bytes",
+        "completed_document_versions",
+        "ai_credits",
+        "concurrent_ai_jobs",
+        "reset_period",
+        "rollover"
+      ],
+      "type": "object"
+    },
+    "commercial_subscription__Error": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "commercial_subscription__LifecycleRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_version"
+      ],
+      "type": "object"
+    },
+    "commercial_subscription__Subscription": {
+      "additionalProperties": true,
+      "properties": {
+        "access_mode": {
+          "enum": [
+            "FULL",
+            "RETAINED_READ_ONLY",
+            "LAST_RECONCILED"
+          ],
+          "type": "string"
+        },
+        "catalogue_version": {
+          "type": "string"
+        },
+        "limits": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "plan_key": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "subscription_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "usage": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "subscription_id",
+        "state",
+        "access_mode",
+        "version",
+        "plan_key",
+        "catalogue_version",
+        "limits",
+        "usage"
+      ],
+      "type": "object"
+    },
+    "commercial_subscription__TrialStartResult": {
+      "additionalProperties": false,
+      "properties": {
+        "replay": {
+          "type": "boolean"
+        },
+        "state": {
+          "const": "TRIAL_ACTIVE",
+          "type": "string"
+        },
+        "subscription_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "trial_ends_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "subscription_id",
+        "state",
+        "version",
+        "trial_ends_at",
+        "replay"
+      ],
+      "type": "object"
+    },
+    "health__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "$ref": "#/$defs/health__FieldError"
+              },
+              "type": "array"
+            },
+            "message": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "health__FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "health__LiveResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "live",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/health__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "health__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "health__ReadyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "ready",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/health__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "invitations__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "login__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "login__LoginRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "email": {
+          "maxLength": 254,
+          "minLength": 1,
+          "type": "string"
+        },
+        "password": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ],
+      "type": "object"
+    },
+    "logout__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "manual_capture__CaptureRequest": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "closes_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "closes_at"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_date_text": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "source_timezone": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_timezone",
+              "source_date_text"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "buyer_name": {
+          "description": "Null means unknown, not a fabricated buyer.",
+          "maxLength": 300,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "closes_at": {
+          "description": "Explicit interpreted instant, normalized to UTC. Null/absent means unknown. Not source verification or a Bidora-controlled cutoff.",
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_date_text": {
+          "description": "Original source wording; retain ambiguous text even without an interpreted instant. Plain untrusted text, never HTML.",
+          "maxLength": 4096,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_document_version_id": {
+          "description": "Exact document-version reference. Must pass current tenant/access/eligibility checks through the document-owner interface. No object keys or current-version substitution.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_timezone": {
+          "description": "Raw source zone may be unresolved when closes_at is null. An interpreted instant requires a recognized IANA region or UTC.",
+          "maxLength": 128,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_uri": {
+          "description": "HTTP(S)-only descriptive provenance. Semantic validation rejects userinfo and non-HTTP(S) schemes. Never fetch, follow redirects, normalize away original wording or log this value.",
+          "format": "uri",
+          "maxLength": 2048,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "description": "Approved request bound; preserve wording, do not silently trim.",
+          "maxLength": 300,
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "buyer_name"
+      ],
+      "type": "object"
+    },
+    "manual_capture__CaptureResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "created_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "source_version_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "verification_state": {
+              "const": "UNVERIFIED",
+              "type": "string"
+            },
+            "version": {
+              "const": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "source_version_id",
+            "version",
+            "verification_state",
+            "created_at"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "additionalProperties": false,
+          "properties": {
+            "trace_id": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "manual_capture__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "code",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "manual_capture__ExternalTenderImportedV1Draft": {
+      "additionalProperties": false,
+      "description": "Proposed event schema, not an accepted broker contract. IDs are provenance, not bearer authority. No source text, URL, pricing or document bytes in payload.",
+      "properties": {
+        "actor_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "aggregate_type": {
+          "const": "opportunity",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "classification": {
+          "const": "INTERNAL",
+          "type": "string"
+        },
+        "correlation_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "opportunity.external_captured",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "opportunity_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "source_version_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "opportunity_id",
+            "source_version_id"
+          ],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "tenant_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_type",
+        "schema_version",
+        "tenant_id",
+        "actor_id",
+        "aggregate_type",
+        "aggregate_id",
+        "aggregate_version",
+        "occurred_at",
+        "correlation_id",
+        "causation_id",
+        "classification",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "me_portal_routing__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "me_portal_routing__MePortalData": {
+      "additionalProperties": false,
+      "properties": {
+        "account_type": {
+          "enum": [
+            "UNASSIGNED",
+            "TENDERPRENEUR",
+            "PROCUREMENT",
+            "PLATFORM_ADMIN"
+          ],
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for all other account types. Every platform operation still rechecks current authority.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "platform_context_generation": {
+          "description": "Non-null only for an eligible PLATFORM_ADMIN account. It is a stale-context selector for platform APIs, never authority.",
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "portal": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/me_portal_routing__PortalDestination"
+            }
+          ]
+        },
+        "required_actions": {
+          "items": {
+            "enum": [
+              "SELECT_ACCOUNT_TYPE",
+              "ESTABLISH_TENDERPRENEUR_MEMBERSHIP",
+              "ENROLL_PLATFORM_MFA",
+              "COMPLETE_PLATFORM_STEP_UP"
+            ],
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "session": {
+          "$ref": "#/$defs/me_portal_routing__SessionSummary"
+        }
+      },
+      "required": [
+        "account_type",
+        "portal",
+        "platform_context_generation",
+        "capabilities",
+        "session",
+        "required_actions"
+      ],
+      "type": "object"
+    },
+    "me_portal_routing__MePortalResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/me_portal_routing__MePortalData"
+        },
+        "meta": {
+          "$ref": "#/$defs/me_portal_routing__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "me_portal_routing__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "me_portal_routing__PortalDestination": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "enum": [
+            "TENDERPRENEUR",
+            "PROCUREMENT",
+            "PLATFORM_ADMIN"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "enum": [
+            "/tenderpreneur",
+            "/procurement",
+            "/platform"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "path"
+      ],
+      "type": "object"
+    },
+    "me_portal_routing__SessionSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "assurance_level": {
+          "enum": [
+            "AAL1",
+            "AAL2"
+          ],
+          "type": "string"
+        },
+        "idle_expires_at": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "assurance_level",
+        "idle_expires_at",
+        "absolute_expires_at"
+      ],
+      "type": "object"
+    },
+    "membership_offboarding__Semantics": {
+      "properties": {
+        "automatic_successor": {
+          "const": false
+        },
+        "platform_override": {
+          "const": false
+        },
+        "restoration_supported": {
+          "const": false
+        }
+      },
+      "type": "object"
+    },
+    "memberships__ErrorResponse": {
+      "type": "object"
+    },
+    "memberships__ManagedMembership": {
+      "additionalProperties": false,
+      "properties": {
+        "context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "email": {
+          "format": "email",
+          "type": "string"
+        },
+        "membership_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "membership_id",
+        "email",
+        "context_generation"
+      ],
+      "type": "object"
+    },
+    "memberships__Membership": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "membership_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "tenant_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "tenant_name": {
+          "type": "string"
+        },
+        "tenant_type": {
+          "const": "TENDERPRENEUR",
+          "type": "string"
+        }
+      },
+      "required": [
+        "membership_id",
+        "tenant_id",
+        "tenant_type",
+        "tenant_name",
+        "context_generation",
+        "capabilities"
+      ],
+      "type": "object"
+    },
+    "mfa_readiness__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "field_errors": {
+          "items": {
+            "$ref": "#/$defs/mfa_readiness__FieldError"
+          },
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "field_errors",
+        "trace_id",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "mfa_readiness__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/mfa_readiness__Error"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "mfa_readiness__FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "mfa_readiness__MFAReadiness": {
+      "additionalProperties": false,
+      "properties": {
+        "account_disabled": {
+          "type": "boolean"
+        },
+        "blockers": {
+          "items": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "email_verified": {
+          "type": "boolean"
+        },
+        "google_identity_present": {
+          "type": "boolean"
+        },
+        "mfa_enrolled": {
+          "type": "boolean"
+        },
+        "mfa_enrollment_available": {
+          "type": "boolean"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "password_credential_present": {
+          "type": "boolean"
+        },
+        "recovery_codes_available": {
+          "type": "boolean"
+        },
+        "session_age_seconds": {
+          "format": "int64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "session_assurance_provenance_available": {
+          "type": "boolean"
+        },
+        "session_authenticated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "step_up_available": {
+          "type": "boolean"
+        },
+        "step_up_policy_configured": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "email_verified",
+        "account_disabled",
+        "password_credential_present",
+        "google_identity_present",
+        "mfa_enrollment_available",
+        "mfa_enrolled",
+        "step_up_available",
+        "step_up_policy_configured",
+        "session_assurance_provenance_available",
+        "recovery_codes_available",
+        "session_authenticated_at",
+        "session_age_seconds",
+        "blockers",
+        "observed_at"
+      ],
+      "type": "object"
+    },
+    "mfa_readiness__MFAReadinessResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/mfa_readiness__MFAReadiness"
+        },
+        "meta": {
+          "$ref": "#/$defs/mfa_readiness__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "mfa_readiness__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__Activation": {
+      "additionalProperties": false,
+      "properties": {
+        "assurance_level": {
+          "const": "AAL2",
+          "type": "string"
+        },
+        "assurance_method": {
+          "const": "TOTP",
+          "type": "string"
+        },
+        "recovery_codes": {
+          "$ref": "#/$defs/mfa_step_up__RecoveryCodes"
+        }
+      },
+      "required": [
+        "recovery_codes",
+        "assurance_level",
+        "assurance_method"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__ActivationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/mfa_step_up__Activation"
+        },
+        "meta": {
+          "$ref": "#/$defs/mfa_step_up__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__EmailLoginCodeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[0-9]{6}$",
+          "type": "string"
+        },
+        "method": {
+          "const": "EMAIL_OTP",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "method"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__EmptyObject": {
+      "additionalProperties": false,
+      "maxProperties": 0,
+      "type": "object"
+    },
+    "mfa_step_up__Enrollment": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "factor_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "otpauth_uri": {
+          "maxLength": 2048,
+          "pattern": "^otpauth://totp/",
+          "type": "string",
+          "x-sensitive": true
+        },
+        "secret": {
+          "description": "Raw TOTP secret returned only while enrollment is pending; never log or persist in a browser.",
+          "pattern": "^[A-Z2-7]{32}$",
+          "type": "string",
+          "x-sensitive": true
+        }
+      },
+      "required": [
+        "factor_id",
+        "secret",
+        "otpauth_uri",
+        "expires_at"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__EnrollmentResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/mfa_step_up__Enrollment"
+        },
+        "meta": {
+          "$ref": "#/$defs/mfa_step_up__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "field_errors": {
+          "items": {
+            "$ref": "#/$defs/mfa_step_up__FieldError"
+          },
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "field_errors",
+        "trace_id",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/mfa_step_up__Error"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__MFACodeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 16,
+          "minLength": 6,
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "TOTP",
+            "RECOVERY_CODE"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "method"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__RecoveryCode": {
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{16}$",
+      "type": "string",
+      "x-sensitive": true
+    },
+    "mfa_step_up__RecoveryCodes": {
+      "items": {
+        "$ref": "#/$defs/mfa_step_up__RecoveryCode"
+      },
+      "maxItems": 10,
+      "minItems": 10,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "mfa_step_up__RecoveryCodesData": {
+      "additionalProperties": false,
+      "properties": {
+        "recovery_codes": {
+          "$ref": "#/$defs/mfa_step_up__RecoveryCodes"
+        }
+      },
+      "required": [
+        "recovery_codes"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__RecoveryCodesResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/mfa_step_up__RecoveryCodesData"
+        },
+        "meta": {
+          "$ref": "#/$defs/mfa_step_up__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "mfa_step_up__TOTPCodeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[0-9]{6}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    },
+    "opportunity_read__ErrorResponse": {
+      "type": "object"
+    },
+    "opportunity_workspace__ErrorResponse": {
+      "type": "object"
+    },
+    "organization_profile_letterhead__ActivateLetterhead": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_configuration_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_configuration_version",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__CompanyProfile": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/organization_profile_letterhead__ProfileFields"
+        },
+        {
+          "properties": {
+            "created_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "created_by": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "updated_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "updated_by": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "version": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "created_by",
+            "updated_by",
+            "created_at",
+            "updated_at"
+          ],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "organization_profile_letterhead__CreateLetterhead": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/organization_profile_letterhead__LetterheadFields"
+        },
+        {
+          "properties": {
+            "expected_configuration_version": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expected_configuration_version"
+          ],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "organization_profile_letterhead__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__LetterheadFields": {
+      "properties": {
+        "disclaimer": {
+          "maxLength": 2000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "email": {
+          "maxLength": 254,
+          "type": "string"
+        },
+        "footer_layout": {
+          "enum": [
+            "MINIMAL",
+            "CONTACT",
+            "LEGAL"
+          ],
+          "type": "string"
+        },
+        "header_layout": {
+          "enum": [
+            "COMPACT",
+            "STANDARD",
+            "FORMAL"
+          ],
+          "type": "string"
+        },
+        "page_number_style": {
+          "enum": [
+            "NONE",
+            "PAGE_X",
+            "PAGE_X_OF_Y"
+          ],
+          "type": "string"
+        },
+        "phone": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "physical_address": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "postal_address": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primary_color": {
+          "pattern": "^#[0-9A-F]{6}$",
+          "type": "string"
+        },
+        "registered_name": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "registration_identifier": {
+          "maxLength": 200,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secondary_color": {
+          "pattern": "^#[0-9A-F]{6}$",
+          "type": "string"
+        },
+        "slogan": {
+          "maxLength": 300,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tax_identifier": {
+          "maxLength": 200,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "template_key": {
+          "const": "STANDARD_PROPOSAL"
+        },
+        "trading_name": {
+          "maxLength": 300,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "website": {
+          "maxLength": 2048,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "registered_name",
+        "trading_name",
+        "registration_identifier",
+        "tax_identifier",
+        "postal_address",
+        "physical_address",
+        "phone",
+        "email",
+        "website",
+        "slogan",
+        "header_layout",
+        "footer_layout",
+        "page_number_style",
+        "primary_color",
+        "secondary_color",
+        "disclaimer",
+        "template_key"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__LetterheadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "letterhead": {
+              "$ref": "#/$defs/organization_profile_letterhead__LetterheadVersion"
+            }
+          },
+          "required": [
+            "letterhead"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/organization_profile_letterhead__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__LetterheadVersion": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/organization_profile_letterhead__LetterheadFields"
+        },
+        {
+          "properties": {
+            "configuration_version": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "content_hash": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "created_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "created_by": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "version_number": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "version_number",
+            "content_hash",
+            "created_by",
+            "created_at",
+            "configuration_version"
+          ],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "organization_profile_letterhead__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__ProfileFields": {
+      "properties": {
+        "business_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "locale": {
+          "maxLength": 35,
+          "type": "string"
+        },
+        "physical_address": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "postal_address": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "preferred_language": {
+          "maxLength": 35,
+          "type": "string"
+        },
+        "primary_industry": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "registered_name": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "registration_identifier": {
+          "maxLength": 200,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "services_capabilities": {
+          "maxLength": 10000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "tax_identifier": {
+          "maxLength": 200,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trading_name": {
+          "maxLength": 300,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "website": {
+          "maxLength": 2048,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "work_email": {
+          "maxLength": 254,
+          "type": "string"
+        },
+        "work_phone": {
+          "maxLength": 40,
+          "type": "string"
+        }
+      },
+      "required": [
+        "registered_name",
+        "trading_name",
+        "business_type",
+        "primary_industry",
+        "description",
+        "services_capabilities",
+        "work_email",
+        "work_phone",
+        "preferred_language",
+        "locale",
+        "website",
+        "postal_address",
+        "physical_address",
+        "registration_identifier",
+        "tax_identifier"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__ProfileResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "profile": {
+              "$ref": "#/$defs/organization_profile_letterhead__CompanyProfile"
+            }
+          },
+          "required": [
+            "profile"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/organization_profile_letterhead__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "organization_profile_letterhead__SaveProfile": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/organization_profile_letterhead__ProfileFields"
+        },
+        {
+          "properties": {
+            "expected_version": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expected_version"
+          ],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "password_change__ErrorResponse": {
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AcceptInvitationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "maxLength": 43,
+          "minLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "token"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__Administrator": {
+      "additionalProperties": false,
+      "properties": {
+        "assignments": {
+          "description": "Latest assignment state for each fixed role; use assignment-history for immutable prior versions.",
+          "items": {
+            "$ref": "#/$defs/platform_administrator_lifecycle__RoleAssignment"
+          },
+          "maxItems": 6,
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "effective_owner": {
+          "type": "boolean"
+        },
+        "email": {
+          "maxLength": 254,
+          "type": "string"
+        },
+        "platform_context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "ACTIVE",
+            "DISABLED"
+          ],
+          "type": "string"
+        },
+        "totp_enrolled": {
+          "type": "boolean"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "user_id",
+        "email",
+        "state",
+        "user_version",
+        "platform_context_generation",
+        "totp_enrolled",
+        "assignments",
+        "effective_owner",
+        "created_at",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AdministratorChange": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "ASSIGN_ROLE",
+            "REVOKE_ROLE",
+            "DISABLE_IDENTITY",
+            "REACTIVATE_IDENTITY",
+            "ACTIVATE_OWNER_INVITATION"
+          ],
+          "type": "string"
+        },
+        "assignment_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checker_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision_reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_assignment_version": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_target_context_generation": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_user_version": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expires_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "invitation_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "maker_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role_key": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sessions_revoked": {
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "PENDING_APPROVAL",
+            "EXECUTED",
+            "REJECTED",
+            "EXPIRED"
+          ],
+          "type": "string"
+        },
+        "target_user_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "target_user_id",
+        "invitation_id",
+        "role_key",
+        "assignment_id",
+        "expected_user_version",
+        "expected_target_context_generation",
+        "expected_assignment_version",
+        "reason",
+        "decision_reason",
+        "state",
+        "version",
+        "maker_id",
+        "checker_id",
+        "created_at",
+        "expires_at",
+        "decided_at",
+        "sessions_revoked"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AdministratorChangeListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "changes": {
+              "items": {
+                "$ref": "#/$defs/platform_administrator_lifecycle__AdministratorChange"
+              },
+              "maxItems": 100,
+              "type": "array"
+            }
+          },
+          "required": [
+            "changes"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AdministratorChangeRequest": {
+      "discriminator": {
+        "mapping": {
+          "ASSIGN_ROLE": "#/components/schemas/AssignRoleChange",
+          "DISABLE_IDENTITY": "#/components/schemas/IdentityStateChange",
+          "REACTIVATE_IDENTITY": "#/components/schemas/IdentityStateChange",
+          "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"
+        },
+        "propertyName": "action"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/platform_administrator_lifecycle__AssignRoleChange"
+        },
+        {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RevokeRoleChange"
+        },
+        {
+          "$ref": "#/$defs/platform_administrator_lifecycle__IdentityStateChange"
+        }
+      ]
+    },
+    "platform_administrator_lifecycle__AdministratorChangeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__AdministratorChange"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AdministratorListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "administrators": {
+              "items": {
+                "$ref": "#/$defs/platform_administrator_lifecycle__Administrator"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "continuity_warning": {
+              "type": "boolean"
+            },
+            "effective_owner_count": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "administrators",
+            "effective_owner_count",
+            "continuity_warning"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AdministratorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Administrator"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AssignRoleChange": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "ASSIGN_ROLE"
+        },
+        "expected_target_context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_user_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role_key": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+        },
+        "target_user_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "target_user_id",
+        "role_key",
+        "expected_user_version",
+        "expected_target_context_generation",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__AssignmentHistoryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "assignments": {
+              "items": {
+                "$ref": "#/$defs/platform_administrator_lifecycle__RoleAssignment"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "user_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "user_id",
+            "assignments"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__ChangeDispositionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_change_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_change_version",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__IdentityStateChange": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "DISABLE_IDENTITY",
+            "REACTIVATE_IDENTITY"
+          ],
+          "type": "string"
+        },
+        "expected_target_context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_user_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "target_user_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "target_user_id",
+        "expected_user_version",
+        "expected_target_context_generation",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__Invitation": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "delivery_state": {
+          "enum": [
+            "NOT_READY",
+            "ACCEPTED_FOR_DELIVERY",
+            "DELIVERY_UNCONFIRMED"
+          ],
+          "type": "string"
+        },
+        "email": {
+          "maxLength": 254,
+          "type": "string"
+        },
+        "expires_at": {
+          "description": "Null while a Platform Owner invitation awaits maker/checker approval; active invitations expire 72 hours after activation.",
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "governance_change_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "role_key": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+        },
+        "state": {
+          "enum": [
+            "PENDING_APPROVAL",
+            "ACTIVE",
+            "ACCEPTED",
+            "CANCELLED",
+            "EXPIRED",
+            "REPLACED"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "role_key",
+        "state",
+        "version",
+        "created_at",
+        "expires_at",
+        "delivery_state",
+        "governance_change_id"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__InvitationListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "invitations": {
+              "items": {
+                "$ref": "#/$defs/platform_administrator_lifecycle__Invitation"
+              },
+              "maxItems": 100,
+              "type": "array"
+            }
+          },
+          "required": [
+            "invitations"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__InvitationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Invitation"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__IssueInvitationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "email": {
+          "maxLength": 254,
+          "minLength": 3,
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role_key": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+        }
+      },
+      "required": [
+        "email",
+        "role_key",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "maxLength": 512,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__RevokeAdministratorSessionsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_target_context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_user_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_user_version",
+        "expected_target_context_generation",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__RevokeRoleChange": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "REVOKE_ROLE"
+        },
+        "assignment_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "expected_assignment_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_target_context_generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_user_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role_key": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+        },
+        "target_user_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "target_user_id",
+        "role_key",
+        "assignment_id",
+        "expected_assignment_version",
+        "expected_user_version",
+        "expected_target_context_generation",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__RoleAssignment": {
+      "additionalProperties": false,
+      "properties": {
+        "assigned_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "assigned_by": {
+          "description": "Null only for the deployment bootstrap assignment, which has no human actor.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revocation_reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revoked_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revoked_by": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role_key": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+        },
+        "state": {
+          "enum": [
+            "ACTIVE",
+            "REVOKED"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "role_key",
+        "state",
+        "version",
+        "assigned_by",
+        "assigned_at",
+        "revoked_by",
+        "revoked_at",
+        "reason",
+        "revocation_reason"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__RoleCatalogueItem": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "items": {
+            "maxLength": 150,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "catalogue_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "role_key": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RoleKey"
+        }
+      },
+      "required": [
+        "role_key",
+        "catalogue_version",
+        "capabilities"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__RoleCatalogueResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "custom_roles_supported": {
+              "const": false
+            },
+            "roles": {
+              "items": {
+                "$ref": "#/$defs/platform_administrator_lifecycle__RoleCatalogueItem"
+              },
+              "maxItems": 6,
+              "minItems": 6,
+              "type": "array"
+            },
+            "tenant_access_implied": {
+              "const": false
+            }
+          },
+          "required": [
+            "roles",
+            "custom_roles_supported",
+            "tenant_access_implied"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_administrator_lifecycle__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_administrator_lifecycle__RoleChangeRequest": {
+      "discriminator": {
+        "mapping": {
+          "ASSIGN_ROLE": "#/components/schemas/AssignRoleChange",
+          "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"
+        },
+        "propertyName": "action"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/platform_administrator_lifecycle__AssignRoleChange"
+        },
+        {
+          "$ref": "#/$defs/platform_administrator_lifecycle__RevokeRoleChange"
+        }
+      ]
+    },
+    "platform_administrator_lifecycle__RoleKey": {
+      "enum": [
+        "PLATFORM_OWNER",
+        "OPERATIONS_ADMINISTRATOR",
+        "BILLING_ADMINISTRATOR",
+        "INTEGRATION_ADMINISTRATOR",
+        "SUPPORT_ADMINISTRATOR",
+        "SECURITY_AUDIT_ADMINISTRATOR"
+      ],
+      "type": "string"
+    },
+    "platform_control_audit_actions__Action": {
+      "enum": [
+        "UserLoggedIn",
+        "EmailLoginCodeVerified",
+        "MFALoginCompleted",
+        "PlatformOwnerBootstrapped",
+        "PlatformAdministratorSessionsRevoked",
+        "PlatformAdministratorInvitationIssued",
+        "PlatformAdministratorInvitationCancelled",
+        "PlatformAdministratorInvitationAccepted",
+        "PlatformOwnerInvitationActivated",
+        "PlatformOwnerInvitationRejected",
+        "PlatformRoleAssignmentChanged",
+        "PlatformRoleRevocationChanged",
+        "PlatformAdministratorDisabled",
+        "PlatformAdministratorReactivated",
+        "PlatformIntegrationVersionCreated",
+        "PlatformIntegrationVersionTested",
+        "PlatformIntegrationActivationProposed",
+        "PlatformInformationUpdated",
+        "PlatformSessionPolicyUpdated",
+        "PlatformGoogleConfigurationUpdated",
+        "PlatformGoogleConnectionTested",
+        "NotificationTemplateUpdated",
+        "NotificationTemplateTested"
+      ],
+      "type": "string"
+    },
+    "platform_control_audit_actions__PageMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "next_cursor"
+      ],
+      "type": "object"
+    },
+    "platform_control_audit_actions__Record": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/platform_control_audit_actions__Action"
+        },
+        "administrator_id": {
+          "description": "Actor ID only; null for system-originated records",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "affected_record_id": {
+          "description": "Only invitation, change or integration-version UUIDs; null for user-targeted actions",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Audit record reference",
+          "format": "uuid",
+          "type": "string"
+        },
+        "module": {
+          "enum": [
+            "ADMINISTRATION",
+            "INTEGRATIONS"
+          ],
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "SUCCESSFUL",
+            "FAILED",
+            "PENDING"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "administrator_id",
+        "action",
+        "module",
+        "affected_record_id",
+        "result",
+        "occurred_at"
+      ],
+      "type": "object"
+    },
+    "platform_dashboard__Dashboard": {
+      "additionalProperties": false,
+      "properties": {
+        "adjustments": {
+          "$ref": "#/$defs/platform_dashboard__Window"
+        },
+        "invoices": {
+          "$ref": "#/$defs/platform_dashboard__Window"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "payments": {
+          "$ref": "#/$defs/platform_dashboard__Window"
+        },
+        "reversals": {
+          "$ref": "#/$defs/platform_dashboard__Window"
+        }
+      },
+      "required": [
+        "observed_at",
+        "invoices",
+        "payments",
+        "adjustments",
+        "reversals"
+      ],
+      "type": "object"
+    },
+    "platform_dashboard__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "platform_dashboard__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "next_cursor"
+      ],
+      "type": "object"
+    },
+    "platform_dashboard__Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "type": "integer"
+        },
+        "currency": {
+          "const": "KES"
+        }
+      },
+      "required": [
+        "currency",
+        "amount_minor_units",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "platform_dashboard__Response": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_dashboard__Dashboard"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_dashboard__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_dashboard__Window": {
+      "additionalProperties": false,
+      "properties": {
+        "has_more": {
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "type": "object"
+          },
+          "maxItems": 25,
+          "type": "array"
+        }
+      },
+      "required": [
+        "items",
+        "has_more"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__Configuration": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_signup": {
+          "type": "boolean"
+        },
+        "allowed_domains": {
+          "items": {
+            "maxLength": 253,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "client_id": {
+          "maxLength": 255,
+          "type": "string"
+        },
+        "connection_status": {
+          "enum": [
+            "UNTESTED",
+            "JWKS_REACHABLE_CREDENTIALS_UNVERIFIED",
+            "UNAVAILABLE"
+          ],
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "runtime_configured": {
+          "type": "boolean"
+        },
+        "secret_configured": {
+          "type": "boolean"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "enabled",
+        "allow_signup",
+        "client_id",
+        "allowed_domains",
+        "secret_configured",
+        "connection_status",
+        "runtime_configured",
+        "created_at"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__ConfigurationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_google_settings__Configuration"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_google_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__EmptyCommand": {
+      "additionalProperties": false,
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "platform_google_settings__HistoryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_google_settings__Configuration"
+          },
+          "maxItems": 25,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_google_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__StatusResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "allow_signup": {
+              "type": "boolean"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled",
+            "allow_signup"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_google_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__TestResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "JWKS_REACHABLE_CREDENTIALS_UNVERIFIED",
+                "UNAVAILABLE",
+                "PENDING"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_google_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_google_settings__WriteConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_signup": {
+          "type": "boolean"
+        },
+        "allowed_domains": {
+          "items": {
+            "maxLength": 253,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "client_id": {
+          "description": "Empty only while disabled; otherwise the exact deployed Google OAuth client ID.",
+          "maxLength": 255,
+          "type": "string"
+        },
+        "client_secret": {
+          "description": "Replacement only. Omit to preserve; null/empty is invalid. Required when changing a configured client ID or first enabling.",
+          "format": "password",
+          "maxLength": 1024,
+          "minLength": 8,
+          "type": "string",
+          "writeOnly": true
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "allow_signup",
+        "client_id",
+        "allowed_domains"
+      ],
+      "type": "object"
+    },
+    "platform_information__Failure": {
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "platform_information__InformationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "contact_phone": {
+              "description": "Optional phone; empty string clears it.",
+              "maxLength": 32,
+              "type": "string"
+            },
+            "platform_name": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "support_email": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updated_at": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "version": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "website": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "platform_name",
+            "support_email",
+            "website",
+            "version",
+            "updated_at",
+            "contact_phone"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "properties": {
+            "next_cursor": {
+              "type": "null"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__ActivationProposalRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "ACTIVATE",
+            "ROLLBACK"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__BillableAITestRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm_billable_test": {
+          "const": true
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "confirm_billable_test"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__ChangeExecutionData": {
+      "additionalProperties": false,
+      "properties": {
+        "active_version": {
+          "$ref": "#/$defs/platform_integration_settings__IntegrationSettingVersion"
+        },
+        "change": {
+          "$ref": "#/$defs/platform_integration_settings__IntegrationSettingChange"
+        }
+      },
+      "required": [
+        "change",
+        "active_version"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__ChangeExecutionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_integration_settings__ChangeExecutionData"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_integration_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__ChangeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_integration_settings__IntegrationSettingChange"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_integration_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__CreateOpenAIVersion": {
+      "additionalProperties": false,
+      "description": "Omitted replacements retain exact-active references transactionally; the first revision requires key and CA roots. Enabled=false is an explicitly testable pause. Environment credentials are ignored.",
+      "properties": {
+        "api_key": {
+          "maxLength": 1024,
+          "minLength": 8,
+          "type": "string",
+          "writeOnly": true
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "max_concurrency": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "model": {
+          "enum": [
+            "gpt-4.1-mini",
+            "gpt-4.1",
+            "gpt-4o-mini",
+            "gpt-4o"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "maximum": 900,
+          "minimum": 10,
+          "type": "integer"
+        },
+        "trust_roots_pem": {
+          "maxLength": 12000,
+          "minLength": 1,
+          "type": "string",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "enabled",
+        "model",
+        "timeout_seconds",
+        "max_concurrency",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__CreatePesaPalVersion": {
+      "additionalProperties": false,
+      "description": "Both replacements or retention of the exact-active encrypted pair. No caller-selected API/callback URL, callback registration, order, refund or settlement command.",
+      "properties": {
+        "consumer_key": {
+          "maxLength": 512,
+          "minLength": 8,
+          "type": "string",
+          "writeOnly": true
+        },
+        "consumer_secret": {
+          "maxLength": 512,
+          "minLength": 8,
+          "type": "string",
+          "writeOnly": true
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "environment": {
+          "enum": [
+            "SANDBOX",
+            "LIVE"
+          ],
+          "type": "string"
+        },
+        "merchant_name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "notification_id": {
+          "description": "Pre-registered IPN UUID; empty only when disabled.",
+          "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "type": "string"
+        },
+        "retain_active_credentials": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "environment",
+        "merchant_name",
+        "notification_id",
+        "reason",
+        "retain_active_credentials"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__CreateSMTPVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "command_timeout_seconds": {
+          "maximum": 60,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "connect_timeout_seconds": {
+          "maximum": 30,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "delivery_timeout_seconds": {
+          "maximum": 120,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "type": "string"
+        },
+        "max_concurrency": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string",
+          "writeOnly": true
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "type": "string"
+        },
+        "reply_to_address": {
+          "format": "email",
+          "maxLength": 254,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sender_address": {
+          "format": "email",
+          "maxLength": 254,
+          "type": "string"
+        },
+        "sender_name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "setting_kind": {
+          "const": "SMTP"
+        },
+        "trust_roots_pem": {
+          "maxLength": 24576,
+          "minLength": 1,
+          "type": "string",
+          "writeOnly": true
+        },
+        "username": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "setting_kind",
+        "host",
+        "port",
+        "username",
+        "password",
+        "trust_roots_pem",
+        "sender_name",
+        "sender_address",
+        "reply_to_address",
+        "connect_timeout_seconds",
+        "command_timeout_seconds",
+        "delivery_timeout_seconds",
+        "max_concurrency",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__CreateVersionRequest": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/platform_integration_settings__CreateSMTPVersion"
+        },
+        {
+          "$ref": "#/$defs/platform_integration_settings__CreateOpenAIVersion"
+        },
+        {
+          "$ref": "#/$defs/platform_integration_settings__CreatePesaPalVersion"
+        }
+      ]
+    },
+    "platform_integration_settings__ErrorBody": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "INVALID_REQUEST",
+            "SESSION_INVALID",
+            "PLATFORM_CONTEXT_STALE",
+            "FORBIDDEN",
+            "NOT_FOUND",
+            "VERSION_CONFLICT",
+            "IDEMPOTENCY_CONFLICT",
+            "SETTING_STATE_CONFLICT",
+            "TEST_REQUIRED",
+            "TEST_STALE",
+            "CHANGE_EXPIRED",
+            "CHECKER_SEPARATION_REQUIRED",
+            "DEPENDENCY_UNAVAILABLE",
+            "INTERNAL_ERROR"
+          ],
+          "type": "string"
+        },
+        "field_errors": {
+          "items": {
+            "$ref": "#/$defs/platform_integration_settings__FieldError"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "field_errors",
+        "trace_id",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/platform_integration_settings__ErrorBody"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__IntegrationSettingChange": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "ACTIVATE",
+            "ROLLBACK"
+          ],
+          "type": "string"
+        },
+        "checker_user_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "maker_user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "setting_kind": {
+          "enum": [
+            "SMTP",
+            "OPENAI",
+            "PESAPAL"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "PENDING_APPROVAL",
+            "APPROVED_EXECUTED",
+            "REJECTED",
+            "EXPIRED"
+          ],
+          "type": "string"
+        },
+        "target_version_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "setting_kind",
+        "target_version_id",
+        "action",
+        "state",
+        "version",
+        "maker_user_id",
+        "checker_user_id",
+        "expires_at",
+        "created_at",
+        "decided_at"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__IntegrationSettingVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "configuration": {
+          "$ref": "#/$defs/platform_integration_settings__RedactedConfiguration"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "setting_kind": {
+          "enum": [
+            "SMTP",
+            "OPENAI",
+            "PESAPAL"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "DRAFT",
+            "TEST_PASSED",
+            "TEST_FAILED",
+            "PENDING_APPROVAL",
+            "ACTIVE",
+            "SUPERSEDED",
+            "REJECTED"
+          ],
+          "type": "string"
+        },
+        "superseded_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "test_code": {
+          "enum": [
+            null,
+            "SMTP_STARTTLS_VERIFIED",
+            "OPENAI_STRUCTURED_RESPONSE_VERIFIED",
+            "CONNECTIVITY_FAILED",
+            "AUTHENTICATION_FAILED",
+            "TLS_FAILED",
+            "PROVIDER_REJECTED",
+            "INVALID_RESPONSE",
+            "OPENAI_DISABLED_CONFIG_VERIFIED",
+            "PESAPAL_AUTHENTICATION_VERIFIED",
+            "PESAPAL_DISABLED_CONFIG_VERIFIED"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "test_status": {
+          "enum": [
+            "NOT_TESTED",
+            "PASSED",
+            "FAILED"
+          ],
+          "type": "string"
+        },
+        "tested_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "setting_kind",
+        "sequence",
+        "state",
+        "version",
+        "configuration",
+        "test_status",
+        "test_code",
+        "created_at",
+        "tested_at",
+        "activated_at",
+        "superseded_at"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__OpenAIRedactedConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "api_key_reference_configured": {
+          "const": true
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "endpoint": {
+          "const": "https://api.openai.com/v1/responses"
+        },
+        "max_concurrency": {
+          "type": "integer"
+        },
+        "model": {
+          "type": "string"
+        },
+        "setting_kind": {
+          "const": "OPENAI"
+        },
+        "store": {
+          "const": false
+        },
+        "timeout_seconds": {
+          "type": "integer"
+        },
+        "trust_roots_reference_configured": {
+          "const": true
+        }
+      },
+      "required": [
+        "setting_kind",
+        "endpoint",
+        "model",
+        "api_key_reference_configured",
+        "trust_roots_reference_configured",
+        "store",
+        "timeout_seconds",
+        "max_concurrency",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__PesaPalRedactedConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "api_endpoint": {
+          "enum": [
+            "https://cybqa.pesapal.com/pesapalv3/api",
+            "https://pay.pesapal.com/v3/api"
+          ],
+          "type": "string"
+        },
+        "credential_reference_configured": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "environment": {
+          "enum": [
+            "SANDBOX",
+            "LIVE"
+          ],
+          "type": "string"
+        },
+        "merchant_name": {
+          "type": "string"
+        },
+        "notification_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "setting_kind": {
+          "const": "PESAPAL"
+        }
+      },
+      "required": [
+        "setting_kind",
+        "enabled",
+        "environment",
+        "merchant_name",
+        "credential_reference_configured",
+        "notification_id",
+        "api_endpoint"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__ProviderTestRequest": {
+      "description": "OPENAI requires confirm_billable_test:true; SMTP/PESAPAL accept reason only.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/platform_integration_settings__ReasonRequest"
+        },
+        {
+          "$ref": "#/$defs/platform_integration_settings__BillableAITestRequest"
+        }
+      ]
+    },
+    "platform_integration_settings__ReasonRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__RedactedConfiguration": {
+      "discriminator": {
+        "propertyName": "setting_kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/platform_integration_settings__SMTPRedactedConfiguration"
+        },
+        {
+          "$ref": "#/$defs/platform_integration_settings__OpenAIRedactedConfiguration"
+        },
+        {
+          "$ref": "#/$defs/platform_integration_settings__PesaPalRedactedConfiguration"
+        }
+      ]
+    },
+    "platform_integration_settings__SMTPRedactedConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "command_timeout_seconds": {
+          "type": "integer"
+        },
+        "connect_timeout_seconds": {
+          "type": "integer"
+        },
+        "credential_reference_configured": {
+          "const": true
+        },
+        "delivery_timeout_seconds": {
+          "type": "integer"
+        },
+        "host": {
+          "type": "string"
+        },
+        "max_concurrency": {
+          "type": "integer"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "reply_to_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sender_address": {
+          "type": "string"
+        },
+        "sender_name": {
+          "type": "string"
+        },
+        "setting_kind": {
+          "const": "SMTP"
+        },
+        "starttls_required": {
+          "const": true
+        },
+        "trust_roots_reference_configured": {
+          "const": true
+        }
+      },
+      "required": [
+        "setting_kind",
+        "host",
+        "port",
+        "credential_reference_configured",
+        "trust_roots_reference_configured",
+        "starttls_required",
+        "sender_name",
+        "sender_address",
+        "reply_to_address",
+        "connect_timeout_seconds",
+        "command_timeout_seconds",
+        "delivery_timeout_seconds",
+        "max_concurrency"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__VersionListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_integration_settings__IntegrationSettingVersion"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_integration_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_integration_settings__VersionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_integration_settings__IntegrationSettingVersion"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_integration_settings__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__EmptyCommand": {
+      "additionalProperties": false,
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "platform_notification_templates__HistoryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_notification_templates__Template"
+          },
+          "maxItems": 25,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_notification_templates__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__ListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_notification_templates__Template"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_notification_templates__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__PreviewResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "preview_only": {
+              "const": true,
+              "type": "boolean"
+            },
+            "subject": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject",
+            "body",
+            "preview_only"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_notification_templates__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__Template": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "channel": {
+          "const": "EMAIL",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "mandatory": {
+          "type": "boolean"
+        },
+        "name": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "placeholders": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "subject": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "template_key": {
+          "type": "string"
+        },
+        "test_available": {
+          "type": "boolean"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "template_key",
+        "name",
+        "category",
+        "channel",
+        "mandatory",
+        "enabled",
+        "subject",
+        "body",
+        "version",
+        "updated_at",
+        "placeholders",
+        "test_available"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__TemplateResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_notification_templates__Template"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_notification_templates__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__TestResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "SMTP_ACCEPTED",
+                "UNAVAILABLE",
+                "PENDING"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_notification_templates__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_notification_templates__WriteTemplate": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "subject",
+        "body",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__CountriesResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_regional_policy__Country"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__Country": {
+      "additionalProperties": false,
+      "properties": {
+        "country_code": {
+          "pattern": "^[A-Z]{2}$",
+          "type": "string"
+        },
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "is_default": {
+          "type": "boolean"
+        },
+        "language": {
+          "pattern": "^[a-z]{2,3}$",
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "timezone": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "country_code",
+        "currency",
+        "language",
+        "timezone",
+        "enabled",
+        "is_default",
+        "name",
+        "locale",
+        "version",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__CountryReference": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "zone": {
+          "type": "string"
+        },
+        "zones": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "currency",
+        "language",
+        "languages",
+        "zone",
+        "zones"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__CountryReferencesResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_regional_policy__CountryReference"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__CountryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_regional_policy__Country"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__CountryWrite": {
+      "additionalProperties": false,
+      "properties": {
+        "country_code": {
+          "pattern": "^[A-Z]{2}$",
+          "type": "string"
+        },
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "is_default": {
+          "type": "boolean"
+        },
+        "language": {
+          "pattern": "^[a-z]{2,3}$",
+          "type": "string"
+        },
+        "timezone": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "country_code",
+        "currency",
+        "language",
+        "timezone",
+        "enabled",
+        "is_default"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__OperationalPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "ai_features_enabled": {
+          "type": "boolean"
+        },
+        "document_uploads_enabled": {
+          "type": "boolean"
+        },
+        "maintenance_enabled": {
+          "type": "boolean"
+        },
+        "maintenance_ends_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "maintenance_message": {
+          "description": "Single-line public message, required when maintenance is enabled; at most 240 UTF-8 bytes.",
+          "maxLength": 240,
+          "type": "string"
+        },
+        "maintenance_starts_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "max_document_bytes": {
+          "maximum": 26214400,
+          "minimum": 1048576,
+          "type": "integer"
+        },
+        "organization_registration_enabled": {
+          "type": "boolean"
+        },
+        "restricted_metadata_retention_days": {
+          "default": 90,
+          "description": "Development restricted metadata visibility, not production retention or physical deletion.",
+          "maximum": 90,
+          "minimum": 7,
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "organization_registration_enabled",
+        "ai_features_enabled",
+        "document_uploads_enabled",
+        "max_document_bytes",
+        "maintenance_enabled",
+        "maintenance_message",
+        "maintenance_starts_at",
+        "maintenance_ends_at",
+        "restricted_metadata_retention_days",
+        "version",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__OperationalPolicyWrite": {
+      "additionalProperties": false,
+      "properties": {
+        "ai_features_enabled": {
+          "type": "boolean"
+        },
+        "document_uploads_enabled": {
+          "type": "boolean"
+        },
+        "maintenance_enabled": {
+          "type": "boolean"
+        },
+        "maintenance_ends_at": {
+          "description": "RFC3339 with explicit offset (normalized UTC), or empty string; must follow start.",
+          "type": "string"
+        },
+        "maintenance_message": {
+          "description": "Single-line public message, required when maintenance is enabled; at most 240 UTF-8 bytes.",
+          "maxLength": 240,
+          "type": "string"
+        },
+        "maintenance_starts_at": {
+          "description": "RFC3339 with explicit offset (normalized UTC), or empty string for no bound.",
+          "type": "string"
+        },
+        "max_document_bytes": {
+          "maximum": 26214400,
+          "minimum": 1048576,
+          "type": "integer"
+        },
+        "organization_registration_enabled": {
+          "type": "boolean"
+        },
+        "restricted_metadata_retention_days": {
+          "default": 90,
+          "description": "Development restricted metadata visibility, not production retention or physical deletion.",
+          "maximum": 90,
+          "minimum": 7,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "organization_registration_enabled",
+        "ai_features_enabled",
+        "document_uploads_enabled",
+        "max_document_bytes",
+        "maintenance_enabled",
+        "maintenance_message",
+        "maintenance_starts_at",
+        "maintenance_ends_at",
+        "restricted_metadata_retention_days"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__PolicyHistoryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_regional_policy__OperationalPolicy"
+          },
+          "maxItems": 25,
+          "type": "array"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__PolicyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_regional_policy__OperationalPolicy"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__RequestMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "browser": {
+          "description": "Untrusted browser header; not a device identity or authorization fact.",
+          "maxLength": 512,
+          "type": "string"
+        },
+        "ip_address": {
+          "oneOf": [
+            {
+              "format": "ipv4",
+              "type": "string"
+            },
+            {
+              "format": "ipv6",
+              "type": "string"
+            }
+          ]
+        },
+        "observed_at": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ip_address",
+        "browser",
+        "observed_at"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__RequestMetadataResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_regional_policy__RequestMetadata"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__SharedCountriesResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_regional_policy__SharedCountryOptions"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_regional_policy__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_regional_policy__SharedCountryOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "billing_currency": {
+          "const": "KES"
+        },
+        "countries": {
+          "items": {
+            "$ref": "#/$defs/platform_regional_policy__Country"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "default_country": {
+          "pattern": "^[A-Z]{2}$",
+          "type": "string"
+        },
+        "organization_registration_enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "countries",
+        "default_country",
+        "billing_currency",
+        "organization_registration_enabled"
+      ],
+      "type": "object"
+    },
+    "platform_session_policy__Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_seconds": {
+          "enum": [
+            3600,
+            14400,
+            28800,
+            43200
+          ],
+          "type": "integer"
+        },
+        "idle_seconds": {
+          "enum": [
+            300,
+            600,
+            900,
+            1800
+          ],
+          "type": "integer"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "idle_seconds",
+        "absolute_seconds",
+        "version"
+      ],
+      "type": "object"
+    },
+    "platform_session_policy__PolicyResponse": {
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_session_policy__Policy"
+        },
+        "meta": {
+          "properties": {
+            "next_cursor": {
+              "type": "null"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_tenant_directory__Failure": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "type": "object"
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "error",
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_tenant_directory__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "maxLength": 512,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "platform_tenant_directory__SchemaStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "current_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "generation": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "COMPATIBLE",
+            "MIGRATING",
+            "FAILED",
+            "INCOMPATIBLE"
+          ],
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "current_version",
+        "generation",
+        "state",
+        "updated_at"
+      ],
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "platform_tenant_directory__Tenant": {
+      "additionalProperties": false,
+      "properties": {
+        "assignment_generation": {
+          "description": "Operational generation only; never a database selector or authority.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "assignment_present": {
+          "description": "Whether a matching active server-side assignment and active cluster record exist. No locator is exposed and this does not claim complete tenant readiness.",
+          "type": "boolean"
+        },
+        "common_schema": {
+          "$ref": "#/$defs/platform_tenant_directory__SchemaStatus"
+        },
+        "country": {
+          "pattern": "^[A-Z]{2}$",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "locale": {
+          "maxLength": 35,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/platform_tenant_directory__TenantState"
+        },
+        "tenant_schema": {
+          "$ref": "#/$defs/platform_tenant_directory__SchemaStatus"
+        },
+        "tenant_type": {
+          "const": "TENDERPRENEUR"
+        },
+        "timezone": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "tenant_type",
+        "state",
+        "country",
+        "timezone",
+        "locale",
+        "assignment_generation",
+        "version",
+        "assignment_present",
+        "common_schema",
+        "tenant_schema",
+        "created_at",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "platform_tenant_directory__TenantListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "tenants": {
+              "items": {
+                "$ref": "#/$defs/platform_tenant_directory__Tenant"
+              },
+              "maxItems": 100,
+              "type": "array"
+            }
+          },
+          "required": [
+            "tenants"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_tenant_directory__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_tenant_directory__TenantResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_tenant_directory__Tenant"
+        },
+        "meta": {
+          "$ref": "#/$defs/platform_tenant_directory__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_tenant_directory__TenantState": {
+      "enum": [
+        "REQUESTED",
+        "PROVISIONING",
+        "MIGRATING",
+        "SEEDING",
+        "ACTIVE",
+        "FAILED",
+        "SUSPENDED",
+        "DECOMMISSIONED"
+      ],
+      "type": "string"
+    },
+    "register__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "requirement_corrections__ErrorResponse": {
+      "type": "object"
+    },
+    "requirement_evidence__ErrorResponse": {
+      "type": "object"
+    },
+    "requirements_readiness__ErrorResponse": {
+      "type": "object"
+    },
+    "session_administration__PrivacySemantics": {
+      "properties": {
+        "administrator_revocation_supported": {
+          "const": false
+        },
+        "device_metadata_collected": {
+          "const": false
+        },
+        "replacement_session_issued": {
+          "const": false
+        }
+      },
+      "type": "object"
+    },
+    "session_bootstrap__BootstrapResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "csrf_token": {
+              "maxLength": 43,
+              "minLength": 43,
+              "type": "string"
+            }
+          },
+          "required": [
+            "csrf_token"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "additionalProperties": false,
+          "properties": {
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "session_bootstrap__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "session_inventory__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "session_inventory__SessionInventoryData": {
+      "additionalProperties": false,
+      "properties": {
+        "active_session_count": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "current_session_logout_available": {
+          "type": "boolean"
+        },
+        "device_metadata_collected": {
+          "const": false,
+          "type": "boolean"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "other_session_count": {
+          "maximum": 99,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "other_session_revocation_available": {
+          "type": "boolean"
+        },
+        "revocation_policy_configured": {
+          "type": "boolean"
+        },
+        "revoke_all_available": {
+          "type": "boolean"
+        },
+        "sessions": {
+          "items": {
+            "$ref": "#/$defs/session_inventory__SessionInventoryItem"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "active_session_count",
+        "other_session_count",
+        "sessions",
+        "current_session_logout_available",
+        "other_session_revocation_available",
+        "revoke_all_available",
+        "revocation_policy_configured",
+        "device_metadata_collected",
+        "blockers",
+        "observed_at"
+      ],
+      "type": "object"
+    },
+    "session_inventory__SessionInventoryItem": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "current": {
+          "type": "boolean"
+        },
+        "idle_expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "last_seen_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "rotated_from_session_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "rotated_from_session_id",
+        "current",
+        "created_at",
+        "last_seen_at",
+        "idle_expires_at",
+        "absolute_expires_at"
+      ],
+      "type": "object"
+    },
+    "session_inventory__SessionInventoryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/session_inventory__SessionInventoryData"
+        },
+        "meta": {
+          "$ref": "#/$defs/session_inventory__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "technical_responses__ErrorResponse": {
+      "type": "object"
+    },
+    "tender_document_upload__ErrorResponse": {
+      "type": "object"
+    },
+    "tender_document_upload__InitiateUpload": {
+      "additionalProperties": false,
+      "properties": {
+        "media_type": {
+          "enum": [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ],
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 26214400,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "media_type",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_dashboard__Dashboard": {
+      "additionalProperties": false,
+      "properties": {
+        "bids": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Window"
+        },
+        "financial_activity": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Window"
+        },
+        "invoices": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Window"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "opportunities": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Window"
+        },
+        "payments": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Window"
+        },
+        "subscription": {
+          "type": "object"
+        },
+        "tenant_id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "observed_at",
+        "subscription",
+        "opportunities",
+        "bids",
+        "invoices",
+        "payments",
+        "financial_activity"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_dashboard__Error": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_dashboard__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "next_cursor"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_dashboard__Response": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Dashboard"
+        },
+        "meta": {
+          "$ref": "#/$defs/tenderpreneur_dashboard__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_dashboard__Window": {
+      "additionalProperties": false,
+      "properties": {
+        "has_more": {
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "type": "object"
+          },
+          "maxItems": 25,
+          "type": "array"
+        }
+      },
+      "required": [
+        "items",
+        "has_more"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_organization_creation__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_organization_creation__Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_organization_creation__OrganizationCreationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "business_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "commercial_path": {
+          "enum": [
+            "TRIAL",
+            "PAID"
+          ],
+          "type": "string"
+        },
+        "country": {
+          "pattern": "^[A-Z]{2}$",
+          "type": "string"
+        },
+        "currency": {
+          "const": "KES",
+          "type": "string"
+        },
+        "locale": {
+          "pattern": "^[A-Za-z0-9-]{1,35}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "preferred_language": {
+          "pattern": "^[A-Za-z0-9-]{1,35}$",
+          "type": "string"
+        },
+        "primary_industry": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string"
+        },
+        "timezone": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "country",
+        "timezone",
+        "locale",
+        "business_type",
+        "primary_industry",
+        "preferred_language",
+        "currency",
+        "commercial_path"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_organization_creation__OrganizationCreationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "operation_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "state": {
+              "const": "REQUESTED",
+              "type": "string"
+            },
+            "tenant_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation_id",
+            "tenant_id",
+            "state"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/tenderpreneur_organization_creation__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "verify_email__ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "field_errors": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "field_errors",
+            "trace_id",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://contracts.bidora.invalid/v1/bidora.schemas.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Namespaced request, response, error and shared domain DTOs extracted from the canonical OpenAPI contract.",
+  "title": "Bidora API DTO schema catalogue"
+}

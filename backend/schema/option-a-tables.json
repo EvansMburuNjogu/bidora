@@ -1,0 +1,586 @@
+{
+  "release_scope": "BID-ADR-006 External Tender Pilot Increment",
+  "status": "inventory-not-blanket-schema-approval",
+  "databases": {
+    "control": [
+      {
+        "schema": "bidora_control_meta",
+        "table": "schema_compatibility",
+        "status": "implemented_not_db_verified",
+        "gate": "BID-DB-001"
+      },
+      {
+        "schema": "identity",
+        "table": "users",
+        "status": "implemented_not_db_verified",
+        "gate": "approved password-registration personal names are nullable for legacy/provider identities; migration 29 constraint/grant execution and registration persistence evidence remain deferred"
+      },
+      {
+        "schema": "identity",
+        "table": "authentication_identities",
+        "status": "implemented_not_db_verified",
+        "gate": "Argon2id calibration/password lifecycle and live transaction/grant tests"
+      },
+      {
+        "schema": "identity",
+        "table": "external_identities",
+        "status": "implemented_not_db_verified",
+        "gate": "Google signature/JWKS, Redis state, account-linking and live OIDC callback tests"
+      },
+      {
+        "schema": "identity",
+        "table": "sessions",
+        "status": "implemented_not_db_verified",
+        "gate": "HTTP cookie/Origin/CSRF integration, attempt controls and live rotation/revocation tests"
+      },
+      {
+        "schema": "identity",
+        "table": "challenges",
+        "status": "implemented_not_db_verified",
+        "gate": "delivery provider, audited transaction orchestration and live expiry/replay tests"
+      },
+      {
+        "schema": "identity",
+        "table": "mfa_methods",
+        "status": "superseded_no_table",
+        "gate": "BID-ADR-023 is implemented by identity.mfa_factors, identity.mfa_recovery_codes and identity.mfa_transactions"
+      },
+      {
+        "schema": "bidora_tenancy",
+        "table": "tenants",
+        "status": "implemented_not_db_verified",
+        "gate": "routing only; no provisioning handler"
+      },
+      {
+        "schema": "bidora_tenancy",
+        "table": "database_clusters",
+        "status": "implemented_not_db_verified",
+        "gate": "deployment registry values"
+      },
+      {
+        "schema": "bidora_tenancy",
+        "table": "tenant_database_assignments",
+        "status": "implemented_not_db_verified",
+        "gate": "provisioner and secret manager"
+      },
+      {
+        "schema": "bidora_tenancy",
+        "table": "tenant_schema_versions",
+        "status": "implemented_not_db_verified",
+        "gate": "migrator reconciliation"
+      },
+      {
+        "schema": "tenancy",
+        "table": "provisioning_jobs",
+        "status": "implemented_not_verified",
+        "gate": "TENDERPRENEUR-ORG-001 approved intake/checkpoint schema; worker, provisioner credentials and live rollback/retry evidence remain blocked"
+      },
+      {
+        "schema": "tenancy",
+        "table": "organization_creation_operations",
+        "status": "implemented_not_verified",
+        "gate": "unmounted TENDERPRENEUR-ORG-001 intake; provisioning execution and live PostgreSQL evidence deferred"
+      },
+      {
+        "schema": "tenancy",
+        "table": "organization_creation_lifetime_markers",
+        "status": "implemented_not_verified",
+        "gate": "marker writes only after a separately implemented non-reversible/ACTIVE checkpoint"
+      },
+      {
+        "schema": "tenancy",
+        "table": "organization_creation_commands",
+        "status": "implemented_not_verified",
+        "gate": "hash-only idempotency evidence; HTTP composition and live replay/race evidence deferred"
+      },
+      {
+        "schema": "tenancy",
+        "table": "memberships",
+        "status": "implemented_not_db_verified",
+        "gate": "grant-management authority, runtime grants and live stale-context tests"
+      },
+      {
+        "schema": "tenancy",
+        "table": "role_grants",
+        "status": "implemented_not_db_verified",
+        "gate": "role catalog/last-admin management and live deny-precedence tests"
+      },
+      {
+        "schema": "tenancy",
+        "table": "invitations",
+        "status": "implemented_not_db_verified",
+        "gate": "approved fixed capture-contributor policy; live runtime issue/deliver/accept/capture passed; external SMTP/deployment acceptance and production role provisioning remain required"
+      },
+      {
+        "schema": "subscription",
+        "table": "entitlements",
+        "status": "blocked_policy",
+        "gate": "BID-ADR-015"
+      },
+      {
+        "schema": "subscription",
+        "table": "usage_ledger",
+        "status": "blocked_policy",
+        "gate": "quota/reservation policy"
+      },
+      {
+        "schema": "bidora_control_audit",
+        "table": "audit_events",
+        "status": "implemented_not_db_verified",
+        "gate": "runtime grants and operation-specific audit tests"
+      },
+      {
+        "schema": "bidora_control_eventing",
+        "table": "outbox_events",
+        "status": "implemented_not_db_verified",
+        "gate": "event acceptance/dispatcher/live transaction tests"
+      },
+      {
+        "schema": "control_commands",
+        "table": "idempotency_records",
+        "status": "planned_dependency",
+        "gate": "identity/tenant operation contracts"
+      },
+      {
+        "schema": "identity",
+        "table": "password_recovery_challenges",
+        "status": "implemented_not_verified",
+        "gate": "Recovery domain and Redis limits approved; migration 00010 and live composed verification deferred"
+      },
+      {
+        "schema": "tenancy",
+        "table": "membership_offboarding_operations",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-021 durable cross-plane checkpoints; control migration 00011 unapplied"
+      },
+      {
+        "schema": "tenancy",
+        "table": "membership_offboarding_events",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-021 immutable transition evidence; control migration 00011 unapplied"
+      },
+      {
+        "schema": "identity",
+        "table": "session_revocation_commands",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-022 hash-only revoke-one idempotency; control migration 00012 unapplied"
+      },
+      {
+        "schema": "identity",
+        "table": "mfa_factors",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-023 encrypted TOTP lifecycle and replay counters; control migration 00013 unapplied"
+      },
+      {
+        "schema": "identity",
+        "table": "mfa_recovery_codes",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-023 hash-only single-use recovery codes; control migration 00013 unapplied"
+      },
+      {
+        "schema": "identity",
+        "table": "mfa_transactions",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-023 browser-bound hash-only login challenges; control migration 00013 unapplied"
+      },
+      {
+        "schema": "platform_settings",
+        "table": "session_policy",
+        "status": "implemented_not_verified",
+        "gate": "BID-MVP-03: bounded ordinary-session policy, current Owner/recent TOTP, atomic revocation/audit/outbox/receipts. Control migration 38; live persistence/isolation verification in BID-MVP-05."
+      },
+      {
+        "schema": "platform_settings",
+        "table": "session_policy_commands",
+        "status": "implemented_not_verified",
+        "gate": "BID-MVP-03: bounded ordinary-session policy, current Owner/recent TOTP, atomic revocation/audit/outbox/receipts. Control migration 38; live persistence/isolation verification in BID-MVP-05."
+      }
+    ],
+    "tenderpreneur_tenant": [
+      {
+        "schema": "bidora_meta",
+        "table": "schema_compatibility",
+        "status": "implemented_not_db_verified",
+        "gate": "live migration tests"
+      },
+      {
+        "schema": "bidora_tenant",
+        "table": "organization_profile",
+        "status": "implemented_not_db_verified",
+        "gate": "provisioner population/runtime grants/live tests"
+      },
+      {
+        "schema": "bidora_tenant",
+        "table": "user_profiles",
+        "status": "implemented_not_db_verified",
+        "gate": "membership projection consumer/live tests; never authorization"
+      },
+      {
+        "schema": "documents",
+        "table": "documents",
+        "status": "implemented_not_db_verified",
+        "gate": "approved private PDF/DOCX tender-source and bid-evidence ownership"
+      },
+      {
+        "schema": "documents",
+        "table": "document_versions",
+        "status": "implemented_not_db_verified",
+        "gate": "immutable MinIO version plus exact-version ClamAV CLEAN/REJECTED transition; live verification pending"
+      },
+      {
+        "schema": "documents",
+        "table": "document_verifications",
+        "status": "blocked_policy",
+        "gate": "verification/correction policy"
+      },
+      {
+        "schema": "documents",
+        "table": "upload_sessions",
+        "status": "implemented_not_db_verified",
+        "gate": "25 MiB checksum-bound ten-minute MinIO upload sessions"
+      },
+      {
+        "schema": "documents",
+        "table": "retention_holds",
+        "status": "blocked_policy",
+        "gate": "BID-ARC-007 retention/legal policy"
+      },
+      {
+        "schema": "bidora_audit",
+        "table": "audit_events",
+        "status": "implemented_not_db_verified",
+        "gate": "runtime grants/live tests"
+      },
+      {
+        "schema": "bidora_eventing",
+        "table": "outbox_events",
+        "status": "implemented_not_db_verified",
+        "gate": "event acceptance/dispatcher"
+      },
+      {
+        "schema": "bidora_eventing",
+        "table": "inbox_events",
+        "status": "implemented_not_db_verified",
+        "gate": "consumer transaction/replay/retention live tests"
+      },
+      {
+        "schema": "bidora_commands",
+        "table": "idempotency_records",
+        "status": "implemented_not_db_verified",
+        "gate": "transaction/live race tests"
+      },
+      {
+        "schema": "jobs",
+        "table": "jobs",
+        "status": "implemented_not_db_verified",
+        "gate": "claim/scan/CLEAN-gated analysis execution implemented; retry policy and live verification pending"
+      },
+      {
+        "schema": "ai",
+        "table": "extraction_runs",
+        "status": "implemented_not_db_verified",
+        "gate": "OpenAI structured extraction run metadata; provider acceptance pending"
+      },
+      {
+        "schema": "ai",
+        "table": "requirement_suggestions",
+        "status": "implemented_not_db_verified",
+        "gate": "immutable cited proposals with human ACCEPTED/REJECTED review and authoritative requirement linkage; live verification pending"
+      },
+      {
+        "schema": "notification",
+        "table": "preferences",
+        "status": "planned_dependency",
+        "gate": "preference and retention contract"
+      },
+      {
+        "schema": "notification",
+        "table": "notifications",
+        "status": "implemented_not_db_verified",
+        "gate": "BID-NOTIFY-001 logical metadata ledger; producer composition and live verification pending"
+      },
+      {
+        "schema": "notification",
+        "table": "delivery_attempts",
+        "status": "implemented_not_db_verified",
+        "gate": "BID-NOTIFY-001 active SMTP-version attempt evidence; provider composition and live verification pending"
+      },
+      {
+        "schema": "notification",
+        "table": "delivery_attempt_results",
+        "status": "implemented_not_db_verified",
+        "gate": "BID-NOTIFY-001 safe terminal dispositions; provider composition and live verification pending"
+      },
+      {
+        "schema": "bidora_opportunity",
+        "table": "opportunities",
+        "status": "implemented_not_db_verified",
+        "gate": "live migration/transaction tests"
+      },
+      {
+        "schema": "bidora_opportunity",
+        "table": "source_versions",
+        "status": "implemented_not_db_verified",
+        "gate": "human verification transition implemented; document FK remains deferred"
+      },
+      {
+        "schema": "bid",
+        "table": "workspaces",
+        "status": "implemented_not_db_verified",
+        "gate": "approved one-active-workspace/no-variant MVP; runtime verification deferred"
+      },
+      {
+        "schema": "bid",
+        "table": "decisions",
+        "status": "implemented_not_db_verified",
+        "gate": "approved human-only BID/NO_BID with mandatory rationale; verification deferred"
+      },
+      {
+        "schema": "bid",
+        "table": "requirements",
+        "status": "implemented_not_db_verified",
+        "gate": "manual and human-accepted cited AI requirements; evidence-backed SATISFIED transition deferred"
+      },
+      {
+        "schema": "bid",
+        "table": "requirement_evidence",
+        "status": "implemented_not_db_verified",
+        "gate": "exact CLEAN bid-evidence linkage and human satisfaction transition; live verification pending"
+      },
+      {
+        "schema": "bid",
+        "table": "response_sections",
+        "status": "implemented_not_db_verified",
+        "gate": "one plain-text technical response section per requirement; pricing excluded"
+      },
+      {
+        "schema": "bid",
+        "table": "response_versions",
+        "status": "implemented_not_db_verified",
+        "gate": "immutable bounded plain-text revisions; live verification pending"
+      },
+      {
+        "schema": "bid",
+        "table": "response_evidence",
+        "status": "implemented_not_db_verified",
+        "gate": "exact same-requirement evidence links per immutable response revision"
+      },
+      {
+        "schema": "bid",
+        "table": "financial_responses",
+        "status": "blocked_policy",
+        "gate": "pricing capability/arithmetic policy"
+      },
+      {
+        "schema": "bid",
+        "table": "financial_lines",
+        "status": "blocked_policy",
+        "gate": "decimal/rounding/tax policy"
+      },
+      {
+        "schema": "workflow",
+        "table": "review_candidates",
+        "status": "superseded_no_table",
+        "gate": "Bounded pilot candidate is the exact immutable bid.proposal_package_manifests record"
+      },
+      {
+        "schema": "workflow",
+        "table": "approval_decisions",
+        "status": "superseded_no_table",
+        "gate": "BID-ADR-011 bounded pilot decision is bid.proposal_approvals"
+      },
+      {
+        "schema": "workflow",
+        "table": "approval_applicability",
+        "status": "derived_no_table",
+        "gate": "BID-ADR-011 applicability is rechecked from exact current manifest/proposal/workspace/readiness facts"
+      },
+      {
+        "schema": "readiness",
+        "table": "results",
+        "status": "blocked_policy",
+        "gate": "deterministic blocker policy"
+      },
+      {
+        "schema": "packages",
+        "table": "submission_packages",
+        "status": "blocked_policy",
+        "gate": "BID-ADR-017 renderer/format profile"
+      },
+      {
+        "schema": "submission",
+        "table": "external_evidence",
+        "status": "superseded_no_table",
+        "gate": "Pilot uses SUBMISSION_PROOF documents linked to bid.external_action_evidence under migration 00023"
+      },
+      {
+        "schema": "submission",
+        "table": "evidence_confirmations",
+        "status": "superseded_no_table",
+        "gate": "Pilot uses bid.submission_confirmations under approved external-proof policy"
+      },
+      {
+        "schema": "bid",
+        "table": "outcomes",
+        "status": "superseded_no_table",
+        "gate": "BID-ADR-012 bounded implementation is bid.reported_outcomes"
+      },
+      {
+        "schema": "ai",
+        "table": "response_draft_runs",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded advisory drafting; migration 00011 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "response_draft_inputs",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded advisory drafting; migration 00011 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "response_draft_suggestions",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded advisory drafting; migration 00011 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "response_draft_citations",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded advisory drafting; migration 00011 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "response_gap_suggestions",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded advisory drafting; migration 00011 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "proposals",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-004 editable proposal workspace; migration 00012 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "proposal_versions",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-004 editable proposal workspace; migration 00012 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "proposal_response_versions",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-004 editable proposal workspace; migration 00012 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "proposal_draft_runs",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded proposal writing; migration 00013 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "proposal_draft_inputs",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded proposal writing; migration 00013 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "proposal_draft_suggestions",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded proposal writing; migration 00013 unapplied"
+      },
+      {
+        "schema": "ai",
+        "table": "proposal_draft_citations",
+        "status": "implemented_not_verified",
+        "gate": "BID-AI-004 grounded proposal writing; migration 00013 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "requirement_versions",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-003 immutable correction history; migration 00016 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "review_threads",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-005 append-only collaboration; migration 00017 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "review_comments",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-005 append-only collaboration; migration 00017 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "review_assignments",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-005 review ownership history; migration 00018 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "internal_review_decisions",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-005 non-approval internal review history; migration 00019 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "proposal_package_manifests",
+        "status": "implemented_not_verified",
+        "gate": "Pre-submission preparation only; migration 00020 unapplied; signing/submission remain blocked"
+      },
+      {
+        "schema": "bid",
+        "table": "proposal_approvals",
+        "status": "implemented_not_verified",
+        "gate": "Approved two-person BID-ADR-011 policy; migration 00022 unapplied; signing/submission remain blocked"
+      },
+      {
+        "schema": "bid",
+        "table": "external_action_evidence",
+        "status": "implemented_not_verified",
+        "gate": "BID-BE-006 immutable external-action reports; confirmation requires exact active leaf and separate verifier"
+      },
+      {
+        "schema": "bid",
+        "table": "submission_confirmations",
+        "status": "implemented_not_verified",
+        "gate": "Approved human-confirmed external proof policy; migration 00023 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "reported_outcomes",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-012 append-only unverified outcome history; migration 00024 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "archive_events",
+        "status": "implemented_not_verified",
+        "gate": "Approved pilot non-destructive archive policy; migration 00025 unapplied; no deletion, retention disposition, legal-hold change or restoration"
+      },
+      {
+        "schema": "bid",
+        "table": "assignment_guards",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-021 assignment concurrency fence only, never authority; migration 00026 unapplied"
+      },
+      {
+        "schema": "bid",
+        "table": "membership_ownership_transfer_events",
+        "status": "implemented_not_verified",
+        "gate": "BID-ADR-021 immutable bounded transfer evidence; migration 00026 unapplied"
+      }
+    ]
+  },
+  "excluded_future_release_databases": [
+    "exchange",
+    "procurement_tenant",
+    "ai_search"
+  ],
+  "note": "A catalog entry is not implementation permission. Only implemented_not_db_verified entries have executable DDL, and none has live PostgreSQL evidence."
+}

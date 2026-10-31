@@ -1,0 +1,84 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts",
+    ".next-auth003/types/**/*.ts",
+    ".next-auth003/dev/types/**/*.ts",
+    ".next-auth-test-56956/types/**/*.ts",
+    ".next-auth-test-56956/dev/types/**/*.ts",
+    ".next-auth-test-57190/types/**/*.ts",
+    ".next-auth-test-57190/dev/types/**/*.ts",
+    ".next-auth-test-57600/types/**/*.ts",
+    ".next-auth-test-57600/dev/types/**/*.ts",
+    ".next-auth-test-58257/types/**/*.ts",
+    ".next-auth-test-58257/dev/types/**/*.ts",
+    ".next-auth-test-70674/types/**/*.ts",
+    ".next-auth-test-70674/dev/types/**/*.ts",
+    ".next-auth-test-75064/types/**/*.ts",
+    ".next-auth-test-75064/dev/types/**/*.ts",
+    ".next-auth-test-79464/types/**/*.ts",
+    ".next-auth-test-79464/dev/types/**/*.ts",
+    ".next-auth-test-83181/types/**/*.ts",
+    ".next-auth-test-83181/dev/types/**/*.ts",
+    ".next-auth-test-21729/types/**/*.ts",
+    ".next-auth-test-21729/dev/types/**/*.ts",
+    ".next-auth-test-39026/types/**/*.ts",
+    ".next-auth-test-39026/dev/types/**/*.ts",
+    ".next-auth-test-39632/types/**/*.ts",
+    ".next-auth-test-39632/dev/types/**/*.ts",
+    ".next-auth-test-53343/types/**/*.ts",
+    ".next-auth-test-53343/dev/types/**/*.ts",
+    ".next-auth-test-42920/types/**/*.ts",
+    ".next-auth-test-42920/dev/types/**/*.ts",
+    ".next-auth-test-26976/types/**/*.ts",
+    ".next-auth-test-26976/dev/types/**/*.ts",
+    ".next-auth-test-29477/types/**/*.ts",
+    ".next-auth-test-29477/dev/types/**/*.ts",
+    ".next-auth-test-37835/types/**/*.ts",
+    ".next-auth-test-37835/dev/types/**/*.ts",
+    ".next-auth-test-18440/types/**/*.ts",
+    ".next-auth-test-18440/dev/types/**/*.ts",
+    ".next-auth-test-21611/types/**/*.ts",
+    ".next-auth-test-21611/dev/types/**/*.ts",
+    ".next-auth-test-32225/types/**/*.ts",
+    ".next-auth-test-32225/dev/types/**/*.ts",
+    ".next-auth-test-33524/types/**/*.ts",
+    ".next-auth-test-33524/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

@@ -1,0 +1,11 @@
+export type PlatformInformation = { platform_name: string; contact_phone: string; support_email: string | null; website: string | null; version: number; updated_at: string | null };
+function record(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
+export function parsePlatformInformation(value: unknown): PlatformInformation | null {
+  const root = record(value), data = record(root?.data), meta = record(root?.meta);
+  if (!root || !data || !meta || Object.keys(root).length !== 2 || !Object.hasOwn(root, "data") || !Object.hasOwn(root, "meta") || !Object.hasOwn(meta, "trace_id") || typeof meta.trace_id !== "string" || !meta.trace_id ||
+    Object.keys(data).length !== 6 || !["platform_name", "contact_phone", "support_email", "website", "version", "updated_at"].every((key) => Object.hasOwn(data, key)) || typeof data.platform_name !== "string" || data.platform_name.length < 1 || Array.from(data.platform_name).length > 120 || data.platform_name.trim() !== data.platform_name || /[\u0000-\u001f\u007f-\u009f]/.test(data.platform_name) || typeof data.contact_phone !== "string" || data.contact_phone !== "" && (!/^\+?[0-9 ()-]{7,32}$/.test(data.contact_phone) || (data.contact_phone.match(/\d/g) ?? []).length < 7) || !Number.isSafeInteger(data.version) || Number(data.version) < 1 ||
+    !(data.support_email === null || typeof data.support_email === "string" && data.support_email.length > 2 && data.support_email.length <= 254 && /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+$/.test(data.support_email)) ||
+    !(data.website === null || typeof data.website === "string" && data.website.startsWith("https://") && data.website.length <= 512 && !/[\u0000-\u0020\u007f]/.test(data.website) && (() => { try { const url = new URL(data.website as string); return url.protocol === "https:" && !url.username && !url.password && !url.port && !url.search && !url.hash; } catch { return false; } })()) ||
+    !(data.updated_at === null || typeof data.updated_at === "string" && Number.isFinite(Date.parse(data.updated_at))) || (data.support_email === null) !== (data.website === null) || (data.updated_at === null) !== (data.website === null)) return null;
+  return data as PlatformInformation;
+}

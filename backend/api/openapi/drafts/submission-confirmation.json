@@ -1,0 +1,373 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora external submission confirmation",
+    "version": "0.2.0-draft",
+    "description": "Private exact proof upload and independent human confirmation of an externally performed submission action. Bidora does not transmit the package and never asserts external acceptance or timeliness."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/submission-evidence-reports/{evidence_id}/proof/uploads": {
+      "post": {
+        "summary": "Initiate a private PDF proof upload",
+        "description": "Requires tenderpreneur.submission.report. PDF only, maximum 25 MiB, exact SHA-256/size, ten-minute private upload instructions.",
+        "responses": {
+          "201": {
+            "description": "Upload instructions"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "size_bytes",
+                  "sha256"
+                ],
+                "properties": {
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 26214400
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/submission-evidence-reports/{evidence_id}/proof/uploads/{upload_id}/complete": {
+      "post": {
+        "summary": "Complete exact proof upload and queue fail-closed malware scanning",
+        "responses": {
+          "202": {
+            "description": "Quarantined immutable proof and scan job"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Expired or mismatch"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        },
+        "description": "Verifies exact immutable object version, byte size, media type and SHA-256, then records QUARANTINED proof and queues fail-closed scanning. Confirmation cannot use it before CLEAN."
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/submission-confirmation": {
+      "post": {
+        "summary": "Human-confirm external proof and atomically mark submitted",
+        "description": "Requires tenderpreneur.submission.verify, verifier distinct from reporter, session created within 15 minutes, exact CLEAN PDF proof, applicable approval, current readiness and versions. Never claims Bidora transmission, external acceptance or timeliness.",
+        "responses": {
+          "201": {
+            "description": "Immutable HUMAN_CONFIRMED_EXTERNAL_ACTION submission"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Unauthorized or fresh authentication required"
+          },
+          "409": {
+            "description": "Blocked or conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "evidence_id",
+                  "manifest_id",
+                  "proof_document_version_id",
+                  "expected_workspace_version",
+                  "rationale"
+                ],
+                "properties": {
+                  "evidence_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "manifest_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "proof_document_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read immutable human-confirmed submission facts",
+        "responses": {
+          "200": {
+            "description": "Submission facts with all external claims false"
+          },
+          "403": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not submitted"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

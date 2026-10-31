@@ -1,0 +1,63 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot Google authentication",
+    "version": "0.1.0-draft",
+    "description": "Approved Google Authorization Code with PKCE browser contract. Handlers are implemented but routes are not registered or deployed."
+  },
+  "x-status": "handlers-prepared-routes-blocked",
+  "x-approval": {
+    "date": "2026-10-18",
+    "owner": "requesting user",
+    "evidence": "proceed and approve",
+    "remaining": ["deployment client/callback/redirect values", "composed Google/Redis/PostgreSQL acceptance", "route activation review"]
+  },
+  "paths": {
+    "/v1/auth/google/start": {
+      "post": {
+        "operationId": "startGoogleAuthentication",
+        "summary": "Create a single-use Google authorization transaction",
+        "description": "Requires an exact approved HTTPS Origin, no body and no query. Commits short-lived state before returning a 303 to Google's fixed authorization endpoint and sets a host-only correlation cookie.",
+        "security": [],
+        "parameters": [{"name":"Origin","in":"header","required":true,"schema":{"type":"string","format":"uri"}}],
+        "responses": {
+          "303": {"description":"Transaction committed. Redirect to Google with state, nonce and S256 PKCE challenge.","headers":{"Location":{"schema":{"type":"string","format":"uri"}},"Set-Cookie":{"schema":{"type":"string"}},"Cache-Control":{"schema":{"type":"string","const":"private, no-store"}},"Referrer-Policy":{"schema":{"type":"string","const":"no-referrer"}}}},
+          "400": {"$ref":"#/components/responses/Failure"},
+          "403": {"$ref":"#/components/responses/Failure"},
+          "503": {"$ref":"#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/auth/google/callback": {
+      "get": {
+        "operationId": "completeGoogleAuthentication",
+        "summary": "Consume a Google authorization callback",
+        "description": "Accepts exactly one state and code, requires the host-only correlation cookie, consumes state before exchange, and always clears the correlation cookie. Success atomically commits a Bidora session/audit, sets session and CSRF cookies and redirects to the fixed success destination. Every expected callback/authentication failure redirects to one fixed failure destination without diagnostics.",
+        "security": [],
+        "parameters": [
+          {"name":"state","in":"query","required":true,"schema":{"type":"string","minLength":43,"maxLength":43}},
+          {"name":"code","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":4096}}
+        ],
+        "responses": {
+          "303": {"description":"Fixed configured success or generic failure redirect. Correlation cookie is cleared; session cookies are present only after successful commit.","headers":{"Location":{"schema":{"type":"string","format":"uri"}},"Set-Cookie":{"schema":{"type":"string"}},"Cache-Control":{"schema":{"type":"string","const":"private, no-store"}},"Referrer-Policy":{"schema":{"type":"string","const":"no-referrer"}}}},
+          "500": {"$ref":"#/components/responses/Failure"},
+          "503": {"$ref":"#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "Failure": {
+        "description":"Generic safe pre-redirect failure. Provider, code, state, cookie and dependency diagnostics are never returned.",
+        "headers":{"Cache-Control":{"schema":{"type":"string","const":"private, no-store"}}},
+        "content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["error"],"properties":{"error":{"type":"object"}}}}}
+      }
+    }
+  },
+  "x-cookie-policy": {
+    "correlation": "__Host-bidora_google_oidc; Secure; HttpOnly; SameSite=Lax; Path=/; no Domain; explicit transaction TTL",
+    "session": "__Host-bidora_session; Secure; HttpOnly; SameSite=Lax; Path=/; no Domain",
+    "csrf": "__Host-bidora_csrf; Secure; SameSite=Lax; Path=/; no Domain"
+  }
+}

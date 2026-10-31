@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <mask id="aperture">
+    <rect width="64" height="64" fill="#fff"/>
+    <path d="M32 23 41 32 32 41 23 32Z" fill="#000"/>
+  </mask>
+  <g fill="#F7F4EC" mask="url(#aperture)">
+    <path d="M8 8h16l10 24-10 24H8l10-24Z"/>
+    <path d="M56 8H40L30 32l10 24h16L46 32Z"/>
+  </g>
+</svg>

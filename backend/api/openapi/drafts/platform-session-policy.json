@@ -1,0 +1,242 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Platform Session Policy",
+    "version": "0.1.0-draft"
+  },
+  "x-status": "implemented-not-verified",
+  "x-owner": "platform_settings",
+  "paths": {
+    "/v1/platform/security/session-policy": {
+      "get": {
+        "operationId": "getPlatformSessionPolicy",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires current platform.admin.read and TOTP AAL2 within 15 minutes; write additionally requires effective PLATFORM_OWNER. Only tighter ordinary limits within mandatory 30-minute idle/12-hour absolute maxima. Each saved change atomically revokes ordinary sessions to prevent resurrection on relaxation and commits receipt/audit/outbox. Verified administrator profiles, MFA, passwords and CSRF remain unchanged. No provider call.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current or saved policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          }
+        }
+      },
+      "put": {
+        "operationId": "savePlatformSessionPolicy",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires current platform.admin.read and TOTP AAL2 within 15 minutes; write additionally requires effective PLATFORM_OWNER. Only tighter ordinary limits within mandatory 30-minute idle/12-hour absolute maxima. Each saved change atomically revokes ordinary sessions to prevent resurrection on relaxation and commits receipt/audit/outbox. Verified administrator profiles, MFA, passwords and CSRF remain unchanged. No provider call.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]*\"$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current or saved policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "401": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "403": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "idle_seconds",
+                  "absolute_seconds"
+                ],
+                "properties": {
+                  "idle_seconds": {
+                    "type": "integer",
+                    "enum": [
+                      300,
+                      600,
+                      900,
+                      1800
+                    ]
+                  },
+                  "absolute_seconds": {
+                    "type": "integer",
+                    "enum": [
+                      3600,
+                      14400,
+                      28800,
+                      43200
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "browserSession": { "type": "apiKey", "in": "cookie", "name": "__Host-bidora_session" } },
+    "schemas": {
+      "Policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idle_seconds",
+          "absolute_seconds",
+          "version"
+        ],
+        "properties": {
+          "idle_seconds": {
+            "type": "integer",
+            "enum": [
+              300,
+              600,
+              900,
+              1800
+            ]
+          },
+          "absolute_seconds": {
+            "type": "integer",
+            "enum": [
+              3600,
+              14400,
+              28800,
+              43200
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PolicyResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Policy"
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "trace_id"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

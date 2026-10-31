@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { readFile,mkdtemp,writeFile,rm } from "node:fs/promises";
+import { registerHooks } from "node:module";
+import { rootCertificates } from "node:tls";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import test from "node:test";
+const hooks=registerHooks({resolve(specifier,context,next){return specifier==="server-only"?{url:"data:text/javascript,export {}",shortCircuit:true}:next(specifier,context);}});
+const { integrationTrustRoots }=await import("../src/lib/server/integration-trust.ts");hooks.deregister();
+test("certificate controls stay out of SMTP and AI forms while backend trust is preserved",async()=>{for(const file of ["smtp-configuration","platform-openai-settings"]){const source=await readFile(new URL(`../src/components/platform/${file}.tsx`,import.meta.url),"utf8");assert.doesNotMatch(source,/Trusted CA|BEGIN CERTIFICATE|trust_roots_pem|draft\.roots|draft\.trustRoots/);}const proxy=await readFile(new URL("../src/lib/server/platform-proxy.ts",import.meta.url),"utf8");assert.match(proxy,/integrationTrustRoots/);assert.match(proxy,/delete payload\.use_default_trust/);assert.doesNotMatch(proxy,/rejectUnauthorized:\s*false|NODE_TLS_REJECT_UNAUTHORIZED/);});
+test("deployment trust is bounded, validated and fails closed without configuration",async()=>{const previous=[process.env.NODE_EXTRA_CA_CERTS,process.env.SSL_CERT_FILE],dir=await mkdtemp(path.join(tmpdir(),"bidora-ui-trust-"));try{delete process.env.NODE_EXTRA_CA_CERTS;delete process.env.SSL_CERT_FILE;await assert.rejects(integrationTrustRoots());const file=path.join(dir,"ca.pem");process.env.NODE_EXTRA_CA_CERTS=file;await writeFile(file,rootCertificates[0]);assert.equal(await integrationTrustRoots(),rootCertificates[0]);await writeFile(file,"not a certificate");await assert.rejects(integrationTrustRoots());await writeFile(file,"x".repeat(24577));await assert.rejects(integrationTrustRoots());}finally{for(const[key,value]of [["NODE_EXTRA_CA_CERTS",previous[0]],["SSL_CERT_FILE",previous[1]]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}await rm(dir,{recursive:true,force:true});}});

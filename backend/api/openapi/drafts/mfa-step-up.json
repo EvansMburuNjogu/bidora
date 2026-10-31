@@ -1,0 +1,770 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot MFA and step-up",
+    "version": "0.3.0-draft"
+  },
+  "x-status": "BID-ADR-023 approved and source-conformant; IMPLEMENTED_NOT_VERIFIED",
+  "x-security-semantics": {
+    "factor": "TOTP",
+    "session_assurance": [
+      "AAL1",
+      "AAL2"
+    ],
+    "step_up_seconds": 900,
+    "administrator_reset": false,
+    "trusted_device_bypass": false,
+    "login_factor": "EMAIL_OTP",
+    "privileged_factor": "TOTP"
+  },
+  "paths": {
+    "/v1/auth/mfa/totp/enroll": {
+      "post": {
+        "summary": "Begin one pending TOTP enrollment",
+        "description": "Requires current session, exact Origin, session-bound CSRF and an exact strict application/json {} body no larger than 4 KiB. Requires a session created within 15 minutes; returns the raw enrollment secret once.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pending ten-minute enrollment",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/totp/confirm": {
+      "post": {
+        "summary": "Confirm pending TOTP and activate MFA",
+        "description": "Requires current session, exact Origin and session-bound CSRF. Activation advances auth epoch, revokes sessions and returns replacement AAL2 cookies plus ten recovery codes once.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TOTPCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Factor active; replacement cookies and recovery codes returned once",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/step-up": {
+      "post": {
+        "summary": "Rotate current session to AAL2",
+        "description": "Requires current session, exact Origin and session-bound CSRF. TOTP or recovery code verifies before atomic current-session rotation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MFACodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Replacement AAL2 session cookies issued",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/recovery-codes/regenerate": {
+      "post": {
+        "summary": "Replace all recovery codes",
+        "description": "Requires current session, exact Origin, session-bound CSRF and an exact strict application/json {} body no larger than 4 KiB. Requires AAL2 assurance within 15 minutes and returns ten raw codes once.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New codes returned once",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/auth/mfa/totp/replace": {
+      "post": {
+        "summary": "Replace the active TOTP factor",
+        "description": "Requires current session, exact Origin, session-bound CSRF and recent TOTP or recovery-code AAL2. An empty object starts a ten-minute pending replacement; a request containing only code confirms it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EmptyObject"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TOTPCodeRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Factor replaced and recovery codes returned once",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Pending ten-minute replacement",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/auth/login-code/resend": {
+      "post": {
+        "summary": "Replace and resend the current email login code",
+        "description": "Requires the browser-bound login correlation cookie and exact Origin. Fail-closed HMAC-scoped limits allow at most one request per 30 seconds, three per 15 minutes per identity and ten per 15 minutes per validated client network. A permitted resend invalidates the former transaction before authenticated STARTTLS delivery; delivery failure returns 503 and issues no session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "description": "Resend denied by cooldown, identity or network limit. Retry-After is 900 seconds and no email is sent.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "900"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "202": {
+            "description": "A replacement code was delivered and the browser correlation cookie was rotated",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login-code/verify": {
+      "post": {
+        "summary": "Complete email-code-gated primary login",
+        "description": "Consumes a five-minute browser-bound EMAIL_LOGIN transaction using the latest delivered email code and only then issues an AAL1 session. The code is HMAC-SHA-256 protected at rest, single-use and limited to five attempts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLoginCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "AAL1 EMAIL_OTP session cookies issued",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/auth/login-code/cancel": {
+      "post": {
+        "summary": "Cancel the current email login challenge",
+        "description": "Requires exact Origin and accepts no body or query. Atomically consumes the browser-bound EMAIL_LOGIN transaction when present, clears the correlation cookie and returns generic 204 for missing, expired, cancelled or malformed correlation values. It never creates a session or sends email.",
+        "responses": {
+          "204": {
+            "description": "The browser login challenge is cleared and any matching active server transaction is consumed.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PrivateNoStore"
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "PrivateNoStore": {
+        "description": "Private authentication response must not be cached.",
+        "schema": {
+          "type": "string",
+          "const": "private, no-store"
+        }
+      }
+    },
+    "schemas": {
+      "EmptyObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "maxProperties": 0
+      },
+      "TOTPCodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "MFACodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "method"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 16
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "TOTP",
+              "RECOVERY_CODE"
+            ]
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trace_id"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Enrollment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "factor_id",
+          "secret",
+          "otpauth_uri",
+          "expires_at"
+        ],
+        "properties": {
+          "factor_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "secret": {
+            "type": "string",
+            "pattern": "^[A-Z2-7]{32}$",
+            "x-sensitive": true,
+            "description": "Raw TOTP secret returned only while enrollment is pending; never log or persist in a browser."
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "pattern": "^otpauth://totp/",
+            "maxLength": 2048,
+            "x-sensitive": true
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EnrollmentResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Enrollment"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "RecoveryCode": {
+        "type": "string",
+        "pattern": "^[0-9A-HJKMNP-TV-Z]{16}$",
+        "x-sensitive": true
+      },
+      "RecoveryCodes": {
+        "type": "array",
+        "minItems": 10,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/components/schemas/RecoveryCode"
+        }
+      },
+      "Activation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recovery_codes",
+          "assurance_level",
+          "assurance_method"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "$ref": "#/components/schemas/RecoveryCodes"
+          },
+          "assurance_level": {
+            "type": "string",
+            "const": "AAL2"
+          },
+          "assurance_method": {
+            "type": "string",
+            "const": "TOTP"
+          }
+        }
+      },
+      "ActivationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Activation"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "RecoveryCodesData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recovery_codes"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "$ref": "#/components/schemas/RecoveryCodes"
+          }
+        }
+      },
+      "RecoveryCodesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecoveryCodesData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "field_errors",
+          "trace_id",
+          "retryable"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "field_errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      },
+      "EmailLoginCodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "method"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "method": {
+            "type": "string",
+            "const": "EMAIL_OTP"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without MFA secrets, recovery codes, session tokens or credential material.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/PrivateNoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

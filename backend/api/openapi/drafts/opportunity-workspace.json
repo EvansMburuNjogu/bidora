@@ -1,0 +1,360 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora tender verification and workspace",
+    "version": "0.2.0-draft",
+    "description": "TP-F08 human verification of an exact captured source, one active Bid workspace, and immutable versioned BID/NO_BID decisions. AI and service actors cannot decide."
+  },
+  "x-status": "tp-f08-runtime-mounted-implemented-not-verified",
+  "x-approval": {
+    "policy": "simple manual verification and one-workspace MVP",
+    "owner": "requesting user"
+  },
+  "paths": {
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/verify-facts": {
+      "post": {
+        "operationId": "verifyExternalOpportunityFacts",
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "description": "Requires explicit tenderpreneur.opportunity.verify_external authority. Creates an immutable VERIFIED copy of the exact current captured source version. Title must be present; buyer and deadline may remain explicitly unknown. Requires current FULL commercial write access; stale versions and reused idempotency keys with different input conflict.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/OpportunityID"
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_version_id",
+                  "expected_version"
+                ],
+                "properties": {
+                  "source_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Verified immutable source version."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/create-workspace": {
+      "post": {
+        "operationId": "createBidWorkspace",
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "description": "Requires explicit tenderpreneur.bid.workspace.create authority, the exact current VERIFIED source version, and an active verified owner membership. Creates the sole active workspace in DECISION_PENDING state; variants are not supported in this MVP. Requires current FULL commercial write access; stale versions and reused idempotency keys with different input conflict.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/OpportunityID"
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_version_id",
+                  "owner_id",
+                  "expected_version"
+                ],
+                "properties": {
+                  "source_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "owner_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Single active bid workspace created or idempotently replayed."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/decision": {
+      "post": {
+        "operationId": "recordHumanBidDecision",
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "description": "Requires explicit tenderpreneur.bid.decision.record authority. Only BID or NO_BID is accepted, with a mandatory human rationale. Each change appends immutable history and advances the workspace version; AI and service actors cannot decide. Requires current FULL commercial write access; stale versions and reused idempotency keys with different input conflict.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantID"
+          },
+          {
+            "$ref": "#/components/parameters/ContextGeneration"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "decision",
+                  "rationale",
+                  "expected_version"
+                ],
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "BID",
+                      "NO_BID"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable human decision recorded or idempotently replayed."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      },
+      "csrfCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_csrf"
+      }
+    },
+    "parameters": {
+      "OpportunityID": {
+        "name": "opportunity_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "TenantID": {
+        "name": "X-Bidora-Tenant-ID",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ContextGeneration": {
+        "name": "X-Bidora-Context-Generation",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "CSRF": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without private tenant, source, membership or database details.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-runtime-mounted-operations": [
+    "verifyExternalOpportunityFacts",
+    "createBidWorkspace",
+    "recordHumanBidDecision"
+  ],
+  "x-commercial-write-access": "Requires current FULL access from an unexpired trial, active paid term, or current past-due grace period."
+}

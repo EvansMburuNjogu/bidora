@@ -1,0 +1,34 @@
+{
+  "openapi":"3.1.0",
+  "info":{"title":"Bidora Google account linking","version":"0.1.0-draft","description":"Approved authenticated Google-linking browser contract. Handlers exist but routes are not registered or deployed."},
+  "x-status":"handlers-prepared-routes-blocked",
+  "x-approval":{"date":"2026-10-18","owner":"requesting user","evidence":"proceed","policy":"Fresh password proof is required for every initiation; no reusable recent-authentication window."},
+  "paths":{
+    "/v1/auth/google/link/start":{
+      "post":{
+        "operationId":"startGoogleAccountLink",
+        "summary":"Freshly reauthenticate and create purpose-bound Google link state",
+        "description":"Requires a current session, exact approved HTTPS Origin, matching CSRF cookie/header, fresh password authentication for the same user and a trusted-proxy-derived network scope. Commits LINK state before a 303 redirect.",
+        "security":[{"browserSession":[],"csrf":[]}],
+        "parameters":[{"name":"Origin","in":"header","required":true,"schema":{"type":"string","format":"uri"}},{"name":"X-CSRF-Token","in":"header","required":true,"schema":{"type":"string"}}],
+        "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["email","password"],"properties":{"email":{"type":"string","minLength":1,"maxLength":254},"password":{"type":"string","minLength":1,"maxLength":128}}}}}},
+        "responses":{"303":{"description":"Purpose-bound transaction committed; host-only correlation cookie set and browser redirected to Google."},"400":{"$ref":"#/components/responses/Failure"},"401":{"$ref":"#/components/responses/Failure"},"403":{"$ref":"#/components/responses/Failure"},"413":{"$ref":"#/components/responses/Failure"},"415":{"$ref":"#/components/responses/Failure"},"429":{"$ref":"#/components/responses/Failure"},"503":{"$ref":"#/components/responses/Failure"}}
+      }
+    },
+    "/v1/auth/google/link/callback":{
+      "get":{
+        "operationId":"completeGoogleAccountLink",
+        "summary":"Consume a purpose-bound Google link callback",
+        "description":"Requires the still-current initiating session and correlation cookie. The transaction must match user, session, auth epoch and freshly verified credential version. Success atomically links the stable subject, advances auth epoch, revokes old sessions, creates a replacement session, commits audits, clears correlation state and sets replacement cookies.",
+        "security":[{"browserSession":[]}],
+        "parameters":[{"name":"state","in":"query","required":true,"schema":{"type":"string","minLength":43,"maxLength":43}},{"name":"code","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":4096}}],
+        "responses":{"303":{"description":"Fixed success or generic failure redirect. Correlation cookie is always cleared; replacement session cookies appear only after atomic success."},"401":{"$ref":"#/components/responses/Failure"},"503":{"$ref":"#/components/responses/Failure"}}
+      }
+    }
+  },
+  "components":{
+    "securitySchemes":{"browserSession":{"type":"apiKey","in":"cookie","name":"__Host-bidora_session"},"csrf":{"type":"apiKey","in":"header","name":"X-CSRF-Token"}},
+    "responses":{"Failure":{"description":"Generic safe failure; provider, password, token, state and dependency diagnostics are never returned.","content":{"application/json":{"schema":{"type":"object"}}}}}
+  },
+  "x-cookie-policy":{"correlation":"__Host-bidora_google_oidc; Secure; HttpOnly; SameSite=Lax; Path=/; no Domain","replacement":"Approved Bidora session and CSRF cookies; old sessions revoked by auth-epoch rotation."}
+}

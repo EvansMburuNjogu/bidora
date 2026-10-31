@@ -1,0 +1,118 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Read-only Platform Tenant Directory",
+    "version": "0.1.0-draft",
+    "description": "PA-F08A read-only control-plane tenant registry metadata. It exposes no tenant-private content, membership data, database locator, cluster endpoint, database name, credential reference, provisioning command, suspension command or authority grant."
+  },
+  "x-status": "approved-implemented-not-verified",
+  "x-ticket": "PA-F08A / PA-09/10",
+  "x-search-extension": "MVP functionality delivery: read-only bounded tenant-name and registry-country filtering before cursor pagination; no tenant-private search, country enablement or lifecycle command authority.",
+  "x-approval": {
+    "owner": "requesting user",
+    "evidence": "Approve PA-F08A: implement the read-only Platform Tenant Directory without provisioning, suspension, reactivation, tenant database access, or credential changes.",
+    "excluded": ["provisioning", "suspension", "reactivation", "tenant database access", "database and cluster locators", "credential changes", "memberships", "tenant-private content"]
+  },
+  "paths": {
+    "/v1/platform/tenants": {
+      "get": {
+        "operationId": "listPlatformTenants",
+        "summary": "List safe tenant registry entries",
+        "description": "Requires current platform.tenant.read, matching platform context generation and TOTP-backed AAL2 no older than 15 minutes. Optional 2–100 UTF-8-byte search is a literal case-insensitive substring of tenant name; optional uppercase two-letter country matches stored registry metadata exactly. Filters are applied before newest-first cursor pagination; neither searches tenant-private records nor enables a market. Results are private/no-store. A tenant ID and assignment generation are operational metadata, never tenant authority or a database selector.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"name": "state", "in": "query", "required": false, "schema": {"$ref": "#/components/schemas/TenantState"}},
+          {"name": "search", "in": "query", "required": false, "description": "Literal case-insensitive tenant-name substring; no leading/trailing whitespace or control characters.", "schema": {"type": "string", "minLength": 2, "maxLength": 100}},
+          {"name": "country", "in": "query", "required": false, "description": "Exact uppercase ISO-style two-letter code stored in control registry; reference choices do not imply supported-market approval.", "schema": {"type": "string", "pattern": "^[A-Z]{2}$"}},
+          {"$ref": "#/components/parameters/Limit"},
+          {"$ref": "#/components/parameters/Cursor"}
+        ],
+        "responses": {
+          "200": {"description": "Bounded tenant registry page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TenantListResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/tenants/{tenant_id}": {
+      "get": {
+        "operationId": "getPlatformTenant",
+        "summary": "Read one safe tenant registry entry",
+        "description": "Requires the same current authority as the list operation. Missing and inaccessible entries are safely concealed. The operation never opens or queries the tenant database.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"name": "tenant_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"}
+        ],
+        "responses": {
+          "200": {"description": "Safe tenant registry detail.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TenantResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}
+    },
+    "parameters": {
+      "Origin": {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+      "PlatformContextGeneration": {"name": "X-Bidora-Platform-Context-Generation", "in": "header", "required": true, "description": "Stale-context selector only; never authority.", "schema": {"type": "integer", "minimum": 1}},
+      "Limit": {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+      "Cursor": {"name": "cursor", "in": "query", "required": false, "schema": {"type": "string", "minLength": 1, "maxLength": 512}}
+    },
+    "schemas": {
+      "TenantState": {"type": "string", "enum": ["REQUESTED", "PROVISIONING", "MIGRATING", "SEEDING", "ACTIVE", "FAILED", "SUSPENDED", "DECOMMISSIONED"]},
+      "SchemaStatus": {
+        "type": ["object", "null"],
+        "additionalProperties": false,
+        "required": ["current_version", "generation", "state", "updated_at"],
+        "properties": {
+          "current_version": {"type": "integer", "minimum": 1},
+          "generation": {"type": "integer", "minimum": 1},
+          "state": {"type": "string", "enum": ["COMPATIBLE", "MIGRATING", "FAILED", "INCOMPATIBLE"]},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "Tenant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "tenant_type", "state", "country", "timezone", "locale", "assignment_generation", "version", "assignment_present", "common_schema", "tenant_schema", "created_at", "updated_at"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 300},
+          "tenant_type": {"const": "TENDERPRENEUR"},
+          "state": {"$ref": "#/components/schemas/TenantState"},
+          "country": {"type": "string", "pattern": "^[A-Z]{2}$"},
+          "timezone": {"type": "string", "minLength": 1, "maxLength": 128},
+          "locale": {"type": "string", "minLength": 1, "maxLength": 35},
+          "assignment_generation": {"type": "integer", "minimum": 0, "description": "Operational generation only; never a database selector or authority."},
+          "version": {"type": "integer", "minimum": 1},
+          "assignment_present": {"type": "boolean", "description": "Whether a matching active server-side assignment and active cluster record exist. No locator is exposed and this does not claim complete tenant readiness."},
+          "common_schema": {"$ref": "#/components/schemas/SchemaStatus"},
+          "tenant_schema": {"$ref": "#/components/schemas/SchemaStatus"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "Meta": {"type": "object", "additionalProperties": false, "required": ["trace_id"], "properties": {"trace_id": {"type": "string", "minLength": 1}, "next_cursor": {"type": ["string", "null"], "maxLength": 512}}},
+      "TenantListResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["tenants"], "properties": {"tenants": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Tenant"}}}}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "TenantResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/Tenant"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "Failure": {"type": "object", "additionalProperties": false, "required": ["error", "trace_id"], "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "retryable": {"type": "boolean"}}}, "trace_id": {"type": "string"}}}
+    },
+    "responses": {
+      "Failure": {"description": "Safe failure response.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Failure"}}}}
+    }
+  }
+}

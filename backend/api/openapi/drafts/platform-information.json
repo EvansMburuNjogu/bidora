@@ -1,0 +1,333 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Platform Information",
+    "version": "0.2.0-draft",
+    "description": "Versioned platform display identity and support contacts, shared with authenticated portals and platform communications. Does not change SMTP sender identity, financial currency or regional enablement."
+  },
+  "x-status": "implemented-not-verified",
+  "x-owner": "platform_settings",
+  "x-authority": "Administrator read/write: current platform.admin.read, exact context and TOTP AAL2 within 15 minutes; write additionally requires current effective PLATFORM_OWNER. Shared read: current verified Origin-bound session, no Platform role or tenant selector. No private tenant access.",
+  "x-effects": "Control transaction commits version, actor-scoped receipt, minimal audit and outbox. Shared projection contains only display/contact facts; no tenant-private data or administrator identifiers. Requires control migration 38 and runtime grants.",
+  "paths": {
+    "/v1/platform/information": {
+      "get": {
+        "operationId": "getPlatformInformation",
+        "summary": "Read saved admin contact details",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current saved values, version and last-update time; null before first save.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InformationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      },
+      "put": {
+        "operationId": "savePlatformInformation",
+        "summary": "Save platform identity and support contacts",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]*\"$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "support_email",
+                  "website"
+                ],
+                "properties": {
+                  "support_email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 254,
+                    "description": "ASCII dot-atom mailbox."
+                  },
+                  "website": {
+                    "type": "string",
+                    "minLength": 9,
+                    "maxLength": 512,
+                    "description": "Canonical HTTPS domain URL, no userinfo, port, query or fragment."
+                  },
+                  "platform_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Plain display name, no surrounding whitespace or controls. Omission preserves the current name."
+                  },
+                  "contact_phone": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "description": "Optional phone; empty string clears it."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or exact committed replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InformationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/shared/platform/information": {
+      "get": {
+        "operationId": "getSharedPlatformInformation",
+        "summary": "Read shared platform identity and support contacts",
+        "description": "Current Origin-bound authenticated session. No Platform role or tenant selector required. Only the shared display/contact projection; no private settings.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current saved values, version and last-update time; null before first save.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InformationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "parameters": {
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "Context": {
+        "name": "X-Bidora-Platform-Context-Generation",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "schemas": {
+      "InformationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "platform_name",
+              "support_email",
+              "website",
+              "version",
+              "updated_at",
+              "contact_phone"
+            ],
+            "properties": {
+              "platform_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "support_email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "website": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "contact_phone": {
+                "type": "string",
+                "maxLength": 32,
+                "description": "Optional phone; empty string clears it."
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "trace_id"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "Failure": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure; does not expose SQL or private contact data.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Failure"
+            }
+          }
+        }
+      }
+    }
+  }
+}

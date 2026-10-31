@@ -1,0 +1,20 @@
+{
+  "openapi":"3.1.0",
+  "info":{"title":"Bidora password recovery preparation","version":"0.1.0-draft"},
+  "paths":{
+    "/v1/auth/recovery/preparation":{
+      "get":{
+        "summary":"Read the current authenticated account's recovery posture without enabling recovery",
+        "description":"Requires exact approved HTTPS Origin and matching session-bound CSRF cookie. Returns credential-method facts only and never performs unauthenticated account lookup.",
+        "responses":{
+          "200":{"description":"Recovery policy blockers and current account facts"},
+          "400":{"description":"Body or query supplied"},
+          "401":{"description":"Session invalid"},
+          "403":{"description":"Origin or CSRF cookie rejected"},
+          "404":{"description":"Account not found"},
+          "503":{"description":"Unavailable"}
+        }
+      }
+    }
+  }
+}

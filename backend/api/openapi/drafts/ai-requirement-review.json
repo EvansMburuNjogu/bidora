@@ -1,0 +1,119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora AI requirement review",
+    "version": "0.2.0-draft",
+    "description": "TP-F09 human review of cited PROPOSED_UNVERIFIED suggestions from one exact immutable CLEAN document version."
+  },
+  "x-status": "tp-f09-runtime-mounted-implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/document-versions/{document_version_id}/ai-requirements": {
+      "get": {
+        "operationId": "listAIRequirementSuggestions",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns at most 500 suggestions from one exact clean document version. Requires tenderpreneur.bid.readiness.read.",
+        "responses": {
+          "200": {
+            "description": "Cited proposals and review states."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/document-versions/{document_version_id}/ai-requirements/{suggestion_id}/accept": {
+      "post": {
+        "operationId": "acceptAIRequirementSuggestion",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.bid.requirement.manage. Atomically records human acceptance, creates an OPEN authoritative requirement linked to the exact document version, and advances the BID workspace version.",
+        "responses": {
+          "200": {
+            "description": "Suggestion accepted and authoritative requirement created."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/opportunities/{opportunity_id}/document-versions/{document_version_id}/ai-requirements/{suggestion_id}/reject": {
+      "post": {
+        "operationId": "rejectAIRequirementSuggestion",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires tenderpreneur.bid.requirement.manage. Rejection requires a human review note and never deletes the original proposal or citation.",
+        "responses": {
+          "200": {
+            "description": "Suggestion rejected."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe failure without raw document bytes, provider details or private storage references.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-ai-authority": "Suggestions remain non-authoritative until an authorized human accepts edited or original content; rejection preserves the cited proposal."
+}

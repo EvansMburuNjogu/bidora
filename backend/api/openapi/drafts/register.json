@@ -1,0 +1,31 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Bidora pilot open registration", "version": "0.1.0-draft", "description": "Approved password self-registration boundary. It records required display-only first and last names, creates only an unverified identity and grants no membership or tenant authority."},
+  "x-status": "implemented-and-composed-provider-acceptance-pending",
+  "x-approval": {"date": "2026-10-18", "owner": "requesting user", "evidence": "proceed and proceed", "remaining": ["SMTP deployment values", "production abuse acceptance", "external sender/browser acceptance"]},
+  "paths": {
+    "/v1/auth/register": {
+      "post": {
+        "operationId": "registerPasswordIdentity",
+        "summary": "Request creation of an unverified password identity",
+        "description": "Requires an exact approved HTTPS Origin without pre-session CSRF. Existing identities receive the same 202 response. Malformed and existing identities consume privacy-scoped Redis limits. No tenant membership, capability or context is created.",
+        "security": [],
+        "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["first_name", "last_name", "email", "password"], "properties": {"first_name": {"type": "string", "minLength": 1, "maxLength": 100, "x-max-utf8-bytes": 100, "description": "Display spelling preserved exactly; leading/trailing whitespace and control characters are rejected."}, "last_name": {"type": "string", "minLength": 1, "maxLength": 100, "x-max-utf8-bytes": 100, "description": "Display spelling preserved exactly; leading/trailing whitespace and control characters are rejected."}, "email": {"type": "string", "maxLength": 254}, "password": {"type": "string", "minLength": 12, "maxLength": 128}}}}}},
+        "responses": {
+          "202": {"description": "Generic accepted response for newly created and existing identities. No body."},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "429": {"description": "Registration attempt limit reached.", "headers": {"Retry-After": {"schema": {"type": "string", "const": "900"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {"ErrorResponse": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"type": "object"}}, "trace_id": {"type": "string"}, "retryable": {"type": "boolean"}}}}}},
+    "responses": {"Failure": {"description": "Safe generic failure without identity, password, token or dependency details.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}}
+  }
+}

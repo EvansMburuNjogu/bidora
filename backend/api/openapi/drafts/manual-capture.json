@@ -1,0 +1,519 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora manual external tender capture",
+    "version": "0.2.0-draft",
+    "description": "TP-F07 runtime-mounted manual external tender capture. It preserves source facts and creates only an UNVERIFIED opportunity/source version; it never fetches the supplied URI."
+  },
+  "x-status": "tp-f07-runtime-mounted-implemented-not-verified",
+  "x-request-body-max-bytes": 32768,
+  "x-approval": {
+    "date": "2026-10-18",
+    "owner": "requesting user",
+    "evidence": "approve and proceed",
+    "scope": [
+      "capture semantics",
+      "request limits",
+      "idempotency retention without automatic TTL",
+      "verified session binding",
+      "exact HTTPS Origin and double-submit CSRF",
+      "tenant ID and context-generation selectors"
+    ],
+    "remaining": [
+      "event contract",
+      "live persistence and isolation",
+      "runtime acceptance"
+    ]
+  },
+  "paths": {
+    "/v1/tenderpreneur/opportunities/manual": {
+      "post": {
+        "operationId": "captureExternalTender",
+        "summary": "Capture unverified external facts without fetching a source URL",
+        "description": "Requires current verified identity, active membership/context and opportunity-manage capability. Server resolves the tenant database; body fields cannot select it. Never verifies facts, merges duplicates, assigns a bid owner or creates a workspace. Commit opportunity, immutable unverified source version, audit, outbox and idempotency result in one tenant transaction. Reauthorize before replay. A current FULL commercial access mode is also required. Exact source-document references remain unavailable until the document slice is composed.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "description": "Approved tenant selector, never authorization or a database locator. Must pass current control membership/capability authorization.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "description": "Approved positive membership-context generation selector. Stale values fail closed.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "Approved double-submit binding. Must equal the __Host-bidora_csrf cookie and hash-match the authenticated session under the exact HTTPS Origin policy. Never log.",
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Proposed UUID key, scoped to tenant/actor/operation. Same key with different decoded request conflicts. No automatic retries after ambiguous failures without this same key.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureRequest"
+              },
+              "examples": {
+                "unknownDeadline": {
+                  "value": {
+                    "title": "Synthetic network equipment tender",
+                    "buyer_name": null,
+                    "source_uri": "https://example.invalid/notice-42",
+                    "source_date_text": "Next Friday at 3pm; timezone not stated",
+                    "closes_at": null
+                  }
+                },
+                "interpretedDeadline": {
+                  "value": {
+                    "title": "Synthetic network equipment tender",
+                    "buyer_name": "Synthetic Training Institute",
+                    "source_uri": "https://example.invalid/notice-42",
+                    "closes_at": "2026-10-17T12:00:00Z",
+                    "source_timezone": "Africa/Nairobi",
+                    "source_date_text": "17 October 2026 at 15:00 EAT"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Unverified opportunity/source version committed, or safe original result replayed. Response has Cache-Control: private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "413": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "415": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "422": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "429": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "500": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session",
+        "description": "Approved Secure, HttpOnly, SameSite=Lax, host-only opaque session cookie. Presence alone does not establish current identity or tenant authority."
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe error; codes/status meanings are specified in the companion contract. Never echo source text, SQL, tokens or document/storage locators. Cache-Control: private, no-store.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CaptureRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "buyer_name"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "\\S",
+            "description": "Approved request bound; preserve wording, do not silently trim."
+          },
+          "buyer_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300,
+            "description": "Null means unknown, not a fabricated buyer."
+          },
+          "source_uri": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "maxLength": 2048,
+            "description": "HTTP(S)-only descriptive provenance. Semantic validation rejects userinfo and non-HTTP(S) schemes. Never fetch, follow redirects, normalize away original wording or log this value."
+          },
+          "source_document_version_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Exact document-version reference. Must pass current tenant/access/eligibility checks through the document-owner interface. No object keys or current-version substitution."
+          },
+          "closes_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Explicit interpreted instant, normalized to UTC. Null/absent means unknown. Not source verification or a Bidora-controlled cutoff."
+          },
+          "source_timezone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "Raw source zone may be unresolved when closes_at is null. An interpreted instant requires a recognized IANA region or UTC."
+          },
+          "source_date_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "description": "Original source wording; retain ambiguous text even without an interpreted instant. Plain untrusted text, never HTML."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "closes_at"
+              ],
+              "properties": {
+                "closes_at": {
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "source_timezone",
+                "source_date_text"
+              ],
+              "properties": {
+                "source_timezone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "source_date_text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CaptureResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "source_version_id",
+              "version",
+              "verification_state",
+              "created_at"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "source_version_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "integer",
+                "const": 1
+              },
+              "verification_state": {
+                "type": "string",
+                "const": "UNVERIFIED"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trace_id"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "field_errors",
+              "trace_id",
+              "retryable"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "message": {
+                "type": "string"
+              },
+              "field_errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "trace_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "ExternalTenderImportedV1Draft": {
+        "description": "Proposed event schema, not an accepted broker contract. IDs are provenance, not bearer authority. No source text, URL, pricing or document bytes in payload.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "event_type",
+          "schema_version",
+          "tenant_id",
+          "actor_id",
+          "aggregate_type",
+          "aggregate_id",
+          "aggregate_version",
+          "occurred_at",
+          "correlation_id",
+          "causation_id",
+          "classification",
+          "payload"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "const": "opportunity.external_captured"
+          },
+          "schema_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "aggregate_type": {
+            "type": "string",
+            "const": "opportunity"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "aggregate_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "classification": {
+            "type": "string",
+            "const": "INTERNAL"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "opportunity_id",
+              "source_version_id"
+            ],
+            "properties": {
+              "opportunity_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "source_version_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-runtime-mounted-operations": [
+    "captureExternalTender"
+  ],
+  "x-write-access": "Requires FULL commercial access from an unexpired trial, active paid term, or current past-due grace period; retained-read-only and missing/expired access fail closed."
+}

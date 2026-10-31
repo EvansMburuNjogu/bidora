@@ -1,0 +1,179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora technical responses and gap review",
+    "version": "0.2.0-draft",
+    "description": "Immutable plain-text response revisions with exact evidence links and deterministic gaps."
+  },
+  "x-status": "implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/response": {
+      "put": {
+        "operationId": "saveTechnicalResponse",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Creates or revises one plain-text technical response. Requires tenderpreneur.bid.response.edit, expected section/workspace versions, idempotency, a nonblank change note and at most 20 evidence IDs belonging to the same requirement. The content remains human-authored; advisory AI output is never applied automatically.",
+        "responses": {
+          "200": {
+            "description": "Immutable response revision committed."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "content",
+                  "change_note",
+                  "evidence_ids",
+                  "expected_section_version",
+                  "expected_workspace_version"
+                ],
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  },
+                  "change_note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "evidence_ids": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "expected_section_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTechnicalResponse",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns the current revision without financial data.",
+        "responses": {
+          "200": {
+            "description": "Current technical response."
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/response/history": {
+      "get": {
+        "operationId": "listTechnicalResponseHistory",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns at most 100 immutable revisions newest first, with exact evidence record IDs.",
+        "responses": {
+          "200": {
+            "description": "Technical response history."
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/gap-review": {
+      "get": {
+        "operationId": "getBidGapReview",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Deterministically reports missing mandatory responses, unsatisfied mandatory requirements, unassigned requirements, overdue requirements and missing BID decision. It does not invoke AI or approve readiness. It also reports response revisions made stale by later requirement corrections and expired evidence.",
+        "responses": {
+          "200": {
+            "description": "Current time-specific gap review."
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object"
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Safe response without financial content, storage keys or provider details.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

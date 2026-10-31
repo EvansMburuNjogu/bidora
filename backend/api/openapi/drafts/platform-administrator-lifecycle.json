@@ -1,0 +1,466 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Platform Administrator lifecycle",
+    "version": "0.7.0-draft",
+    "description": "Approved P1-P6 contract for fixed Platform Admin roles, invitations, administrator lifecycle, owner continuity and exact maker/checker changes. PA-F02 invitations through PA-F07 emergency cross-account session revocation are runtime-composed. Device-level and self-service session administration remain separate identity journeys. Platform authority never grants tenant-private access."
+  },
+  "x-status": "pa-f02-through-pa-f07-http-composed-implemented-not-verified",
+  "x-ticket": "BID-API-010",
+  "x-policy": "BID-API-010P P1-P6",
+  "x-approval": {
+    "owner": "requesting user",
+    "evidence": "The requesting user authorized PA-F02 invitations through PA-F06 governance review and then directed PA-F07 emergency administrator session revocation.",
+    "authorized": ["contract", "control-plane schema", "sqlc queries", "persistence adapters", "invitation application services", "owner-invitation maker/checker disposition services", "bounded invitation HTTP routes", "fixed-role catalogue", "administrator directory and detail", "immutable assignment history", "fixed-role assignment and revocation", "administrator disable and reactivate", "owner-impacting maker/checker disposition", "bounded governance review queue", "cross-account administrator session revocation", "pilot runtime composition", "provider-neutral invitation template and authenticated STARTTLS SMTP delivery"],
+    "not_authorized": ["bootstrap executable", "migration execution", "service startup", "deployment", "web implementation", "reminder schedule", "device-level platform session inventory", "session-administration UI"]
+  },
+  "x-runtime-mounted-operations": ["listFixedPlatformRoles", "listPlatformAdministrators", "getPlatformAdministrator", "listPlatformAdministratorAssignmentHistory", "listPlatformAdministratorInvitations", "issuePlatformAdministratorInvitation", "cancelPlatformAdministratorInvitation", "acceptPlatformAdministratorInvitation", "createPlatformAdministratorChange", "listPlatformAdministratorChanges", "getPlatformAdministratorChange", "approvePlatformAdministratorChange", "rejectPlatformAdministratorChange", "revokePlatformAdministratorSessions"],
+  "x-bootstrap-command-contract": {
+    "transport": "deployment-only backend command; never HTTP",
+    "credential": "dedicated bootstrap database credential unavailable to API runtime",
+    "input": {"user_id": "immutable UUID supplied through protected deployment input"},
+    "preconditions": [
+      "bootstrap has never committed and no Platform Owner assignment history exists",
+      "target identity is verified, enabled and UNASSIGNED",
+      "target has no tenant membership or active tenant invitation",
+      "target has an ACTIVE TOTP factor"
+    ],
+    "atomic_effects": [
+      "set account type PLATFORM_ADMIN",
+      "create ACTIVE PLATFORM_OWNER assignment at context generation 1",
+      "consume singleton bootstrap permanently",
+      "advance auth_epoch and revoke existing sessions",
+      "append minimal audit and outbox facts"
+    ],
+    "output": "generic committed/already-consumed/failure result without personal or secret data"
+  },
+  "x-role-capability-bundles": {
+    "PLATFORM_OWNER": ["platform.admin.read","platform.admin.invite","platform.admin.role.assign","platform.admin.role.revoke","platform.admin.identity.disable","platform.admin.identity.reactivate","platform.admin.session.revoke","platform.audit.read","platform.audit.export","platform.governance.approve","platform.tenant.read","platform.tenant.create","platform.tenant.provision.retry","platform.tenant.suspend","platform.tenant.reactivate","platform.migration.read","platform.migration.manage","platform.reference.read","platform.reference.manage","platform.maintenance.read","platform.maintenance.manage","platform.announcement.manage","platform.operations.health.read","platform.plan.read","platform.plan.manage","platform.plan.publish","platform.subscription.read","platform.subscription.manage","platform.invoice.read","platform.payment.read","platform.payment.reconcile","platform.billing.adjustment.request","platform.billing.export","platform.integration.read","platform.integration.smtp.manage","platform.integration.smtp.test","platform.integration.smtp.activate","platform.integration.ai.manage","platform.integration.ai.test","platform.integration.ai.activate","platform.integration.pesapal.manage","platform.integration.pesapal.test","platform.integration.pesapal.activate","platform.integration.pause","platform.integration.rollback","platform.integration.failure.read","platform.support.case.read","platform.support.case.manage","platform.support.access.request","platform.support.session.use","platform.support.session.revoke","platform.security.event.read","platform.governance.review","platform.support.session.read","platform.retention.policy.read","platform.retention.policy.draft"],
+    "OPERATIONS_ADMINISTRATOR": ["platform.tenant.read", "platform.tenant.create", "platform.tenant.provision.retry", "platform.tenant.suspend", "platform.tenant.reactivate", "platform.migration.read", "platform.migration.manage", "platform.reference.read", "platform.reference.manage", "platform.maintenance.read", "platform.maintenance.manage", "platform.announcement.manage", "platform.operations.health.read"],
+    "BILLING_ADMINISTRATOR": ["platform.plan.read", "platform.plan.manage", "platform.plan.publish", "platform.subscription.read", "platform.subscription.manage", "platform.invoice.read", "platform.payment.read", "platform.payment.reconcile", "platform.billing.adjustment.request", "platform.billing.export"],
+    "INTEGRATION_ADMINISTRATOR": ["platform.integration.read", "platform.integration.smtp.manage", "platform.integration.smtp.test", "platform.integration.smtp.activate", "platform.integration.ai.manage", "platform.integration.ai.test", "platform.integration.ai.activate", "platform.integration.pesapal.manage", "platform.integration.pesapal.test", "platform.integration.pesapal.activate", "platform.integration.pause", "platform.integration.rollback", "platform.integration.failure.read"],
+    "SUPPORT_ADMINISTRATOR": ["platform.support.case.read", "platform.support.case.manage", "platform.support.access.request", "platform.support.session.use", "platform.support.session.revoke"],
+    "SECURITY_AUDIT_ADMINISTRATOR": ["platform.security.event.read", "platform.audit.read", "platform.audit.export", "platform.admin.read", "platform.admin.identity.disable", "platform.admin.session.revoke", "platform.governance.review", "platform.support.session.read", "platform.support.session.revoke", "platform.retention.policy.read", "platform.retention.policy.draft"]
+  },
+  "paths": {
+    "/v1/platform/roles": {
+      "get": {
+        "operationId": "listFixedPlatformRoles",
+        "summary": "List fixed Platform Admin role catalogue",
+        "description": "Requires current platform.admin.read and TOTP-backed AAL2 no older than 15 minutes. The Platform Owner includes the fixed Platform role capability union, but existing role-specific financial and maker/checker protections still apply. The response is display metadata, not authority or tenant-private access.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"}
+        ],
+        "responses": {
+          "200": {"description": "Fixed role catalogue.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RoleCatalogueResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-invitations": {
+      "post": {
+        "operationId": "issuePlatformAdministratorInvitation",
+        "summary": "Invite an administrator into one fixed role",
+        "description": "Requires platform.admin.invite, current Platform Owner status and TOTP AAL2 no older than 15 minutes. The strict JSON body is limited to 4 KiB. One active invitation per normalized email; resend invalidates the former token. A PLATFORM_OWNER invitation either uses the single continuity-increasing first-second-owner exception or creates an exact 30-minute PENDING_APPROVAL change. No usable token is delivered before required approval. Delivery ambiguity never rewrites committed state.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Idempotency"}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IssueInvitationRequest"}}}},
+        "responses": {
+          "201": {"description": "Invitation committed as ACTIVE or PENDING_APPROVAL.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InvitationResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      },
+      "get": {
+        "operationId": "listPlatformAdministratorInvitations",
+        "summary": "List pending Platform Admin invitations",
+        "description": "Requires platform.admin.read and TOTP-backed AAL2 no older than 15 minutes. Returns bounded newest-first records. Raw tokens, token hashes, secret values and provider diagnostics are never returned.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Limit"},
+          {"$ref": "#/components/parameters/Cursor"}
+        ],
+        "responses": {
+          "200": {"description": "Invitation page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InvitationListResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-invitations/{invitation_id}": {
+      "delete": {
+        "operationId": "cancelPlatformAdministratorInvitation",
+        "summary": "Cancel a pending Platform Admin invitation",
+        "description": "Requires platform.admin.invite, current Platform Owner status and recent TOTP AAL2. Cancellation cannot reverse an accepted invitation or erase history. Inaccessible and missing records are concealed.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/InvitationID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Idempotency"},
+          {"$ref": "#/components/parameters/ExpectedVersion"}
+        ],
+        "responses": {
+          "204": {"description": "Invitation cancelled with immutable evidence."},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-invitations/accept": {
+      "post": {
+        "operationId": "acceptPlatformAdministratorInvitation",
+        "summary": "Accept a Platform Admin invitation",
+        "description": "Requires an authenticated verified, enabled UNASSIGNED user with the exact invited email, no tenant ties, an ACTIVE TOTP factor and TOTP AAL2 no older than 15 minutes. The strict 4 KiB body accepts one 32-byte base64url token. Invalid, expired, consumed, replaced, mismatched and replayed tokens share one safe failure. Success atomically sets PLATFORM_ADMIN, activates the role, advances auth_epoch, revokes every prior session, records evidence and clears browser cookies; the user must sign in again with TOTP.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/Idempotency"}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AcceptInvitationRequest"}}}},
+        "responses": {
+          "204": {"description": "Invitation accepted; session and CSRF cookies are cleared."},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrators": {
+      "get": {
+        "operationId": "listPlatformAdministrators",
+        "summary": "List safe Platform Administrator records",
+        "description": "Requires platform.admin.read and TOTP-backed AAL2 no older than 15 minutes. Returns only platform identity status, fixed assignments, MFA readiness and lifecycle versions; never sessions, hashes, recovery codes, tenant data or provider secrets.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"name": "state", "in": "query", "required": false, "schema": {"type": "string", "enum": ["ACTIVE", "DISABLED"]}},
+          {"name": "role_key", "in": "query", "required": false, "schema": {"$ref": "#/components/schemas/RoleKey"}},
+          {"$ref": "#/components/parameters/Limit"},
+          {"$ref": "#/components/parameters/Cursor"}
+        ],
+        "responses": {
+          "200": {"description": "Administrator page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorListResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrators/search": {
+      "post": {
+        "operationId": "searchPlatformAdministratorByEmail",
+        "summary": "Resolve one verified Platform administrator by exact email",
+        "description": "Read-only POST keeps personal email out of access-loggable URLs. Requires exact Platform context, platform.admin.read, recent TOTP AAL2, approved Origin and session-bound CSRF. Identity owner resolves the approved lowercase full-mailbox lookup before the Platform Administration directory read; absence and non-Platform accounts return the same empty page. State and fixed-role filters further restrict the result. No arbitrary substring or account discovery endpoint, no mutation, no tenant access.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/CSRF"}, {"$ref": "#/components/parameters/PlatformContextGeneration"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["email"], "properties": {"email": {"type": "string", "minLength": 3, "maxLength": 254, "description": "Full ASCII dot-atom mailbox; original spelling preserved for display only."}, "state": {"type": "string", "enum": ["ACTIVE", "DISABLED"]}, "role_key": {"$ref": "#/components/schemas/RoleKey"}}}}}},
+        "responses": {"200": {"description": "Zero or one matched administrator, with the existing bounded directory envelope and null cursor.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorListResponse"}}}}, "400": {"$ref": "#/components/responses/Failure"}, "401": {"$ref": "#/components/responses/Failure"}, "403": {"$ref": "#/components/responses/Failure"}, "409": {"$ref": "#/components/responses/Failure"}, "503": {"$ref": "#/components/responses/Failure"}}
+      }
+    },
+    "/v1/platform/administrators/{user_id}": {
+      "get": {
+        "operationId": "getPlatformAdministrator",
+        "summary": "Read one safe Platform Administrator record",
+        "description": "Requires platform.admin.read and TOTP-backed AAL2 no older than 15 minutes. Missing and inaccessible records share a concealed response.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"}
+        ],
+        "responses": {
+          "200": {"description": "Administrator detail.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrators/{user_id}/assignment-history": {
+      "get": {
+        "operationId": "listPlatformAdministratorAssignmentHistory",
+        "summary": "List immutable fixed-role assignment history",
+        "description": "Requires platform.admin.read and TOTP-backed AAL2 no older than 15 minutes. Returns bounded newest-first grant and revocation history without idempotency hashes or private tenant facts.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Limit"},
+          {"$ref": "#/components/parameters/Cursor"}
+        ],
+        "responses": {
+          "200": {"description": "Assignment history page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AssignmentHistoryResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-changes": {
+      "post": {
+        "operationId": "createPlatformAdministratorChange",
+        "summary": "Create an exact administrator role or identity-state change",
+        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY requires Platform Owner or Security and Audit authority; REACTIVATE_IDENTITY remains Platform Owner-only. Every action requires TOTP-backed AAL2 no older than 15 minutes and exact target/context versions. Non-owner changes execute atomically, advance the target’s security context and revoke existing sessions. Platform Owner role or identity changes remain PENDING_APPROVAL for 30 minutes and require an eligible distinct checker; final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes are denied and role bundles cannot be edited.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Idempotency"}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeRequest"}}}},
+        "responses": {
+          "201": {"description": "Immutable change created as EXECUTED or PENDING_APPROVAL.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      },
+      "get": {
+        "operationId": "listPlatformAdministratorChanges",
+        "summary": "List authorized administrator lifecycle changes",
+        "description": "Requires platform.admin.read plus platform.governance.approve or platform.governance.review and TOTP-backed AAL2 no older than 15 minutes. Returns bounded newest-first exact proposals and dispositions. A pending change whose deadline has passed is reported and filtered as EXPIRED at the request observation time even before any later write persists that terminal state.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"name": "state", "in": "query", "required": false, "schema": {"type": "string", "enum": ["PENDING_APPROVAL", "EXECUTED", "REJECTED", "EXPIRED"]}},
+          {"$ref": "#/components/parameters/Limit"},
+          {"$ref": "#/components/parameters/Cursor"}
+        ],
+        "responses": {
+          "200": {"description": "Lifecycle change page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeListResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-changes/{change_id}": {
+      "get": {
+        "operationId": "getPlatformAdministratorChange",
+        "summary": "Read an authorized administrator change",
+        "description": "Requires platform.admin.read and TOTP-backed AAL2 no older than 15 minutes. The exact proposed facts and disposition are immutable; no idempotency hash is returned.",
+        "security": [{"browserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/ChangeID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"}
+        ],
+        "responses": {
+          "200": {"description": "Change record.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-changes/{change_id}/approve": {
+      "post": {
+        "operationId": "approvePlatformAdministratorChange",
+        "summary": "Approve and execute an exact pending administrator change",
+        "description": "Requires an eligible distinct checker, TOTP AAL2 no older than 15 minutes, the exact expected change version and UUID idempotency. The checker cannot be the affected administrator. Approval after 30 minutes, after material change, or against stale authority fails closed. Execution atomically rechecks maker, checker, owner continuity, target versions and session effects.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/ChangeID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Idempotency"}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChangeDispositionRequest"}}}},
+        "responses": {
+          "200": {"description": "Change approved and executed atomically.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrator-changes/{change_id}/reject": {
+      "post": {
+        "operationId": "rejectPlatformAdministratorChange",
+        "summary": "Reject an exact pending administrator change",
+        "description": "Requires an eligible distinct checker and recent TOTP AAL2. Rejection is immutable and has no role, identity or session effect.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/ChangeID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Idempotency"}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ChangeDispositionRequest"}}}},
+        "responses": {
+          "200": {"description": "Change rejected immutably.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/platform/administrators/{user_id}/sessions/revoke": {
+      "post": {
+        "operationId": "revokePlatformAdministratorSessions",
+        "summary": "Revoke all sessions for another Platform Administrator",
+        "description": "Requires platform.admin.session.revoke held through an active Platform Owner or Security and Audit role, TOTP-backed AAL2 no older than 15 minutes, exact target versions and UUID idempotency. The actor cannot target themselves and must use the separate account-owner logout/revoke-all journey. Success atomically advances the target auth_epoch and platform context generation, revokes current sessions and records minimal evidence without device, IP or location metadata; it does not disable the identity or alter roles.",
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserID"},
+          {"$ref": "#/components/parameters/Origin"},
+          {"$ref": "#/components/parameters/CSRF"},
+          {"$ref": "#/components/parameters/PlatformContextGeneration"},
+          {"$ref": "#/components/parameters/Idempotency"}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RevokeAdministratorSessionsRequest"}}}},
+        "responses": {
+          "204": {"description": "Target sessions revoked; no replacement session issued."},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"},
+      "csrfCookie": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_csrf"}
+    },
+    "parameters": {
+      "Origin": {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+      "CSRF": {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
+      "PlatformContextGeneration": {"name": "X-Bidora-Platform-Context-Generation", "in": "header", "required": true, "description": "Stale-context selector only; never authority.", "schema": {"type": "integer", "minimum": 1}},
+      "Idempotency": {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "ExpectedVersion": {"name": "If-Match", "in": "header", "required": true, "schema": {"type": "string", "pattern": "^\\\"[1-9][0-9]*\\\"$"}},
+      "InvitationID": {"name": "invitation_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "UserID": {"name": "user_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "ChangeID": {"name": "change_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "Limit": {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+      "Cursor": {"name": "cursor", "in": "query", "required": false, "schema": {"type": "string", "minLength": 1, "maxLength": 512}}
+    },
+    "schemas": {
+      "RoleKey": {"type": "string", "enum": ["PLATFORM_OWNER", "OPERATIONS_ADMINISTRATOR", "BILLING_ADMINISTRATOR", "INTEGRATION_ADMINISTRATOR", "SUPPORT_ADMINISTRATOR", "SECURITY_AUDIT_ADMINISTRATOR"]},
+      "Meta": {"type": "object", "additionalProperties": false, "required": ["trace_id"], "properties": {"trace_id": {"type": "string", "minLength": 1}, "next_cursor": {"type": ["string", "null"], "maxLength": 512}}},
+      "RoleCatalogueItem": {"type": "object", "additionalProperties": false, "required": ["role_key", "catalogue_version", "capabilities"], "properties": {"role_key": {"$ref": "#/components/schemas/RoleKey"}, "catalogue_version": {"type": "integer", "const": 1}, "capabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 150}}}},
+      "RoleCatalogueResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["roles", "custom_roles_supported", "tenant_access_implied"], "properties": {"roles": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/components/schemas/RoleCatalogueItem"}}, "custom_roles_supported": {"const": false}, "tenant_access_implied": {"const": false}}}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "IssueInvitationRequest": {"type": "object", "additionalProperties": false, "required": ["email", "role_key", "reason"], "properties": {"email": {"type": "string", "minLength": 3, "maxLength": 254}, "role_key": {"$ref": "#/components/schemas/RoleKey"}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+      "AcceptInvitationRequest": {"type": "object", "additionalProperties": false, "required": ["token"], "properties": {"token": {"type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]{43}$"}}},
+      "Invitation": {"type": "object", "additionalProperties": false, "required": ["id", "email", "role_key", "state", "version", "created_at", "expires_at", "delivery_state", "governance_change_id"], "properties": {"id": {"type": "string", "format": "uuid"}, "email": {"type": "string", "maxLength": 254}, "role_key": {"$ref": "#/components/schemas/RoleKey"}, "state": {"type": "string", "enum": ["PENDING_APPROVAL", "ACTIVE", "ACCEPTED", "CANCELLED", "EXPIRED", "REPLACED"]}, "version": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "expires_at": {"type": ["string", "null"], "format": "date-time", "description": "Null while a Platform Owner invitation awaits maker/checker approval; active invitations expire 72 hours after activation."}, "delivery_state": {"type": "string", "enum": ["NOT_READY", "ACCEPTED_FOR_DELIVERY", "DELIVERY_UNCONFIRMED"]}, "governance_change_id": {"type": ["string", "null"], "format": "uuid"}}},
+      "InvitationResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/Invitation"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "InvitationListResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["invitations"], "properties": {"invitations": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Invitation"}}}}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "RoleAssignment": {"type": "object", "additionalProperties": false, "required": ["id", "role_key", "state", "version", "assigned_by", "assigned_at", "revoked_by", "revoked_at", "reason", "revocation_reason"], "properties": {"id": {"type": "string", "format": "uuid"}, "role_key": {"$ref": "#/components/schemas/RoleKey"}, "state": {"type": "string", "enum": ["ACTIVE", "REVOKED"]}, "version": {"type": "integer", "minimum": 1}, "assigned_by": {"type": ["string", "null"], "format": "uuid", "description": "Null only for the deployment bootstrap assignment, which has no human actor."}, "assigned_at": {"type": "string", "format": "date-time"}, "revoked_by": {"type": ["string", "null"], "format": "uuid"}, "revoked_at": {"type": ["string", "null"], "format": "date-time"}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}, "revocation_reason": {"type": ["string", "null"], "minLength": 1, "maxLength": 2000}}},
+      "Administrator": {"type": "object", "additionalProperties": false, "required": ["user_id", "email", "state", "user_version", "platform_context_generation", "totp_enrolled", "assignments", "effective_owner", "created_at", "updated_at"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "email": {"type": "string", "maxLength": 254}, "state": {"type": "string", "enum": ["ACTIVE", "DISABLED"]}, "user_version": {"type": "integer", "minimum": 1}, "platform_context_generation": {"type": "integer", "minimum": 1}, "totp_enrolled": {"type": "boolean"}, "assignments": {"description": "Latest assignment state for each fixed role; use assignment-history for immutable prior versions.", "type": "array", "maxItems": 6, "items": {"$ref": "#/components/schemas/RoleAssignment"}}, "effective_owner": {"type": "boolean"}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}}},
+      "AdministratorResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/Administrator"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "AssignmentHistoryResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["user_id", "assignments"], "properties": {"user_id": {"type": "string", "format": "uuid"}, "assignments": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/RoleAssignment"}}}}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "AdministratorListResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["administrators", "effective_owner_count", "continuity_warning"], "properties": {"administrators": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Administrator"}}, "effective_owner_count": {"type": "integer", "minimum": 1}, "continuity_warning": {"type": "boolean"}}}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "AssignRoleChange": {"type": "object", "additionalProperties": false, "required": ["action", "target_user_id", "role_key", "expected_user_version", "expected_target_context_generation", "reason"], "properties": {"action": {"const": "ASSIGN_ROLE"}, "target_user_id": {"type": "string", "format": "uuid"}, "role_key": {"$ref": "#/components/schemas/RoleKey"}, "expected_user_version": {"type": "integer", "minimum": 1}, "expected_target_context_generation": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+      "RevokeRoleChange": {"type": "object", "additionalProperties": false, "required": ["action", "target_user_id", "role_key", "assignment_id", "expected_assignment_version", "expected_user_version", "expected_target_context_generation", "reason"], "properties": {"action": {"const": "REVOKE_ROLE"}, "target_user_id": {"type": "string", "format": "uuid"}, "role_key": {"$ref": "#/components/schemas/RoleKey"}, "assignment_id": {"type": "string", "format": "uuid"}, "expected_assignment_version": {"type": "integer", "minimum": 1}, "expected_user_version": {"type": "integer", "minimum": 1}, "expected_target_context_generation": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+      "IdentityStateChange": {"type": "object", "additionalProperties": false, "required": ["action", "target_user_id", "expected_user_version", "expected_target_context_generation", "reason"], "properties": {"action": {"type": "string", "enum": ["DISABLE_IDENTITY", "REACTIVATE_IDENTITY"]}, "target_user_id": {"type": "string", "format": "uuid"}, "expected_user_version": {"type": "integer", "minimum": 1}, "expected_target_context_generation": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+      "RoleChangeRequest": {"oneOf": [{"$ref": "#/components/schemas/AssignRoleChange"}, {"$ref": "#/components/schemas/RevokeRoleChange"}], "discriminator": {"propertyName": "action", "mapping": {"ASSIGN_ROLE": "#/components/schemas/AssignRoleChange", "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"}}},
+      "AdministratorChangeRequest": {"oneOf": [{"$ref": "#/components/schemas/AssignRoleChange"}, {"$ref": "#/components/schemas/RevokeRoleChange"}, {"$ref": "#/components/schemas/IdentityStateChange"}], "discriminator": {"propertyName": "action", "mapping": {"ASSIGN_ROLE": "#/components/schemas/AssignRoleChange", "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange", "DISABLE_IDENTITY": "#/components/schemas/IdentityStateChange", "REACTIVATE_IDENTITY": "#/components/schemas/IdentityStateChange"}}},
+      "ChangeDispositionRequest": {"type": "object", "additionalProperties": false, "required": ["expected_change_version", "reason"], "properties": {"expected_change_version": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+      "AdministratorChange": {"type": "object", "additionalProperties": false, "required": ["id", "action", "target_user_id", "invitation_id", "role_key", "assignment_id", "expected_user_version", "expected_target_context_generation", "expected_assignment_version", "reason", "decision_reason", "state", "version", "maker_id", "checker_id", "created_at", "expires_at", "decided_at", "sessions_revoked"], "properties": {"id": {"type": "string", "format": "uuid"}, "action": {"type": "string", "enum": ["ASSIGN_ROLE", "REVOKE_ROLE", "DISABLE_IDENTITY", "REACTIVATE_IDENTITY", "ACTIVATE_OWNER_INVITATION"]}, "target_user_id": {"type": ["string", "null"], "format": "uuid"}, "invitation_id": {"type": ["string", "null"], "format": "uuid"}, "role_key": {"oneOf": [{"$ref": "#/components/schemas/RoleKey"}, {"type": "null"}]}, "assignment_id": {"type": ["string", "null"], "format": "uuid"}, "expected_user_version": {"type": ["integer", "null"], "minimum": 1}, "expected_target_context_generation": {"type": ["integer", "null"], "minimum": 1}, "expected_assignment_version": {"type": ["integer", "null"], "minimum": 1}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}, "decision_reason": {"type": ["string", "null"], "minLength": 1, "maxLength": 2000}, "state": {"type": "string", "enum": ["PENDING_APPROVAL", "EXECUTED", "REJECTED", "EXPIRED"]}, "version": {"type": "integer", "minimum": 1}, "maker_id": {"type": "string", "format": "uuid"}, "checker_id": {"type": ["string", "null"], "format": "uuid"}, "created_at": {"type": "string", "format": "date-time"}, "expires_at": {"type": ["string", "null"], "format": "date-time"}, "decided_at": {"type": ["string", "null"], "format": "date-time"}, "sessions_revoked": {"type": "boolean"}}},
+      "AdministratorChangeResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/AdministratorChange"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "AdministratorChangeListResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"type": "object", "additionalProperties": false, "required": ["changes"], "properties": {"changes": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/AdministratorChange"}}}}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "RevokeAdministratorSessionsRequest": {"type": "object", "additionalProperties": false, "required": ["expected_user_version", "expected_target_context_generation", "reason"], "properties": {"expected_user_version": {"type": "integer", "minimum": 1}, "expected_target_context_generation": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+      "ErrorResponse": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"type": "object"}}, "trace_id": {"type": "string"}, "retryable": {"type": "boolean"}}}}}
+    },
+    "responses": {
+      "Failure": {"description": "Safe failure without token, hash, MFA secret, recovery code, tenant-private data, provider secret or database locator.", "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}
+    }
+  },
+  "x-invariants": [
+    "PLATFORM_ADMIN account type and role labels never independently authorize",
+    "every operation rechecks verified/enabled identity, ACTIVE assignment, exact capability, platform context generation, auth_epoch, ACTIVE TOTP and required AAL2",
+    "all mutation bodies are strict UTF-8 application/json limited to 4 KiB and reject duplicate or unknown members",
+    "mutations require exact approved HTTPS Origin, matching session-bound CSRF and UUID idempotency",
+    "role, identity and invitation activation effects commit with minimal audit and outbox facts in one control transaction",
+    "privilege changes advance target context generation and auth_epoch and revoke target sessions",
+    "custom roles, self-grant, account-type conversion and tenant authority are absent",
+    "final-effective-owner checks serialize and leave at least one effective owner",
+    "owner changes bind an exact immutable proposal and expire after 30 minutes",
+    "maker and checker are distinct and the affected administrator cannot check",
+    "the first-second-owner exception is invitation-only, continuity-increasing, single-use and never reopens",
+    "platform roles never select tenant databases or bypass membership or scoped support authorization"
+  ],
+  "x-safe-error-codes": [
+    "INVALID_REQUEST",
+    "SESSION_INVALID",
+    "BROWSER_REQUEST_FORBIDDEN",
+    "PLATFORM_ACCESS_FORBIDDEN",
+    "PLATFORM_ASSURANCE_REQUIRED",
+    "PLATFORM_CONTEXT_STALE",
+    "PLATFORM_INVITATION_INVALID",
+    "PLATFORM_INVITATION_CONFLICT",
+    "PLATFORM_ADMINISTRATOR_NOT_FOUND",
+    "PLATFORM_CHANGE_NOT_FOUND",
+    "PLATFORM_CHANGE_CONFLICT",
+    "PLATFORM_CHANGE_EXPIRED",
+    "PLATFORM_CHANGE_SEPARATION_REQUIRED",
+    "PLATFORM_LAST_OWNER",
+    "IDEMPOTENCY_CONFLICT",
+    "PORTAL_TYPE_CONFLICT",
+    "PLATFORM_ADMINISTRATION_UNAVAILABLE"
+  ]
+}

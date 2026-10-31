@@ -1,0 +1,682 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora bid review threads",
+    "version": "0.2.0-draft",
+    "description": "Private tenant review collaboration. Mutations require the explicit tenderpreneur.bid.proposal.review capability and FULL commercial write access; reads reauthorize bid access. Role labels and assignments do not grant authority."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/review-threads": {
+      "post": {
+        "summary": "Create an append-only review thread for a bid, requirement or proposal revision",
+        "responses": {
+          "200": {
+            "description": "Thread and initial comment created"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "409": {
+            "description": "Invalid target"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "target_type",
+                  "target_id",
+                  "subject",
+                  "comment"
+                ],
+                "properties": {
+                  "target_type": {
+                    "type": "string",
+                    "enum": [
+                      "BID",
+                      "REQUIREMENT",
+                      "PROPOSAL_VERSION"
+                    ]
+                  },
+                  "target_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read at most 100 threads, 200 comments per thread and 1000 comments total",
+        "responses": {
+          "200": {
+            "description": "Private review threads"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/review-threads/{thread_id}/comments": {
+      "post": {
+        "summary": "Append an immutable comment using expected thread version",
+        "responses": {
+          "200": {
+            "description": "Comment appended"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "409": {
+            "description": "Closed or stale thread"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "comment",
+                  "expected_thread_version"
+                ],
+                "properties": {
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "expected_thread_version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 198
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/review-threads/{thread_id}/resolve": {
+      "post": {
+        "summary": "Resolve an open thread with an immutable resolution note",
+        "responses": {
+          "200": {
+            "description": "Thread resolved"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "409": {
+            "description": "Closed or stale thread"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resolution_note",
+                  "expected_thread_version"
+                ],
+                "properties": {
+                  "resolution_note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "expected_thread_version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 199
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/review-threads/{thread_id}/assignment": {
+      "patch": {
+        "summary": "Assign an active same-tenant bid reader and optional future due date",
+        "responses": {
+          "200": {
+            "description": "Assignment appended and thread version advanced"
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Actor or assignee denied"
+          },
+          "409": {
+            "description": "Closed or stale thread"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "assignee_id",
+                  "reason",
+                  "expected_thread_version"
+                ],
+                "properties": {
+                  "assignee_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "due_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "expected_thread_version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 199
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/review-threads/{thread_id}/assignment/history": {
+      "get": {
+        "summary": "Read at most 100 immutable assignment revisions",
+        "responses": {
+          "200": {
+            "description": "Assignment history"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/bids/{bid_id}/review-dashboard": {
+      "get": {
+        "summary": "Read deterministic bid review counts and at most 100 reviewer workload summaries",
+        "responses": {
+          "200": {
+            "description": "Review dashboard observed at one UTC instant"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "404": {
+            "description": "Bid not found"
+          },
+          "409": {
+            "description": "Bound exceeded"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/review-workloads": {
+      "get": {
+        "summary": "Read tenant-local open review totals and at most 100 reviewer summaries",
+        "responses": {
+          "200": {
+            "description": "Reviewer workloads observed at one UTC instant"
+          },
+          "403": {
+            "description": "Response-edit authority required"
+          },
+          "409": {
+            "description": "Bound exceeded"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    },
+    "/v1/tenderpreneur/review-workloads/{reviewer_id}": {
+      "get": {
+        "summary": "Read at most 200 open items for one currently eligible reviewer",
+        "responses": {
+          "200": {
+            "description": "Reviewer open work"
+          },
+          "403": {
+            "description": "Actor or reviewer denied"
+          },
+          "409": {
+            "description": "Bound exceeded"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "reviewer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

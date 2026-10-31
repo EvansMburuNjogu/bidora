@@ -1,0 +1,391 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Provider-Neutral Payment Operations",
+    "version": "0.2.0-draft",
+    "description": "TP-F06 mounts only tenant-scoped redacted payment state reads. Payment creation/provider dispatch and reconciliation remain unmounted."
+  },
+  "x-status": "tp-f06-payment-read-mounted-implemented-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/commercial/invoices/{invoice_id}/payments": {
+      "post": {
+        "operationId": "initiateCommercialPayment",
+        "description": "Creates or reuses one server-priced payment operation. Provider dispatch occurs only after durable PROVIDER_CREATE_PENDING intent. Any ambiguous dispatch is queried by immutable merchant operation ID before another charge can be attempted.",
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/Tenant"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          },
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_invoice_version"
+                ],
+                "properties": {
+                  "expected_invoice_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable pending/ambiguous operation; no paid entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "Confirmed provider order; Location is returned only from the configured allowlisted HTTPS origin and is not authority for payment success."
+          },
+          "400": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "409": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    },
+    "/v1/tenderpreneur/commercial/payments/{payment_id}": {
+      "get": {
+        "operationId": "getCommercialPayment",
+        "description": "Returns tenant-scoped redacted state. Provider references, evidence hashes, configuration IDs, leases and diagnostics are omitted.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Tenant"
+          },
+          {
+            "$ref": "#/components/parameters/Context"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe payment state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "404": {
+            "$ref": "#/components/responses/Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/Failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      },
+      "csrfCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_csrf"
+      }
+    },
+    "parameters": {
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "CSRF": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43
+        }
+      },
+      "Tenant": {
+        "name": "X-Bidora-Tenant-ID",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Context": {
+        "name": "X-Bidora-Context-Generation",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "Idempotency": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "schemas": {
+      "Money": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "currency",
+          "amount_minor_units",
+          "amount"
+        ],
+        "properties": {
+          "currency": {
+            "const": "KES"
+          },
+          "amount_minor_units": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*\\.[0-9]{2}$"
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "invoice_id",
+          "state",
+          "version",
+          "amount",
+          "reconciliation_state",
+          "paid",
+          "entitlements_activated",
+          "receipt_id",
+          "entitlement_effect",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoice_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "PROVIDER_CREATE_PENDING",
+              "AWAITING_CUSTOMER",
+              "PROVIDER_PENDING",
+              "FAILED",
+              "CANCELLED",
+              "REVIEW_REQUIRED",
+              "SETTLED",
+              "REVERSED",
+              "REFUND_PENDING",
+              "PARTIALLY_REFUNDED",
+              "REFUNDED"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "reconciliation_state": {
+            "type": "string",
+            "enum": [
+              "NOT_REQUIRED",
+              "DUE",
+              "LEASED",
+              "RETRY_WAIT",
+              "HELD",
+              "COMPLETE"
+            ]
+          },
+          "paid": {
+            "type": "boolean",
+            "description": "True only for an atomic SETTLED accounting effect."
+          },
+          "entitlements_activated": {
+            "type": "boolean",
+            "description": "True only when the same settlement transaction committed its exact plan or additional-licence effect."
+          },
+          "receipt_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Non-null only after atomic settlement."
+          },
+          "entitlement_effect": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "PLAN_ACTIVATION",
+              "ADDITIONAL_LICENCES",
+              null
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Payment"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trace_id"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Failure": {
+        "description": "Stable safe error such as commercial_payment_in_progress, commercial_payment_reconciliation_required, commercial_payment_amount_conflict or dependency unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-runtime-mounted-operations": [
+    "getCommercialPayment"
+  ],
+  "x-runtime-unmounted-operations": [
+    "initiateCommercialPayment"
+  ]
+}

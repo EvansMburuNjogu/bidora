@@ -1,0 +1,107 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora Tenderpreneur self-service organization creation",
+    "version": "0.1.0-draft",
+    "description": "Approved unmounted intake contract. It records a durable REQUESTED organization and provisioning operation but never provisions a database or grants access by response alone."
+  },
+  "x-status": "approved-implementation-unmounted-not-verified",
+  "paths": {
+    "/v1/tenderpreneur/organizations": {
+      "post": {
+        "operationId": "createTenderpreneurOrganization",
+        "summary": "Request creation of the current Tenderpreneur account's pilot organization",
+        "description": "Requires a verified enabled Tenderpreneur identity, exact Origin/session/CSRF, authentication no older than 15 minutes, fail-closed creation limits and a UUID idempotency key. If MFA is enrolled, current TOTP-backed AAL2 is required. A successful response is pending provisioning only. The creator's verified email is the initial work contact; no separate contact is accepted here.",
+        "x-max-body-bytes": 4096,
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}},
+          {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationCreationRequest"}}}
+        },
+        "responses": {
+          "202": {
+            "description": "Durable REQUESTED operation; no organization access or provisioning success is claimed.",
+            "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationCreationResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "409": {"$ref": "#/components/responses/Failure"},
+          "413": {"$ref": "#/components/responses/Failure"},
+          "415": {"$ref": "#/components/responses/Failure"},
+          "429": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"},
+      "csrfCookie": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_csrf"}
+    },
+    "schemas": {
+      "OrganizationCreationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "country", "timezone", "locale", "business_type", "primary_industry", "preferred_language", "currency", "commercial_path"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 300},
+          "country": {"type": "string", "pattern": "^[A-Z]{2}$"},
+          "timezone": {"type": "string", "minLength": 1, "maxLength": 128},
+          "locale": {"type": "string", "pattern": "^[A-Za-z0-9-]{1,35}$"},
+          "business_type": {"type": "string", "minLength": 1, "maxLength": 100},
+          "primary_industry": {"type": "string", "minLength": 1, "maxLength": 160},
+          "preferred_language": {"type": "string", "pattern": "^[A-Za-z0-9-]{1,35}$"},
+          "currency": {"type": "string", "const": "KES"},
+          "commercial_path": {"type": "string", "enum": ["TRIAL", "PAID"]}
+        }
+      },
+      "OrganizationCreationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operation_id", "tenant_id", "state"],
+            "properties": {
+              "operation_id": {"type": "string", "format": "uuid"},
+              "tenant_id": {"type": "string", "format": "uuid"},
+              "state": {"type": "string", "const": "REQUESTED"}
+            }
+          },
+          "meta": {"$ref": "#/components/schemas/Meta"}
+        }
+      },
+      "Meta": {
+        "type": "object", "additionalProperties": false, "required": ["trace_id"],
+        "properties": {"trace_id": {"type": "string", "minLength": 1}}
+      },
+      "ErrorResponse": {
+        "type": "object", "additionalProperties": false, "required": ["error"],
+        "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"type": "object"}}, "trace_id": {"type": "string"}, "retryable": {"type": "boolean"}}}}
+      }
+    },
+    "responses": {
+      "Failure": {"description": "Safe failure without tenant, database, capacity, limiter or provider diagnostics.", "headers": {"Cache-Control": {"schema": {"type": "string", "const": "private, no-store"}}, "Retry-After": {"schema": {"type": "integer", "const": 900}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}
+    }
+  },
+  "x-invariants": [
+    "202 means REQUESTED only and never provisioning success",
+    "the tenant remains non-routable until compatible server-owned assignment and commercial activation",
+    "one fixed Organization Administrator grant bundle is created for the initiating identity",
+    "the fixed Organization Administrator bundle does not grant bid access",
+    "one open creation and one lifetime self-created organization are enforced per identity",
+    "TRIAL is not started by this operation and PAID makes no provider call",
+    "no browser field selects a database, cluster, cell, secret or capability"
+  ],
+  "x-safe-error-codes": ["INVALID_REQUEST", "SESSION_INVALID", "BROWSER_REQUEST_FORBIDDEN", "ASSURANCE_REQUIRED", "ORGANIZATION_CREATION_INELIGIBLE", "ORGANIZATION_CREATION_CONFLICT", "ORGANIZATION_CREATION_RATE_LIMITED", "ORGANIZATION_CREATION_UNAVAILABLE"]
+}

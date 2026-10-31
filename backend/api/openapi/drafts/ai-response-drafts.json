@@ -1,0 +1,185 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora grounded AI response drafts",
+    "version": "0.3.0-draft",
+    "description": "Human-requested, entitlement-bound advisory response drafts grounded in exact CLEAN sources with cited PROPOSED_UNVERIFIED output."
+  },
+  "paths": {
+    "/v1/tenderpreneur/bids/{bid_id}/requirements/{requirement_id}/ai-response-drafts": {
+      "post": {
+        "summary": "Measure exact CLEAN source text, reserve generation credits, and queue an advisory response draft",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requirement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_workspace_version",
+                  "expected_section_version"
+                ],
+                "properties": {
+                  "expected_workspace_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "expected_section_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable request is pending Commercial reservation; this is not an accepted response."
+          },
+          "400": {
+            "description": "Invalid"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "409": {
+            "description": "Version conflict"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Requires response-edit authority, exact workspace/section versions, FULL paid write access and an idempotency key. The server counts Unicode characters locally from exact CLEAN source versions, reserves the schema-bounded maximum through the durable entitlement bridge, and returns PENDING_RESERVATION. OpenAI cannot run before RESERVED acknowledgement."
+      },
+      "get": {
+        "summary": "List proposed unverified response drafts and grounded advisory gaps",
+        "parameters": [
+          {
+            "name": "bid_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requirement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Tenant-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most 20 runs; suggestions remain PROPOSED_UNVERIFIED"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "description": "Returns bounded run state plus cited PROPOSED_UNVERIFIED text and advisory gaps. It never applies content to the human response."
+      }
+    }
+  },
+  "x-status": "implemented-not-verified",
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    }
+  }
+}

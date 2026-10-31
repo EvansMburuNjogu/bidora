@@ -1,0 +1,347 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PA-23 Platform control audit activity (draft)",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/v1/platform/audit/actions": {
+      "get": {
+        "summary": "Search allowed Platform control activity",
+        "description": "Requires current platform.audit.read and recent TOTP-AAL2 with matching context generation. Reads only the migration-owned security-barrier projection: tenant_id IS NULL and allowlisted Platform action/target-type pairs. Every page rechecks authority and commits a read audit in the same control transaction. Search is literal, case-insensitive over visible action, module and UUID references only; never searches raw summaries. Date range is UTC, inclusive start/exclusive day after to. Cursor ordering is occurred_at plus audit ID; pagination is not a snapshot. Result describes the audit write, except PENDING is a guarded recorded PENDING_APPROVAL state; SUCCESSFUL never implies an approved or executed proposal. Successful sign-in evidence is limited to immutable PLATFORM_ADMIN identity actors: session creation (UserLoggedIn), email-code sign-in (EmailLoginCodeVerified) and protected MFA completion (MFALoginCompleted). These are separate recorded stages, not a single deduplicated login; session and factor target IDs are withheld. No names, email, payloads, raw summaries, tenant-private events, other account types' sign-ins or export.",
+        "parameters": [
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 384
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^[ -~]*$"
+            }
+          },
+          {
+            "name": "administrator",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Exact administrator actor ID; no email/name search"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Action"
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ADMINISTRATION",
+                "INTEGRATIONS"
+              ]
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "SUCCESSFUL",
+                "FAILED",
+                "PENDING"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ASC",
+                "DESC"
+              ],
+              "default": "DESC"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-audited bounded page, no total",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Record"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter or cursor"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden or assurance unavailable"
+          },
+          "409": {
+            "description": "Stale context"
+          },
+          "503": {
+            "description": "Read or audit unavailable; fail closed"
+          }
+        }
+      }
+    },
+    "/v1/platform/audit/actions/{audit_id}": {
+      "get": {
+        "summary": "Read one allowed Platform activity record",
+        "description": "Rechecks the same authority and projection as list; a disallowed or missing record is a concealed 404. Read audit commits with the detail lookup. No summary, content or additional personal data.",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permitted detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Record"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "trace_id"
+                      ],
+                      "properties": {
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden or assurance unavailable"
+          },
+          "404": {
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "description": "Stale context"
+          },
+          "503": {
+            "description": "Read or audit unavailable; fail closed"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Action": {
+        "type": "string",
+        "enum": [
+          "UserLoggedIn",
+          "EmailLoginCodeVerified",
+          "MFALoginCompleted",
+          "PlatformOwnerBootstrapped",
+          "PlatformAdministratorSessionsRevoked",
+          "PlatformAdministratorInvitationIssued",
+          "PlatformAdministratorInvitationCancelled",
+          "PlatformAdministratorInvitationAccepted",
+          "PlatformOwnerInvitationActivated",
+          "PlatformOwnerInvitationRejected",
+          "PlatformRoleAssignmentChanged",
+          "PlatformRoleRevocationChanged",
+          "PlatformAdministratorDisabled",
+          "PlatformAdministratorReactivated",
+          "PlatformIntegrationVersionCreated",
+          "PlatformIntegrationVersionTested",
+          "PlatformIntegrationActivationProposed",
+          "PlatformInformationUpdated",
+          "PlatformSessionPolicyUpdated",
+          "PlatformGoogleConfigurationUpdated", "PlatformGoogleConnectionTested", "NotificationTemplateUpdated", "NotificationTemplateTested"
+        ]
+      },
+      "Record": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "administrator_id",
+          "action",
+          "module",
+          "affected_record_id",
+          "result",
+          "occurred_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Audit record reference"
+          },
+          "administrator_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Actor ID only; null for system-originated records"
+          },
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "module": {
+            "type": "string",
+            "enum": [
+              "ADMINISTRATION",
+              "INTEGRATIONS"
+            ]
+          },
+          "affected_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Only invitation, change or integration-version UUIDs; null for user-targeted actions"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "SUCCESSFUL",
+              "FAILED",
+              "PENDING"
+            ]
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trace_id",
+          "next_cursor"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

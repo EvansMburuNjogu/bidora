@@ -1,0 +1,82 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot session administration",
+    "version": "0.1.0-draft"
+  },
+  "x-status": "BID-ADR-022 approved; mutation routes are implemented and composed but not functionally verified",
+  "paths": {
+    "/v1/auth/sessions/{session_id}": {
+      "delete": {
+        "summary": "Revoke one other active browser session",
+        "description": "Account owner only. Requires exact Origin, session-bound CSRF, a session created within 15 minutes and UUID idempotency. Cross-user, missing, expired and already-revoked targets return generic 204; the current session returns 409.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Generic idempotent result"
+          },
+          "409": {
+            "description": "Current session or conflicting idempotency"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/auth/sessions/revoke-all": {
+      "post": {
+        "summary": "Revoke all active sessions including the caller",
+        "description": "Account owner only. Atomically advances auth epoch, revokes at most 100 active current-epoch sessions, records minimal evidence and clears session/CSRF cookies without replacement.",
+        "responses": {
+          "204": {
+            "description": "All active sessions revoked and cookies cleared"
+          },
+          "409": {
+            "description": "Active-session bound exceeded"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PrivacySemantics": {
+        "type": "object",
+        "properties": {
+          "device_metadata_collected": {
+            "const": false
+          },
+          "replacement_session_issued": {
+            "const": false
+          },
+          "administrator_revocation_supported": {
+            "const": false
+          }
+        }
+      }
+    }
+  }
+}

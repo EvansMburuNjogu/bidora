@@ -1,0 +1,236 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora pilot membership offboarding",
+    "version": "1.0.0-draft"
+  },
+  "x-decision": "BID-ADR-021",
+  "paths": {
+    "/v1/shared/memberships/{membership_id}/offboarding": {
+      "post": {
+        "summary": "Begin or resume fail-closed membership offboarding",
+        "description": "Requires effective tenant.memberships.manage, fresh 15-minute session, CSRF, context generation and idempotency. Never removes the final continuity administrator.",
+        "parameters": [
+          {
+            "name": "membership_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "successor_membership_id",
+                  "expected_target_context_generation",
+                  "reason"
+                ],
+                "properties": {
+                  "successor_membership_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_target_context_generation": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offboarding completed"
+          },
+          "202": {
+            "description": "Durable operation remains pending"
+          },
+          "409": {
+            "description": "Last administrator, eligibility, concurrency or 500-record limit blocked the operation"
+          }
+        }
+      }
+    },
+    "/v1/shared/membership-offboarding/{operation_id}": {
+      "get": {
+        "summary": "Read durable offboarding status",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized operation status"
+          },
+          "404": {
+            "description": "Concealed unavailable operation"
+          }
+        }
+      }
+    },
+    "/v1/shared/membership-offboarding/{operation_id}/retarget": {
+      "post": {
+        "summary": "Retarget a pre-transfer operation",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successor changed with immutable evidence"
+          },
+          "409": {
+            "description": "Operation already transferred or successor ineligible"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "successor_membership_id",
+                  "expected_operation_version",
+                  "reason"
+                ],
+                "properties": {
+                  "successor_membership_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_operation_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shared/membership-offboarding/{operation_id}/cancel": {
+      "post": {
+        "summary": "Cancel without reversing completed transfers",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Membership reactivated after fence clearing; transfers remain historical"
+          },
+          "409": {
+            "description": "Operation changed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_operation_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_operation_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "Idempotency": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "schemas": {
+      "Semantics": {
+        "type": "object",
+        "properties": {
+          "automatic_successor": {
+            "const": false
+          },
+          "restoration_supported": {
+            "const": false
+          },
+          "platform_override": {
+            "const": false
+          }
+        }
+      }
+    }
+  }
+}

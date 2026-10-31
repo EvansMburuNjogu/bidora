@@ -1,0 +1,71 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Bidora Tenderpreneur fixed-role invitations", "version": "0.2.0-draft", "description": "TP-F04 one-role first-membership invitations for the approved Organization Admin, Bid Manager, Contributor and Approver bundles. Additional-role changes remain separate."},
+  "x-status": "tp-f04-implemented-not-verified",
+  "x-approval": {"date": "2026-10-18", "owner": "requesting user", "evidence": "approve invitation policy", "remaining": ["runtime database grants", "external SMTP acceptance", "deployment acceptance"]},
+  "paths": {
+    "/v1/shared/invitations": {
+      "post": {
+        "operationId": "issueCaptureContributorInvitation",
+        "security": [{"browserSession": []}],
+        "description": "Requires exact Origin, session-bound CSRF, ACTIVE verified membership, current context generation, and explicit tenant.memberships.manage ALLOW with active DENY precedence. The selected role must be one approved fixed role and its explicit capability bundle is server-owned; callers cannot submit capabilities.",
+        "parameters": [
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string"}},
+          {"name": "X-Bidora-Tenant-ID", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "X-Bidora-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["email", "role"], "properties": {"email": {"type": "string", "maxLength": 254}, "role": {"type": "string", "enum": ["ORGANIZATION_ADMIN", "BID_MANAGER", "CONTRIBUTOR", "APPROVER"]}}}}}},
+        "responses": {"201": {"description": "Invitation committed and delivered.", "content": {"application/json": {"schema": {"type": "object"}}}}, "400": {"$ref": "#/components/responses/Failure"}, "401": {"$ref": "#/components/responses/Failure"}, "403": {"$ref": "#/components/responses/Failure"}, "413": {"$ref": "#/components/responses/Failure"}, "415": {"$ref": "#/components/responses/Failure"}, "503": {"$ref": "#/components/responses/Failure"}}
+      },
+      "get": {
+        "operationId": "listPendingCaptureContributorInvitations",
+        "security": [{"browserSession": []}],
+        "description": "Requires current deny-first tenant.memberships.manage authority. Returns only active, unexpired fixed capture-contributor invitations. Raw tokens, token hashes, lookup forms and creator IDs are never returned.",
+        "parameters": [
+          {"name": "X-Bidora-Tenant-ID", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "X-Bidora-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+          {"name": "cursor", "in": "query", "required": false, "schema": {"type": "string", "maxLength": 342}}
+        ],
+        "responses": {
+          "200": {"description": "Stable newest-first keyset page with nullable next_cursor.", "content": {"application/json": {"schema": {"type": "object"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    },
+    "/v1/shared/invitations/{invitation_id}": {
+      "delete": {
+        "operationId": "cancelPendingCaptureContributorInvitation",
+        "security": [{"browserSession": []}],
+        "description": "Requires exact Origin, session-bound CSRF and current deny-first tenant.memberships.manage authority. Only an active, unexpired, unconsumed fixed-role invitation in the selected tenant can be invalidated. Replay and inaccessible targets return the same concealed not-found response.",
+        "parameters": [
+          {"name": "invitation_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}},
+          {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string"}},
+          {"name": "X-Bidora-Tenant-ID", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "X-Bidora-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}}
+        ],
+        "responses": {"204": {"description": "Invitation invalidated with audit and outbox evidence."}, "400": {"$ref": "#/components/responses/Failure"}, "401": {"$ref": "#/components/responses/Failure"}, "403": {"$ref": "#/components/responses/Failure"}, "404": {"$ref": "#/components/responses/Failure"}, "503": {"$ref": "#/components/responses/Failure"}}
+      }
+    },
+    "/v1/shared/invitations/accept": {
+      "post": {
+        "operationId": "acceptCaptureContributorInvitation",
+        "security": [{"browserSession": []}],
+        "description": "Requires exact Origin and session-bound CSRF. The current verified account email must match the invitation. Invalid, expired, consumed, replaced, mismatched and replayed tokens share one failure. Success creates no session and atomically creates one active membership and only the selected server-owned fixed-role capability bundle.",
+        "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}, {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["token"], "properties": {"token": {"type": "string", "minLength": 43, "maxLength": 43}}}}}},
+        "responses": {"204": {"description": "Invitation accepted; no body or new cookies."}, "400": {"$ref": "#/components/responses/Failure"}, "401": {"$ref": "#/components/responses/Failure"}, "403": {"$ref": "#/components/responses/Failure"}, "413": {"$ref": "#/components/responses/Failure"}, "415": {"$ref": "#/components/responses/Failure"}, "503": {"$ref": "#/components/responses/Failure"}}
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"browserSession": {"type": "apiKey", "in": "cookie", "name": "__Host-bidora_session"}},
+    "schemas": {"ErrorResponse": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"type": "object"}}, "trace_id": {"type": "string"}, "retryable": {"type": "boolean"}}}}}},
+    "responses": {"Failure": {"description": "Safe failure without token, email, membership or dependency details.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}}
+  }
+}

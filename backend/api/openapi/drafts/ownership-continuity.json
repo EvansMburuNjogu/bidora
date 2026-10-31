@@ -1,0 +1,20 @@
+{
+  "openapi":"3.1.0",
+  "info":{"title":"Bidora organization ownership continuity","version":"0.2.0-draft"},
+  "x-policy-status":"BID-ADR-021 approved; this assessment remains read-only while mutations use membership-offboarding.json",
+  "x-policy-reference":"backend/docs/membership-continuity-policy.md",
+  "paths":{
+    "/v1/tenderpreneur/organization/ownership-continuity":{
+      "get":{
+        "summary":"Reconcile active control-plane members with tenant-local work ownership",
+        "description":"Requires tenant.memberships.manage. Returns internal IDs and bounded counts only; no emails or role labels. It does not revoke or transfer. It supplies bounded preflight facts for the separately prepared, approved BID-ADR-021 offboarding policy.",
+        "responses":{
+          "200":{"description":"Current member/workload reconciliation with explicit policy blockers"},
+          "403":{"description":"Membership-management authority required"},
+          "409":{"description":"More than 200 active members or 500 activity identities"},
+          "503":{"description":"Unavailable"}
+        }
+      }
+    }
+  }
+}

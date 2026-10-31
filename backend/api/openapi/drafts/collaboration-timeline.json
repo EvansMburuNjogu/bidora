@@ -1,0 +1,19 @@
+{
+  "openapi":"3.1.0",
+  "info":{"title":"Bidora bid collaboration activity timeline","version":"0.1.0-draft"},
+  "paths":{
+    "/v1/tenderpreneur/bids/{bid_id}/activity":{
+      "get":{
+        "summary":"Read a privacy-safe keyset-paginated collaboration timeline",
+        "description":"Includes review-thread creation, comment/resolution facts, assignment facts and internal review decision facts. Comment, rationale and proposal content are excluded.",
+        "responses":{
+          "200":{"description":"At most 100 activities and an optional next cursor"},
+          "400":{"description":"Invalid limit or cursor"},
+          "403":{"description":"Current bid-read authority required"},
+          "404":{"description":"Active bid not found"},
+          "503":{"description":"Unavailable"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Bidora MFA and step-up readiness", "version": "0.3.0-draft"},
+  "x-status": "BID-ADR-023 approved and source-conformant; IMPLEMENTED_NOT_VERIFIED",
+  "x-policy-reference": "backend/docs/mfa-step-up-policy.md",
+  "paths": {
+    "/v1/auth/mfa/preparation": {
+      "get": {
+        "summary": "Read current-account MFA and step-up readiness without enrolling a factor",
+        "description": "Requires an authenticated session, exact approved Origin and matching session-bound CSRF cookie. Reports current identity-method, enrollment and session-age facts without returning factor or recovery secrets.",
+        "parameters": [
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string", "format": "uri"}}
+        ],
+        "security": [{"browserSession": [], "csrfCookie": []}],
+        "responses": {
+          "200": {"description": "Private readiness assessment with explicit blockers", "headers": {"Cache-Control": {"$ref": "#/components/headers/PrivateNoStore"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MFAReadinessResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"},
+          "401": {"$ref": "#/components/responses/Failure"},
+          "403": {"$ref": "#/components/responses/Failure"},
+          "404": {"$ref": "#/components/responses/Failure"},
+          "503": {"$ref": "#/components/responses/Failure"}
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "PrivateNoStore": {"description": "Private authentication response must not be cached.", "schema": {"type": "string", "const": "private, no-store"}}
+    },
+    "schemas": {
+      "Meta": {"type": "object", "additionalProperties": false, "required": ["trace_id"], "properties": {"trace_id": {"type": "string", "format": "uuid"}}},
+      "MFAReadiness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email_verified", "account_disabled", "password_credential_present", "google_identity_present", "mfa_enrollment_available", "mfa_enrolled", "step_up_available", "step_up_policy_configured", "session_assurance_provenance_available", "recovery_codes_available", "session_authenticated_at", "session_age_seconds", "blockers", "observed_at"],
+        "properties": {
+          "email_verified": {"type": "boolean"},
+          "account_disabled": {"type": "boolean"},
+          "password_credential_present": {"type": "boolean"},
+          "google_identity_present": {"type": "boolean"},
+          "mfa_enrollment_available": {"type": "boolean"},
+          "mfa_enrolled": {"type": "boolean"},
+          "step_up_available": {"type": "boolean"},
+          "step_up_policy_configured": {"type": "boolean"},
+          "session_assurance_provenance_available": {"type": "boolean"},
+          "recovery_codes_available": {"type": "boolean"},
+          "session_authenticated_at": {"type": "string", "format": "date-time"},
+          "session_age_seconds": {"type": "integer", "format": "int64", "minimum": 0},
+          "blockers": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 100}},
+          "observed_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "MFAReadinessResponse": {"type": "object", "additionalProperties": false, "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/MFAReadiness"}, "meta": {"$ref": "#/components/schemas/Meta"}}},
+      "FieldError": {"type": "object", "additionalProperties": false, "required": ["path", "code", "message"], "properties": {"path": {"type": "string"}, "code": {"type": "string"}, "message": {"type": "string"}}},
+      "Error": {"type": "object", "additionalProperties": false, "required": ["code", "message", "field_errors", "trace_id", "retryable"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "field_errors": {"type": "array", "items": {"$ref": "#/components/schemas/FieldError"}}, "trace_id": {"type": "string", "format": "uuid"}, "retryable": {"type": "boolean"}}},
+      "ErrorResponse": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"$ref": "#/components/schemas/Error"}}}
+    },
+    "responses": {
+      "Failure": {"description": "Safe failure without MFA secrets, recovery codes, session tokens or credential material.", "headers": {"Cache-Control": {"$ref": "#/components/headers/PrivateNoStore"}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}
+    }
+  }
+}
