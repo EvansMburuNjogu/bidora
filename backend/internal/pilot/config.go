@@ -110,6 +110,10 @@ func LoadDeploymentConfig(getenv getenvFunc, readFile readFileFunc) (DeploymentC
 	if err != nil {
 		return DeploymentConfig{}, err
 	}
+	platformLoginEmail, err := LoadPlatformLoginEmailConfig(getenv)
+	if err != nil {
+		return DeploymentConfig{}, err
+	}
 	smtpVaultKey, smtpVaultVersion, err := loadSMTPVaultKey(getenv, readFile)
 	if err != nil {
 		return DeploymentConfig{}, err
@@ -187,7 +191,7 @@ func LoadDeploymentConfig(getenv getenvFunc, readFile readFileFunc) (DeploymentC
 		seenAssignment[assignment] = struct{}{}
 		tenants = append(tenants, TenantDatabaseConfig{Assignment: assignment, Postgres: database})
 	}
-	return DeploymentConfig{Environment: environment, Address: address, Runtime: Config{PesaPal: pspOptions, PasswordPolicy: password.PilotPolicy(), DummyPasswordPHC: getenv("BIDORA_DUMMY_PASSWORD_PHC"), AttemptHMACSecret: attemptSecret, EmailLoginHMACSecret: emailLoginSecret, Redis: redisConfig, RedisPrefix: getenv("BIDORA_REDIS_PREFIX"), AllowedOrigins: origins, TrustedProxies: proxies, Google: google, SMTPVaultKey: smtpVaultKey, SMTPVaultKeyVersion: smtpVaultVersion, NotificationFingerprintKey: notificationKey, NotificationFingerprintKeyVersion: notificationKeyVersion, MinIO: minioConfig, OpenAI: openAIConfig, NATS: natsConfig, DocumentMeasurerPath: getenv("BIDORA_DOCUMENT_MEASURER_PATH"), PDFToTextPath: getenv("BIDORA_PDFTOTEXT_PATH"), ClamAV: clamAVConfig, MFAKeyRing: mfaKeys}, Control: control, Tenants: tenants}, nil
+	return DeploymentConfig{Environment: environment, Address: address, Runtime: Config{PlatformLoginEmail: platformLoginEmail, PesaPal: pspOptions, PasswordPolicy: password.PilotPolicy(), DummyPasswordPHC: getenv("BIDORA_DUMMY_PASSWORD_PHC"), AttemptHMACSecret: attemptSecret, EmailLoginHMACSecret: emailLoginSecret, Redis: redisConfig, RedisPrefix: getenv("BIDORA_REDIS_PREFIX"), AllowedOrigins: origins, TrustedProxies: proxies, Google: google, SMTPVaultKey: smtpVaultKey, SMTPVaultKeyVersion: smtpVaultVersion, NotificationFingerprintKey: notificationKey, NotificationFingerprintKeyVersion: notificationKeyVersion, MinIO: minioConfig, OpenAI: openAIConfig, NATS: natsConfig, DocumentMeasurerPath: getenv("BIDORA_DOCUMENT_MEASURER_PATH"), PDFToTextPath: getenv("BIDORA_PDFTOTEXT_PATH"), ClamAV: clamAVConfig, MFAKeyRing: mfaKeys}, Control: control, Tenants: tenants}, nil
 }
 func loadMFAKeyRing(getenv getenvFunc, readFile readFileFunc) (*mfa.KeyRing, error) {
 	current, e := strconv.Atoi(getenv("BIDORA_MFA_KEY_VERSION"))

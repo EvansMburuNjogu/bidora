@@ -9089,7 +9089,7 @@
         },
         "responses": {
           "204": {
-            "description": "AAL1 EMAIL_OTP session cookies issued",
+            "description": "Verified EMAIL_OTP session cookies issued; ordinary identities retain AAL1. A current Platform Administrator completing password plus email verification under enabled deployment policy receives Bidora administrator AAL2 with EMAIL_OTP provenance. No NIST certification is implied; stronger financial and tenant action policies remain separate.",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/mfa_step_up__PrivateNoStore"

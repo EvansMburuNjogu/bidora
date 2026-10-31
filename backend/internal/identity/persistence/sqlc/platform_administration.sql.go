@@ -39,7 +39,8 @@ WHERE u.id = ANY($1::uuid[])
   AND u.account_type = 'PLATFORM_ADMIN'
   AND u.email_verified_at IS NOT NULL
   AND u.disabled_at IS NULL
-  AND EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+  AND (EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+    OR EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL AND s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP' AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP))
 `
 
 func (q *Queries) CountEffectivePlatformIdentities(ctx context.Context, userIds []pgtype.UUID) (int64, error) {
@@ -71,7 +72,8 @@ WHERE u.id = $1 AND u.account_type = 'PLATFORM_ADMIN'
   AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL
   AND s.id = $2 AND s.revoked_at IS NULL
   AND s.idle_expires_at > $3 AND s.absolute_expires_at > $3
-  AND EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+  AND (EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+       OR (s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP'))
 `
 
 type GetPlatformIdentitySessionFactsParams struct {
@@ -109,7 +111,8 @@ func (q *Queries) GetPlatformIdentitySessionFacts(ctx context.Context, arg GetPl
 
 const listPlatformAdministratorIdentitySummaries = `-- name: ListPlatformAdministratorIdentitySummaries :many
 SELECT u.id, u.email, u.disabled_at,
-       EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE') AS totp_enrolled
+       EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE') AS totp_enrolled,
+       EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL AND s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP' AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP) AS email_otp_verified
 FROM identity.users AS u
 WHERE u.id = ANY($1::uuid[])
   AND u.account_type = 'PLATFORM_ADMIN' AND u.email_verified_at IS NOT NULL
@@ -117,10 +120,11 @@ ORDER BY u.id
 `
 
 type ListPlatformAdministratorIdentitySummariesRow struct {
-	ID           pgtype.UUID
-	Email        string
-	DisabledAt   pgtype.Timestamptz
-	TotpEnrolled bool
+	ID               pgtype.UUID
+	Email            string
+	DisabledAt       pgtype.Timestamptz
+	TotpEnrolled     bool
+	EmailOtpVerified bool
 }
 
 func (q *Queries) ListPlatformAdministratorIdentitySummaries(ctx context.Context, userIds []pgtype.UUID) ([]ListPlatformAdministratorIdentitySummariesRow, error) {
@@ -137,6 +141,7 @@ func (q *Queries) ListPlatformAdministratorIdentitySummaries(ctx context.Context
 			&i.Email,
 			&i.DisabledAt,
 			&i.TotpEnrolled,
+			&i.EmailOtpVerified,
 		); err != nil {
 			return nil, err
 		}

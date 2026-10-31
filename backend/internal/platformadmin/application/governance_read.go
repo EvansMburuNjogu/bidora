@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
 	"time"
@@ -31,9 +32,9 @@ type AdministratorProfileView struct {
 	CreatedAt, UpdatedAt       time.Time
 }
 type AdministratorIdentityView struct {
-	UserID                 ID
-	Email                  string
-	Disabled, TOTPEnrolled bool
+	UserID                                   ID
+	Email                                    string
+	Disabled, TOTPEnrolled, EmailOTPVerified bool
 }
 type AssignmentView struct {
 	ID, UserID            ID
@@ -348,7 +349,7 @@ func (s *GovernanceReadService) withRead(ctx context.Context, auth ReadAuthority
 		if !facts.Grants("platform.admin.read") {
 			return ErrPlatformAccessForbidden
 		}
-		if facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.After(auth.ObservedAt) || facts.AssuredAt.Before(auth.ObservedAt.Add(-recentPlatformAssurance)) {
+		if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(auth.ObservedAt) || facts.AssuredAt.Before(auth.ObservedAt.Add(-recentPlatformAssurance)) {
 			return ErrPlatformAssuranceRequired
 		}
 		if governance && !facts.Grants("platform.governance.approve") && !facts.Grants("platform.governance.review") {
@@ -387,7 +388,7 @@ func composeAdministrators(profiles []AdministratorProfileView, identities []Adm
 		}
 		item := AdministratorView{Profile: profile, Identity: identity, Assignments: assignmentsByID[profile.UserID]}
 		for _, assignment := range item.Assignments {
-			if assignment.Role == domain.PlatformOwner && assignment.State == "ACTIVE" && !identity.Disabled && identity.TOTPEnrolled {
+			if assignment.Role == domain.PlatformOwner && assignment.State == "ACTIVE" && !identity.Disabled && (identity.TOTPEnrolled || identity.EmailOTPVerified) {
 				item.EffectiveOwner = true
 			}
 		}

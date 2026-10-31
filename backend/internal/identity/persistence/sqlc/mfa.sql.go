@@ -299,16 +299,34 @@ func (q *Queries) GetPendingMFAFactor(ctx context.Context, userID pgtype.UUID) (
 	return i, err
 }
 
+const getPlatformEmailLoginPolicy = `-- name: GetPlatformEmailLoginPolicy :one
+SELECT COALESCE(account_type='PLATFORM_ADMIN',false)::boolean AS platform_admin FROM identity.users
+WHERE id=$1 AND auth_epoch=$2 AND email_verified_at IS NOT NULL AND disabled_at IS NULL
+`
+
+type GetPlatformEmailLoginPolicyParams struct {
+	UserID    pgtype.UUID
+	AuthEpoch int64
+}
+
+func (q *Queries) GetPlatformEmailLoginPolicy(ctx context.Context, arg GetPlatformEmailLoginPolicyParams) (bool, error) {
+	row := q.db.QueryRow(ctx, getPlatformEmailLoginPolicy, arg.UserID, arg.AuthEpoch)
+	var platform_admin bool
+	err := row.Scan(&platform_admin)
+	return platform_admin, err
+}
+
 const insertEmailLoginAudit = `-- name: InsertEmailLoginAudit :exec
-INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at) VALUES($1,NULL,$2,'EmailLoginCodeVerified','session',$3,$4,'SUCCEEDED',$5,jsonb_build_object('assurance_level','AAL1','assurance_method','EMAIL_OTP'),1,$4)
+INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at) VALUES($1,NULL,$2,'EmailLoginCodeVerified','session',$3,$4,'SUCCEEDED',$5,jsonb_build_object('assurance_level',$6::text,'assurance_method','EMAIL_OTP'),1,$4)
 `
 
 type InsertEmailLoginAuditParams struct {
-	ID            pgtype.UUID
-	ActorID       pgtype.UUID
-	SessionID     pgtype.UUID
-	OccurredAt    pgtype.Timestamptz
-	CorrelationID pgtype.UUID
+	ID             pgtype.UUID
+	ActorID        pgtype.UUID
+	SessionID      pgtype.UUID
+	OccurredAt     pgtype.Timestamptz
+	CorrelationID  pgtype.UUID
+	AssuranceLevel string
 }
 
 func (q *Queries) InsertEmailLoginAudit(ctx context.Context, arg InsertEmailLoginAuditParams) error {
@@ -318,19 +336,42 @@ func (q *Queries) InsertEmailLoginAudit(ctx context.Context, arg InsertEmailLogi
 		arg.SessionID,
 		arg.OccurredAt,
 		arg.CorrelationID,
+		arg.AssuranceLevel,
+	)
+	return err
+}
+
+const insertEmailLoginDeliveryAudit = `-- name: InsertEmailLoginDeliveryAudit :exec
+INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at) VALUES($1,NULL,$2,'EmailLoginCodeSMTPAccepted','authentication',$3,$4,'SUCCEEDED',$3,'{"provider_acceptance":true,"inbox_delivery_confirmed":false}'::jsonb,1,$4)
+`
+
+type InsertEmailLoginDeliveryAuditParams struct {
+	ID            pgtype.UUID
+	ActorID       pgtype.UUID
+	TransactionID pgtype.UUID
+	At            pgtype.Timestamptz
+}
+
+func (q *Queries) InsertEmailLoginDeliveryAudit(ctx context.Context, arg InsertEmailLoginDeliveryAuditParams) error {
+	_, err := q.db.Exec(ctx, insertEmailLoginDeliveryAudit,
+		arg.ID,
+		arg.ActorID,
+		arg.TransactionID,
+		arg.At,
 	)
 	return err
 }
 
 const insertEmailLoginOutbox = `-- name: InsertEmailLoginOutbox :exec
-INSERT INTO bidora_control_eventing.outbox_events(id,tenant_id,actor_id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,classification,payload,occurred_at,published_at,attempts,next_attempt_at,created_at) VALUES($1,NULL,$2,'authentication',$3,1,'identity.email_login.completed.v1',1,'INTERNAL',jsonb_build_object('user_id',$2::uuid,'assurance_level','AAL1','assurance_method','EMAIL_OTP'),$4,NULL,0,$4,$4)
+INSERT INTO bidora_control_eventing.outbox_events(id,tenant_id,actor_id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,classification,payload,occurred_at,published_at,attempts,next_attempt_at,created_at) VALUES($1,NULL,$2,'authentication',$3,1,'identity.email_login.completed.v1',1,'INTERNAL',jsonb_build_object('user_id',$2::uuid,'assurance_level',$4::text,'assurance_method','EMAIL_OTP'),$5,NULL,0,$5,$5)
 `
 
 type InsertEmailLoginOutboxParams struct {
-	ID            pgtype.UUID
-	ActorID       pgtype.UUID
-	TransactionID pgtype.UUID
-	OccurredAt    pgtype.Timestamptz
+	ID             pgtype.UUID
+	ActorID        pgtype.UUID
+	TransactionID  pgtype.UUID
+	AssuranceLevel string
+	OccurredAt     pgtype.Timestamptz
 }
 
 func (q *Queries) InsertEmailLoginOutbox(ctx context.Context, arg InsertEmailLoginOutboxParams) error {
@@ -338,6 +379,7 @@ func (q *Queries) InsertEmailLoginOutbox(ctx context.Context, arg InsertEmailLog
 		arg.ID,
 		arg.ActorID,
 		arg.TransactionID,
+		arg.AssuranceLevel,
 		arg.OccurredAt,
 	)
 	return err
@@ -515,6 +557,38 @@ func (q *Queries) InvalidateMFARecoveryCodes(ctx context.Context, arg Invalidate
 	return err
 }
 
+const lockEmailLoginSessionPolicy = `-- name: LockEmailLoginSessionPolicy :one
+SELECT COALESCE(u.account_type='PLATFORM_ADMIN',false)::boolean AS platform_admin,t.primary_method
+FROM identity.users u JOIN identity.mfa_transactions t ON t.user_id=u.id AND t.auth_epoch=u.auth_epoch
+WHERE u.id=$1 AND u.auth_epoch=$2 AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL
+AND t.id=$3 AND t.purpose='EMAIL_LOGIN' AND t.consumed_at IS NULL AND t.expires_at>$4 AND t.attempts<5
+FOR UPDATE OF u,t
+`
+
+type LockEmailLoginSessionPolicyParams struct {
+	UserID        pgtype.UUID
+	AuthEpoch     int64
+	TransactionID pgtype.UUID
+	At            pgtype.Timestamptz
+}
+
+type LockEmailLoginSessionPolicyRow struct {
+	PlatformAdmin bool
+	PrimaryMethod string
+}
+
+func (q *Queries) LockEmailLoginSessionPolicy(ctx context.Context, arg LockEmailLoginSessionPolicyParams) (LockEmailLoginSessionPolicyRow, error) {
+	row := q.db.QueryRow(ctx, lockEmailLoginSessionPolicy,
+		arg.UserID,
+		arg.AuthEpoch,
+		arg.TransactionID,
+		arg.At,
+	)
+	var i LockEmailLoginSessionPolicyRow
+	err := row.Scan(&i.PlatformAdmin, &i.PrimaryMethod)
+	return i, err
+}
+
 const lockMFAUserSession = `-- name: LockMFAUserSession :one
 SELECT u.auth_epoch FROM identity.users u JOIN identity.sessions s ON s.user_id=u.id WHERE u.id=$1 AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=$2 AND s.id=$3 AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL AND s.idle_expires_at>$4 AND s.absolute_expires_at>$4 FOR UPDATE OF u,s
 `
@@ -659,6 +733,20 @@ type RevokeMFAUserSessionsParams struct {
 
 func (q *Queries) RevokeMFAUserSessions(ctx context.Context, arg RevokeMFAUserSessionsParams) error {
 	_, err := q.db.Exec(ctx, revokeMFAUserSessions, arg.At, arg.UserID)
+	return err
+}
+
+const revokePreOTPAdministratorSessions = `-- name: RevokePreOTPAdministratorSessions :exec
+UPDATE identity.sessions SET revoked_at=$1 WHERE user_id=$2 AND assurance_level='AAL1' AND revoked_at IS NULL
+`
+
+type RevokePreOTPAdministratorSessionsParams struct {
+	At     pgtype.Timestamptz
+	UserID pgtype.UUID
+}
+
+func (q *Queries) RevokePreOTPAdministratorSessions(ctx context.Context, arg RevokePreOTPAdministratorSessionsParams) error {
+	_, err := q.db.Exec(ctx, revokePreOTPAdministratorSessions, arg.At, arg.UserID)
 	return err
 }
 

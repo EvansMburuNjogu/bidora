@@ -20,7 +20,7 @@ func (f controlCompatibilityFake) GetControlRegistryCompatibility(context.Contex
 	return f.row, f.err
 }
 func compatibleControl() registrysql.GetControlRegistryCompatibilityRow {
-	return registrysql.GetControlRegistryCompatibilityRow{MigrationSet: "control_registry", SchemaVersion: 42, MinReaderGeneration: 1, MaxReaderGeneration: 1, MinWriterGeneration: 1, MaxWriterGeneration: 1}
+	return registrysql.GetControlRegistryCompatibilityRow{MigrationSet: "control_registry", SchemaVersion: 43, MinReaderGeneration: 1, MaxReaderGeneration: 1, MinWriterGeneration: 1, MaxWriterGeneration: 1}
 }
 
 func TestControlSchemaCompatibility(t *testing.T) {

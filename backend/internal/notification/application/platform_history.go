@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
 	"time"
@@ -71,7 +72,7 @@ func (s *PlatformHistoryService) List(ctx context.Context, subject HistorySubjec
 		if x != nil {
 			return x
 		}
-		if !facts.Grants("platform.integration.failure.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if !facts.Grants("platform.integration.failure.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
 			return ErrHistoryForbidden
 		}
 		rows, x := tx.ListPlatformAttempts(c, limit+1, cursor)

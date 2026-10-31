@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
 	"strings"
@@ -142,7 +143,7 @@ func (s *PlatformAuditService) read(ctx context.Context, subject PlatformAuditSu
 		if x != nil {
 			return x
 		}
-		if !facts.Grants("platform.audit.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if !facts.Grants("platform.audit.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
 			return ErrPlatformAuditForbidden
 		}
 		if x = load(c, tx); x != nil {

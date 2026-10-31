@@ -31,7 +31,8 @@ WHERE u.id = sqlc.arg(user_id) AND u.account_type = 'PLATFORM_ADMIN'
   AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL
   AND s.id = sqlc.arg(session_id) AND s.revoked_at IS NULL
   AND s.idle_expires_at > sqlc.arg(observed_at) AND s.absolute_expires_at > sqlc.arg(observed_at)
-  AND EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE');
+  AND (EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+       OR (s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP'));
 
 -- name: LockPlatformInviteeIdentity :one
 SELECT u.id, u.auth_epoch, u.email_lookup
@@ -57,7 +58,8 @@ WHERE u.id = ANY(sqlc.arg(user_ids)::uuid[])
   AND u.account_type = 'PLATFORM_ADMIN'
   AND u.email_verified_at IS NOT NULL
   AND u.disabled_at IS NULL
-  AND EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE');
+  AND (EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+    OR EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL AND s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP' AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP));
 
 -- name: FindPlatformAdministratorByEmailLookup :one
 SELECT id FROM identity.users
@@ -66,7 +68,8 @@ WHERE email_lookup = sqlc.arg(email_lookup)
 
 -- name: ListPlatformAdministratorIdentitySummaries :many
 SELECT u.id, u.email, u.disabled_at,
-       EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE') AS totp_enrolled
+       EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE') AS totp_enrolled,
+       EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL AND s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP' AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP) AS email_otp_verified
 FROM identity.users AS u
 WHERE u.id = ANY(sqlc.arg(user_ids)::uuid[])
   AND u.account_type = 'PLATFORM_ADMIN' AND u.email_verified_at IS NOT NULL

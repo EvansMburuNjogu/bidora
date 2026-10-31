@@ -7,17 +7,39 @@ import (
 	"bidora/backend/internal/postgres"
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"time"
 )
 
-type MFAStore struct{ runner writeRunner }
+type MFAStore struct {
+	runner             writeRunner
+	platformEmailLogin bool
+}
 
+func (s *MFAStore) EnablePlatformEmailLogin() { s.platformEmailLogin = true }
+func (s *MFAStore) PlatformEmailLoginRequired(ctx context.Context, user app.ID, epoch int64) (required bool, err error) {
+	if !s.platformEmailLogin {
+		return false, nil
+	}
+	err = s.runner.WithinTransaction(ctx, func(tc context.Context, db postgres.DBTX) error {
+		var e error
+		required, e = qsql.New(db).GetPlatformEmailLoginPolicy(tc, qsql.GetPlatformEmailLoginPolicyParams{UserID: identityID(user), AuthEpoch: epoch})
+		return e
+	})
+	return
+}
+
+func (s *MFAStore) RecordEmailLoginSMTPAcceptance(ctx context.Context, user, id app.ID, at time.Time) error {
+	return s.runner.WithinTransaction(ctx, func(tc context.Context, db postgres.DBTX) error {
+		return qsql.New(db).InsertEmailLoginDeliveryAudit(tc, qsql.InsertEmailLoginDeliveryAuditParams{ID: identityID(app.ID(uuid.New())), ActorID: identityID(user), TransactionID: identityID(id), At: identityTime(at)})
+	})
+}
 func NewMFAStore(r writeRunner) (*MFAStore, error) {
 	if r == nil {
 		return nil, errors.New("mfa_store_invalid")
 	}
-	return &MFAStore{r}, nil
+	return &MFAStore{runner: r}, nil
 }
 func (s *MFAStore) IsPlatformAdministrator(ctx context.Context, user app.ID) (result bool, err error) {
 	err = s.runner.WithinTransaction(ctx, func(tc context.Context, db postgres.DBTX) error {
@@ -330,18 +352,34 @@ func (s *MFAStore) CommitMFALogin(ctx context.Context, c app.MFALoginCommit) err
 		if c.Method != "EMAIL_OTP" && c.Method != "TOTP" && c.Method != "RECOVERY_CODE" {
 			return app.ErrMFAConflict
 		}
+		level := "AAL1"
+		if c.Method == "EMAIL_OTP" {
+			policy, err := q.LockEmailLoginSessionPolicy(tc, qsql.LockEmailLoginSessionPolicyParams{UserID: identityID(c.UserID), AuthEpoch: c.AuthEpoch, TransactionID: identityID(c.TransactionID), At: identityTime(c.At)})
+			if err != nil || policy.PrimaryMethod != c.PrimaryMethod {
+				return app.ErrMFAConflict
+			}
+			if policy.PlatformAdmin {
+				if !s.platformEmailLogin || policy.PrimaryMethod != string(app.AuthenticationMethodPassword) {
+					return app.ErrMFAConflict
+				}
+				level = "AAL2"
+				if err = q.RevokePreOTPAdministratorSessions(tc, qsql.RevokePreOTPAdministratorSessionsParams{UserID: identityID(c.UserID), At: identityTime(c.At)}); err != nil {
+					return err
+				}
+			}
+		}
 		n, e := q.ConsumeMFALoginTransaction(tc, qsql.ConsumeMFALoginTransactionParams{At: identityTime(c.At), ID: identityID(c.TransactionID)})
 		if e != nil || n != 1 {
 			return app.ErrMFAConflict
 		}
 		if c.Method == "EMAIL_OTP" {
-			if e = q.InsertSession(tc, qsql.InsertSessionParams{ID: identityID(c.SessionID), UserID: identityID(c.UserID), TokenHash: c.SessionHash[:], CsrfHash: c.CSRFHash[:], AuthEpoch: c.AuthEpoch, CreatedAt: identityTime(c.At), IdleExpiresAt: identityTime(c.IdleExpiresAt), AbsoluteExpiresAt: identityTime(c.AbsoluteExpiresAt), AssuranceLevel: "AAL1", AssuredAt: identityTime(c.At), AssuranceMethod: "EMAIL_OTP", IdleTimeoutSeconds: int32(c.IdleExpiresAt.Sub(c.At).Seconds()), AbsoluteTimeoutSeconds: int32(c.AbsoluteExpiresAt.Sub(c.At).Seconds())}); e != nil {
+			if e = q.InsertSession(tc, qsql.InsertSessionParams{ID: identityID(c.SessionID), UserID: identityID(c.UserID), TokenHash: c.SessionHash[:], CsrfHash: c.CSRFHash[:], AuthEpoch: c.AuthEpoch, CreatedAt: identityTime(c.At), IdleExpiresAt: identityTime(c.IdleExpiresAt), AbsoluteExpiresAt: identityTime(c.AbsoluteExpiresAt), AssuranceLevel: level, AssuredAt: identityTime(c.At), AssuranceMethod: "EMAIL_OTP", IdleTimeoutSeconds: int32(c.IdleExpiresAt.Sub(c.At).Seconds()), AbsoluteTimeoutSeconds: int32(c.AbsoluteExpiresAt.Sub(c.At).Seconds())}); e != nil {
 				return e
 			}
-			if e = q.InsertEmailLoginAudit(tc, qsql.InsertEmailLoginAuditParams{ID: identityID(c.AuditID), ActorID: identityID(c.UserID), SessionID: identityID(c.SessionID), OccurredAt: identityTime(c.At), CorrelationID: identityID(c.CorrelationID)}); e != nil {
+			if e = q.InsertEmailLoginAudit(tc, qsql.InsertEmailLoginAuditParams{AssuranceLevel: level, ID: identityID(c.AuditID), ActorID: identityID(c.UserID), SessionID: identityID(c.SessionID), OccurredAt: identityTime(c.At), CorrelationID: identityID(c.CorrelationID)}); e != nil {
 				return e
 			}
-			return q.InsertEmailLoginOutbox(tc, qsql.InsertEmailLoginOutboxParams{ID: identityID(c.OutboxID), ActorID: identityID(c.UserID), TransactionID: identityID(c.TransactionID), OccurredAt: identityTime(c.At)})
+			return q.InsertEmailLoginOutbox(tc, qsql.InsertEmailLoginOutboxParams{AssuranceLevel: level, ID: identityID(c.OutboxID), ActorID: identityID(c.UserID), TransactionID: identityID(c.TransactionID), OccurredAt: identityTime(c.At)})
 		}
 		if c.Method == "TOTP" {
 			n, e = q.AdvanceMFAFactorCounter(tc, qsql.AdvanceMFAFactorCounterParams{Counter: c.Counter, ID: identityID(c.FactorID), UserID: identityID(c.UserID), ExpectedVersion: c.ExpectedFactorVersion})

@@ -129,9 +129,9 @@
     "queries/identity/account_type.sql": "eca666ee0c3fb196a12fe30762572e0f2ad6d21df49460c2ba958052acbb91c9",
     "queries/identity/commercial_trial.sql": "248572cb8b8faf2ddde2c62e8caba53fe2fd812bb04e85122ab079d5d2187b35",
     "queries/identity/google.sql": "98ff572ef5122c06054508e0a9ac6b7cacc89376f1769df7197e0f2d5e8658d0",
-    "queries/identity/mfa.sql": "bc22fe8d724d89a15462d36ee724441616eb934fda16bca963b62a3c327eb5ec",
+    "queries/identity/mfa.sql": "d4ce81dba302e6e1a8117c6794fb355af6937b81b431ccadc7bc20d061b1c7dd",
     "queries/identity/password.sql": "9ecc92ffc328e43dc65f8c0c25253e62a5b03218cea0c182160662932929a29e",
-    "queries/identity/platform_administration.sql": "20da50bd2b7371010b9f4fb712e0ba4eba09992a64209cfe5b1a75a1ffacdfad",
+    "queries/identity/platform_administration.sql": "e5744428b21e1edb350754a2683994c2996292f6b115f7b3d9cbfd6be6957440",
     "queries/identity/recovery.sql": "a16a9cdf605f2f80e712583ad9d48ccc90a558ba353e596112aa48a84a5d9922",
     "queries/identity/session.sql": "32a9f77cad76f00a13b1a2d12a280ece62da2fe20309de66337a793d788681de",
     "queries/identity/session_administration.sql": "3f790b41eebd0048c1faf5fcba0cfe9d6c7e672049fca0629a6a89d14c8001de",
@@ -172,7 +172,8 @@
     "queries/platformsettings/secrets.sql": "b3221892c0c038e6de67fb8475bba1d4817170818f3696048d38542fbeadca93",
     "queries/tenantevidence/evidence.sql": "c2066fe1d705e2e34a572cd293492de8a0da286f7040d3f0aae426bf64677e4f",
     "schema/option-a-tables.json": "8218bc457147e93399982b8f11c4aad69b1e09645a02a3c7c9dd3a2390edb375",
-    "sqlc.yaml": "45448fac895b066092c35c2c9396e276ae8df42dbec87bd410c675871316e28f"
+    "sqlc.yaml": "45448fac895b066092c35c2c9396e276ae8df42dbec87bd410c675871316e28f",
+    "migrations/control/00043_platform_email_login_assurance.sql": "b0dc6aa6242b23ae73f0293becabcf67e4ec7278f03554ff9f2b0cabc3ce7965"
   },
   "note": "Update only through explicit pre-release review. Released migrations are immutable; add a new migration instead."
 }

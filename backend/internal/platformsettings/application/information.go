@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -224,7 +225,7 @@ func validInformationSubject(ctx context.Context, s Subject) bool {
 	return ctx != nil && !s.ActorID.IsZero() && !s.SessionID.IsZero() && s.ContextGeneration > 0
 }
 func canReadInformation(a Authority, at time.Time) bool {
-	return a.Capabilities["platform.admin.read"] && a.AssuranceLevel == "AAL2" && a.AssuranceMethod == "TOTP" && !a.AssuredAt.IsZero() && !a.AssuredAt.After(at) && !a.AssuredAt.Before(at.Add(-15*time.Minute))
+	return a.Capabilities["platform.admin.read"] && platformpolicy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) && !a.AssuredAt.IsZero() && !a.AssuredAt.After(at) && !a.AssuredAt.Before(at.Add(-15*time.Minute))
 }
 func validSupportWebsite(mail, site string) bool {
 	if _, err := email.Parse(mail); err != nil {

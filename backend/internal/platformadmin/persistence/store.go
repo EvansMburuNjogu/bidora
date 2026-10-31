@@ -803,7 +803,7 @@ func (tx *governanceReadTx) ListAdministratorIdentities(ctx context.Context, use
 	}
 	result := make([]platformapp.AdministratorIdentityView, len(rows))
 	for i, row := range rows {
-		result[i] = platformapp.AdministratorIdentityView{UserID: platformapp.ID(row.UserID), Email: row.EmailDisplay, Disabled: row.Disabled, TOTPEnrolled: row.TOTPEnrolled}
+		result[i] = platformapp.AdministratorIdentityView{UserID: platformapp.ID(row.UserID), Email: row.EmailDisplay, Disabled: row.Disabled, TOTPEnrolled: row.TOTPEnrolled, EmailOTPVerified: row.EmailOTPVerified}
 	}
 	return result, nil
 }

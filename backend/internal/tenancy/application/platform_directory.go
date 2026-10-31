@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
 	"strings"
@@ -135,7 +136,7 @@ func (s *PlatformTenantDirectoryService) withDirectory(ctx context.Context, subj
 		if !authority.CanRead {
 			return ErrPlatformDirectoryForbidden
 		}
-		if authority.AssuranceLevel != "AAL2" || authority.AssuranceMethod != "TOTP" || authority.AssuredAt.After(observedAt) || authority.AssuredAt.Before(observedAt.Add(-recentPlatformDirectoryAssurance)) {
+		if !platformpolicy.AdministratorAssurance(authority.AssuranceLevel, authority.AssuranceMethod) || authority.AssuredAt.After(observedAt) || authority.AssuredAt.Before(observedAt.Add(-recentPlatformDirectoryAssurance)) {
 			return ErrPlatformDirectoryAssuranceRequired
 		}
 		return read(txCtx, tx)

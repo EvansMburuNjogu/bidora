@@ -167,6 +167,9 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 		}
 	}
 	if delivery == nil {
+		if config.PlatformLoginEmail != nil {
+			return nil, errors.New("platform_login_email_config_invalid")
+		}
 		return result, nil
 	}
 	delivery = &configuredSMTPDelivery{base: delivery, renderer: result.templateRenderer}
@@ -188,6 +191,16 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	}
 	if err = mfaService.EnableEmailLogin(delivery, config.EmailLoginHMACSecret); err != nil {
 		return nil, errors.New("pilot_runtime_invalid")
+	}
+	if config.PlatformLoginEmail != nil {
+		vault, e := smtpsecret.NewVault(control, config.SMTPVaultKey, config.SMTPVaultKeyVersion)
+		if e != nil {
+			return nil, e
+		}
+		mfaStore.EnablePlatformEmailLogin()
+		if e = mfaService.EnablePlatformEmailLogin(mfaStore, &platformLoginMail{config: *config.PlatformLoginEmail, vault: vault}); e != nil {
+			return nil, e
+		}
 	}
 	resendLimits, err := loginresendredis.New(redisClient, config.RedisPrefix)
 	if err != nil {

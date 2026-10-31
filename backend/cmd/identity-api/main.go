@@ -145,6 +145,10 @@ func run() error {
 		redisPrefix = "bidora:sandbox:"
 	}
 	cfg := pilot.Config{PesaPal: pspOptions, PasswordPolicy: password.PilotPolicy(), DummyPasswordPHC: dummy, AttemptHMACSecret: attemptKey, EmailLoginHMACSecret: emailKey, Redis: attemptredis.Config{Address: os.Getenv("BIDORA_TEST_REDIS_ADDR"), Username: os.Getenv("BIDORA_TEST_REDIS_USERNAME"), Password: os.Getenv("BIDORA_TEST_REDIS_PASSWORD"), TLS: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: redisName, RootCAs: redisRoots}, DialTimeout: 3 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, PoolSize: 8}, RedisPrefix: redisPrefix, AllowedOrigins: origins, TrustedProxies: proxies, MFAKeyRing: ring, SMTPVaultKey: vaultKey, SMTPVaultKeyVersion: int32(version64), NotificationFingerprintKey: notificationKey, NotificationFingerprintKeyVersion: int32(notificationVersion), DevelopmentLoopbackHTTP: !staging}
+	cfg.PlatformLoginEmail, err = pilot.LoadPlatformLoginEmailConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
 	if os.Getenv("BIDORA_GOOGLE_CALLBACK_URL") != "" {
 		cfg.Google, err = pilot.LoadGoogleDeploymentConfig(os.Getenv, os.ReadFile)
 		if err != nil {

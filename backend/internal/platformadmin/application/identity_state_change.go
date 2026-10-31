@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"strings"
 	"time"
@@ -206,7 +207,7 @@ func requireIdentityStateActor(ctx context.Context, tx RoleChangeTx, input Ident
 	if !eligible {
 		return AuthorityFacts{}, ErrPlatformAccessForbidden
 	}
-	if facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
 		return AuthorityFacts{}, ErrPlatformAssuranceRequired
 	}
 	return facts, nil

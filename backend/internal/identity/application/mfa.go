@@ -126,8 +126,14 @@ type MFAActivationResult struct {
 type EmailLoginStore interface {
 	BeginEmailLogin(context.Context, ID, int64, AuthenticationMethod, [32]byte, [32]byte, [32]byte, ID, time.Time) (email.Address, error)
 }
+type EmailLoginDeliveryEvidence interface {
+	RecordEmailLoginSMTPAcceptance(context.Context, ID, ID, time.Time) error
+}
 type EmailLoginCodeDelivery interface {
 	DeliverLoginCode(context.Context, email.Address, string, time.Time) error
+}
+type PlatformEmailLoginPolicy interface {
+	PlatformEmailLoginRequired(context.Context, ID, int64) (bool, error)
 }
 type EmailLoginAvailability interface {
 	EmailLoginAvailable(context.Context) bool
@@ -140,17 +146,19 @@ type EmailLoginResendKeyer interface {
 }
 
 type MFAService struct {
-	store             MFAEnrollmentStore
-	keys              *mfa.KeyRing
-	tokens            SessionTokenGenerator
-	ids               LoginIDGenerator
-	clock             LoginClock
-	attempts          MFAAttemptController
-	scopes            MFAScopeDeriver
-	emailDelivery     EmailLoginCodeDelivery
-	emailMACKey       []byte
-	emailResendLimits EmailLoginResendLimiter
-	emailResendKeys   EmailLoginResendKeyer
+	store                 MFAEnrollmentStore
+	keys                  *mfa.KeyRing
+	tokens                SessionTokenGenerator
+	ids                   LoginIDGenerator
+	clock                 LoginClock
+	attempts              MFAAttemptController
+	scopes                MFAScopeDeriver
+	platformEmailDelivery EmailLoginCodeDelivery
+	platformEmailPolicy   PlatformEmailLoginPolicy
+	emailDelivery         EmailLoginCodeDelivery
+	emailMACKey           []byte
+	emailResendLimits     EmailLoginResendLimiter
+	emailResendKeys       EmailLoginResendKeyer
 }
 
 func NewMFAService(s MFAEnrollmentStore, k *mfa.KeyRing, t SessionTokenGenerator, ids LoginIDGenerator, c LoginClock, attempts MFAAttemptController, scopes MFAScopeDeriver) (*MFAService, error) {
@@ -166,6 +174,13 @@ func (s *MFAService) EnableEmailLogin(delivery EmailLoginCodeDelivery, macKey []
 	}
 	s.emailDelivery = delivery
 	s.emailMACKey = append([]byte(nil), macKey...)
+	return nil
+}
+func (s *MFAService) EnablePlatformEmailLogin(policy PlatformEmailLoginPolicy, delivery EmailLoginCodeDelivery) error {
+	if s == nil || policy == nil || delivery == nil {
+		return errors.New("platform_email_login_config_invalid")
+	}
+	s.platformEmailPolicy, s.platformEmailDelivery = policy, delivery
 	return nil
 }
 func (s *MFAService) EnableEmailLoginResend(limits EmailLoginResendLimiter, keys EmailLoginResendKeyer) error {
@@ -338,12 +353,26 @@ func (s *MFAService) BeginLogin(ctx context.Context, user ID, epoch int64, metho
 	if ctx == nil || user.IsZero() || epoch < 1 || (method != AuthenticationMethodPassword && method != AuthenticationMethodGoogle) || s == nil || s.store == nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", nil)
 	}
+	platformRequired := false
+	if s.platformEmailPolicy != nil {
+		required, err := s.platformEmailPolicy.PlatformEmailLoginRequired(ctx, user, epoch)
+		if err != nil {
+			return MFALoginGateResult{}, safe("mfa_unavailable", err)
+		}
+		platformRequired = required
+		if required && method == AuthenticationMethodPassword {
+			return s.beginEmailLogin(ctx, user, epoch, method)
+		}
+	}
 	active, err := s.store.HasActiveMFA(ctx, user)
 	if err != nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", err)
 	}
 	if active {
 		return s.beginTOTPLogin(ctx, user, epoch, method)
+	}
+	if platformRequired {
+		return MFALoginGateResult{}, safe("mfa_unavailable", nil)
 	}
 	if s.emailDelivery == nil {
 		return MFALoginGateResult{}, nil
@@ -446,8 +475,26 @@ func (s *MFAService) beginEmailLogin(ctx context.Context, user ID, epoch int64, 
 	if err != nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", err)
 	}
-	if err = s.emailDelivery.DeliverLoginCode(ctx, recipient, code, expiresAt); err != nil {
+	delivery := s.emailDelivery
+	if s.platformEmailPolicy != nil {
+		required, policyErr := s.platformEmailPolicy.PlatformEmailLoginRequired(ctx, user, epoch)
+		if policyErr != nil {
+			return MFALoginGateResult{}, safe("mfa_unavailable", policyErr)
+		}
+		if required {
+			delivery = s.platformEmailDelivery
+		}
+	}
+	if delivery == nil {
+		return MFALoginGateResult{}, safe("mfa_unavailable", nil)
+	}
+	if err = delivery.DeliverLoginCode(ctx, recipient, code, expiresAt); err != nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", err)
+	}
+	if recorder, ok := s.store.(EmailLoginDeliveryEvidence); ok {
+		if err = recorder.RecordEmailLoginSMTPAcceptance(ctx, user, transactionID, s.clock.Now().UTC()); err != nil {
+			return MFALoginGateResult{}, safe("mfa_unavailable", err)
+		}
 	}
 	return MFALoginGateResult{Required: true, Token: token, ExpiresAt: expiresAt}, nil
 }

@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
 	"strings"
@@ -181,7 +182,7 @@ func requireInvitationChecker(ctx context.Context, tx InvitationTx, input OwnerI
 	if !eligible {
 		return AuthorityFacts{}, IdentityAuthorityFacts{}, ErrPlatformAccessForbidden
 	}
-	if facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
 		return AuthorityFacts{}, IdentityAuthorityFacts{}, ErrPlatformAssuranceRequired
 	}
 	return facts, identity, nil

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"bidora/backend/internal/identity/accounttype"
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 )
 
 var (
@@ -168,12 +169,12 @@ func (s *AccountTypeService) resolvePlatform(ctx context.Context, principal Sess
 	result.PlatformContextGeneration = &generation
 	result.Capabilities = append([]string(nil), access.Capabilities...)
 	result.AssuranceLevel = access.AssuranceLevel
-	if !access.MFAEnrolled {
+	if !access.MFAEnrolled && !platformpolicy.AdministratorAssurance(access.AssuranceLevel, access.AssuranceMethod) {
 		result.RequiredActions = []string{"ENROLL_PLATFORM_MFA"}
 		return result, nil
 	}
 	assuranceAge := now.Sub(access.AssuredAt.UTC())
-	if access.AssuranceLevel != "AAL2" || access.AssuranceMethod != "TOTP" || assuranceAge < 0 || assuranceAge > 15*time.Minute {
+	if !platformpolicy.AdministratorAssurance(access.AssuranceLevel, access.AssuranceMethod) || assuranceAge < 0 || assuranceAge > 15*time.Minute {
 		result.RequiredActions = []string{"COMPLETE_PLATFORM_STEP_UP"}
 		return result, nil
 	}

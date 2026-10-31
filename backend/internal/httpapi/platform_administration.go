@@ -845,7 +845,7 @@ func platformFailure(c fiber.Ctx, err error) error {
 	case errors.Is(err, platformapp.ErrPlatformAccessForbidden):
 		return fail(c, 403, "PLATFORM_ACCESS_FORBIDDEN", "Platform administration access is forbidden.", false)
 	case errors.Is(err, platformapp.ErrPlatformAssuranceRequired):
-		return fail(c, 403, "PLATFORM_ASSURANCE_REQUIRED", "Recent TOTP authentication is required.", false)
+		return fail(c, 403, "PLATFORM_ASSURANCE_REQUIRED", "Recent administrator verification is required.", false)
 	case errors.Is(err, platformapp.ErrPlatformContextStale):
 		return fail(c, 409, "PLATFORM_CONTEXT_STALE", "The platform context is stale.", false)
 	case errors.Is(err, platformapp.ErrAuthorityNotFound), errors.Is(err, platformapp.ErrInvitationNotFound):

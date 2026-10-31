@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
 	"time"
@@ -70,7 +71,7 @@ func (t *templateTx) AuthorizeTemplates(ctx context.Context, s app.TemplateSubje
 			owner = true
 		}
 	}
-	if facts.ContextGeneration != s.ContextGeneration || facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || !(facts.Grants("platform.integration.read") || facts.Grants("platform.announcement.manage")) || write && !owner {
+	if facts.ContextGeneration != s.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || !(facts.Grants("platform.integration.read") || facts.Grants("platform.announcement.manage")) || write && !owner {
 		return app.ErrTemplateForbidden
 	}
 	return nil

@@ -45,6 +45,7 @@ type Querier interface {
 	GetPasswordLoginRecord(ctx context.Context, emailLookup string) (GetPasswordLoginRecordRow, error)
 	GetPasswordRecoveryCandidate(ctx context.Context, emailLookup string) (GetPasswordRecoveryCandidateRow, error)
 	GetPendingMFAFactor(ctx context.Context, userID pgtype.UUID) (GetPendingMFAFactorRow, error)
+	GetPlatformEmailLoginPolicy(ctx context.Context, arg GetPlatformEmailLoginPolicyParams) (bool, error)
 	GetPlatformIdentitySessionFacts(ctx context.Context, arg GetPlatformIdentitySessionFactsParams) (GetPlatformIdentitySessionFactsRow, error)
 	GetSessionRevocationCommand(ctx context.Context, arg GetSessionRevocationCommandParams) (GetSessionRevocationCommandRow, error)
 	GetUserAccountType(ctx context.Context, userID pgtype.UUID) (*string, error)
@@ -54,6 +55,7 @@ type Querier interface {
 	InsertAllSessionsRevokedAudit(ctx context.Context, arg InsertAllSessionsRevokedAuditParams) error
 	InsertAllSessionsRevokedOutbox(ctx context.Context, arg InsertAllSessionsRevokedOutboxParams) error
 	InsertEmailLoginAudit(ctx context.Context, arg InsertEmailLoginAuditParams) error
+	InsertEmailLoginDeliveryAudit(ctx context.Context, arg InsertEmailLoginDeliveryAuditParams) error
 	InsertEmailLoginOutbox(ctx context.Context, arg InsertEmailLoginOutboxParams) error
 	InsertEmailLoginTransaction(ctx context.Context, arg InsertEmailLoginTransactionParams) error
 	InsertEmailVerificationChallenge(ctx context.Context, arg InsertEmailVerificationChallengeParams) error
@@ -88,6 +90,7 @@ type Querier interface {
 	ListPlatformAdministratorIdentitySummaries(ctx context.Context, userIds []pgtype.UUID) ([]ListPlatformAdministratorIdentitySummariesRow, error)
 	LockCommercialTrialIdentity(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error)
 	LockCurrentSessionForRevokeAll(ctx context.Context, arg LockCurrentSessionForRevokeAllParams) (LockCurrentSessionForRevokeAllRow, error)
+	LockEmailLoginSessionPolicy(ctx context.Context, arg LockEmailLoginSessionPolicyParams) (LockEmailLoginSessionPolicyRow, error)
 	// Issuance requires target lock + Invalidate + Insert + audit in one control
 	// transaction. Generated methods are persistence primitives, not authorization.
 	LockEmailVerificationIssuanceTarget(ctx context.Context, userID pgtype.UUID) (string, error)
@@ -115,6 +118,7 @@ type Querier interface {
 	RevokeOrdinarySessionsForPolicy(ctx context.Context, at pgtype.Timestamptz) (int64, error)
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
 	RevokePlatformIdentitySessions(ctx context.Context, arg RevokePlatformIdentitySessionsParams) (int64, error)
+	RevokePreOTPAdministratorSessions(ctx context.Context, arg RevokePreOTPAdministratorSessionsParams) error
 	RevokeSessionByID(ctx context.Context, arg RevokeSessionByIDParams) (int64, error)
 	RevokeSessionByToken(ctx context.Context, arg RevokeSessionByTokenParams) (int64, error)
 	SelectUserAccountType(ctx context.Context, arg SelectUserAccountTypeParams) (int64, error)

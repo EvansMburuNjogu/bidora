@@ -79,6 +79,7 @@ type GoogleConfig struct {
 func (GoogleConfig) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED Google pilot config]") }
 
 type Config struct {
+	PlatformLoginEmail                *PlatformLoginEmailConfig
 	PesaPal                           pesapalruntime.Options
 	PasswordPolicy                    password.Policy
 	DummyPasswordPHC                  string

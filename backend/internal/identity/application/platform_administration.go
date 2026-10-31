@@ -28,9 +28,9 @@ type PlatformAuthorityQuery struct {
 }
 
 type PlatformAdministratorIdentitySummary struct {
-	UserID                 ID
-	EmailDisplay           string
-	Disabled, TOTPEnrolled bool
+	UserID                                   ID
+	EmailDisplay                             string
+	Disabled, TOTPEnrolled, EmailOTPVerified bool
 }
 
 type PlatformAdministratorIdentity struct {

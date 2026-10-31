@@ -121,7 +121,7 @@ func platformTenantDirectoryFailure(c fiber.Ctx, err error) error {
 	case errors.Is(err, tenancyapp.ErrPlatformDirectoryForbidden):
 		return fail(c, 403, "PLATFORM_TENANT_DIRECTORY_FORBIDDEN", "Tenant directory access is forbidden.", false)
 	case errors.Is(err, tenancyapp.ErrPlatformDirectoryAssuranceRequired):
-		return fail(c, 403, "PLATFORM_ASSURANCE_REQUIRED", "Recent TOTP authentication is required.", false)
+		return fail(c, 403, "PLATFORM_ASSURANCE_REQUIRED", "Recent administrator verification is required.", false)
 	case errors.Is(err, tenancyapp.ErrPlatformDirectoryContextStale):
 		return fail(c, 409, "PLATFORM_CONTEXT_STALE", "The platform context is stale.", false)
 	case errors.Is(err, tenancyapp.ErrPlatformTenantNotFound):

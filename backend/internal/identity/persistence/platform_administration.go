@@ -89,7 +89,7 @@ func (tx *PlatformAdministrationIdentityTx) ListAdministratorSummaries(ctx conte
 		if !row.ID.Valid {
 			return nil, errors.New("platform_identity_summary_invalid")
 		}
-		result[i] = identityapp.PlatformAdministratorIdentitySummary{UserID: identityapp.ID(row.ID.Bytes), EmailDisplay: row.Email, Disabled: row.DisabledAt.Valid, TOTPEnrolled: row.TotpEnrolled}
+		result[i] = identityapp.PlatformAdministratorIdentitySummary{UserID: identityapp.ID(row.ID.Bytes), EmailDisplay: row.Email, Disabled: row.DisabledAt.Valid, TOTPEnrolled: row.TotpEnrolled, EmailOTPVerified: row.EmailOtpVerified}
 	}
 	return result, nil
 }

@@ -1,6 +1,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -513,7 +514,7 @@ func requireInvitationOwner(ctx context.Context, tx InvitationTx, actorID, sessi
 	if !facts.Grants("platform.admin.invite") || !containsRole(facts.Roles, domain.PlatformOwner) {
 		return AuthorityFacts{}, ErrPlatformAccessForbidden
 	}
-	if facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
 		return AuthorityFacts{}, ErrPlatformAssuranceRequired
 	}
 	return facts, nil

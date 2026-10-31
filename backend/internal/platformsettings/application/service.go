@@ -2,6 +2,7 @@
 package application
 
 import (
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -590,7 +591,7 @@ func validSubject(v Subject) bool {
 	return !v.ActorID.IsZero() && !v.SessionID.IsZero() && v.ContextGeneration > 0
 }
 func currentAAL2(a Authority, at time.Time) bool {
-	return a.AssuranceLevel == "AAL2" && a.AssuranceMethod == "TOTP" && !a.AssuredAt.IsZero() && !a.AssuredAt.After(at)
+	return platformpolicy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) && !a.AssuredAt.IsZero() && !a.AssuredAt.After(at)
 }
 func recent(a Authority, at time.Time) bool {
 	return currentAAL2(a, at) && at.Sub(a.AssuredAt) <= 15*time.Minute

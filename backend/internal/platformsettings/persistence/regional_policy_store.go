@@ -3,6 +3,7 @@ package persistence
 import (
 	pa "bidora/backend/internal/platformadmin/application"
 	pd "bidora/backend/internal/platformadmin/domain"
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	owner "bidora/backend/internal/platformadmin/persistence"
 	app "bidora/backend/internal/platformsettings/application"
 	"bidora/backend/internal/platformsettings/domain"
@@ -92,7 +93,7 @@ func (t *RegionalPolicyTx) AuthorizeRegional(ctx context.Context, s app.Regional
 			allowed = facts.Grants("platform.reference.manage")
 		}
 	}
-	if !allowed || facts.ContextGeneration != s.ContextGeneration || facts.AssuranceLevel != "AAL2" || facts.AssuranceMethod != "TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+	if !allowed || facts.ContextGeneration != s.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
 		return app.ErrInformationForbidden
 	}
 	return nil
