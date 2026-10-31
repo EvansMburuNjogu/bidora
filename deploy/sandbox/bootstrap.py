@@ -32,7 +32,7 @@ for name in ('postgres', 'redis'):
     (tls/(name+'.crt')).chmod(0o644)
 admin, runtime, redis = (secrets.token_hex(32) for _ in range(3))
 write('postgres.env', f'POSTGRES_DB=bidora_sandbox_control\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD={admin}\nPOSTGRES_INITDB_ARGS=--auth-host=scram-sha-256\n')
-write('init-runtime.sql', f"CREATE ROLE bidora_sandbox_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{runtime}';\n")
+write('init-runtime.sql', f"CREATE SCHEMA bidora_migrations;\nCREATE ROLE bidora_sandbox_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{runtime}';\nREVOKE ALL ON DATABASE bidora_sandbox_control FROM PUBLIC;\nGRANT CONNECT ON DATABASE bidora_sandbox_control TO bidora_sandbox_runtime;\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;\n")
 write('require-tls.sh', '#!/bin/sh\nset -eu\n{ printf "hostnossl all all all reject\\n"; cat "$PGDATA/pg_hba.conf"; } > "$PGDATA/pg_hba.conf.sandbox"\nmv "$PGDATA/pg_hba.conf.sandbox" "$PGDATA/pg_hba.conf"\n')
 write('redis.conf', f'bind 0.0.0.0\nprotected-mode yes\nport 0\ntls-port 6379\ntls-cert-file /run/tls/redis.crt\ntls-key-file /run/tls/redis.key\ntls-ca-cert-file /run/tls/ca.crt\ntls-auth-clients no\nappendonly yes\nmaxmemory 128mb\nmaxmemory-policy noeviction\nuser default off\nuser bidora on >{redis} ~bidora:sandbox:* +@all -@dangerous\n')
 def dsn(user, password, migrations=False):
