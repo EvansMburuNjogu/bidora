@@ -95,6 +95,13 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 - Run browser, responsive, keyboard/accessibility and security-sensitive journey checks. Record real results separately from compilation and synthetic interception.
 - External provider credentials, paid activation, independent review, legal production retention and release acceptance remain separately recorded, not assumed passed.
 
+## Latest deployment — sandbox environment (user-requested)
+
+- Created and pushed GitHub branch `sandbox`; server checkout `/opt/bidora-sandbox/app` uses fast-forward pulls. Correct configured SSH alias is `maalim-server`. Public web/API: `https://sandbox.bidora.africa` and `https://api-sandbox.bidora.africa`.
+- Deployed the existing Next.js app and identity/Platform API as isolated non-root containers. Dedicated new `bidora_sandbox_control` PostgreSQL and Redis use verified internal TLS; control migrations 42 and exact 97-relation runtime grants applied only to this new sandbox. Runtime has no database CREATE/TEMPORARY privileges. Secrets were generated on the server outside Git; no local/production accounts or data copied.
+- Dedicated Nginx virtual hosts and Let's Encrypt certificate installed; existing applications/databases were not restarted or modified. BFF-to-API HTTPS verification and trusted ingress client-IP handling remain enforced. No paid provider activated, real email sent or financial transaction executed.
+- Checks: frontend lint/production build (105 pages), Go command builds and focused config/cookie/database/grant tests passed. Server containers healthy; public browser login and API readiness 200, anonymous protected API/BFF requests 401. Authenticated Owner workflows, initial administrator setup, tenant worker services and providers remain unverified/unconfigured. Deployment is not MVP or production acceptance.
+
 ## Latest small deliverable — BID-MVP-03 SMTP rollback request
 
 - COMPLETE: a user with SMTP activation **and** integration rollback capabilities can select a previously active version with a passing test, confirm **Request rollback**, and submit its exact ID/version through the existing BFF and backend proposal use case. Failed requests retain the dialog; confirmed proposals remain pending a distinct Owner's approval. No new endpoint, migration, provider call or database operation was needed.

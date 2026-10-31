@@ -54,4 +54,7 @@ for key in ('ATTEMPT_SECRET','EMAIL_LOGIN_HMAC_SECRET','MFA_KEY','SMTP_VAULT_KEY
     values['BIDORA_LOCAL_'+key+'_B64']=base64.b64encode(secrets.token_bytes(32)).decode()
 write('runtime.env', ''.join(f'{k}={v}\n' for k,v in values.items()))
 write('migrator.env', f'BIDORA_MIGRATION_DSN={dsn("postgres",admin,True)}\nBIDORA_GRANT_DSN={dsn("postgres",admin)}\nBIDORA_RUNTIME_DSN={dsn("bidora_sandbox_runtime",runtime)}\n')
+# Match the official image service UIDs without making secret files public.
+for owner, names in [('70:70', ['tls/postgres.key', 'init-runtime.sql', 'require-tls.sh']), ('999:999', ['tls/redis.key', 'redis.conf'])]:
+    subprocess.run(['sudo', '-n', 'chown', owner, *[str(base/name) for name in names]], check=True)
 print('Fresh sandbox secrets generated; provider activation remains disabled.')
