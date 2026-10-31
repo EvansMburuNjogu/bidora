@@ -95,6 +95,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 - Run browser, responsive, keyboard/accessibility and security-sensitive journey checks. Record real results separately from compilation and synthetic interception.
 - External provider credentials, paid activation, independent review, legal production retention and release acceptance remain separately recorded, not assumed passed.
 
+## Initial Owner correction — explicitly authorized sandbox recovery completed
+
+- Applied the deployment-owner-authorized, single-target recovery in staging `bidora_sandbox_control`: existing verified identity preserved, TENDERPRENEUR → PLATFORM_ADMIN, one ACTIVE PLATFORM_OWNER/BOOTSTRAP assignment, profile/context generation 1, bootstrap consumed, auth epoch advanced and prior sessions revoked. Zero tenant memberships changed; no identity/password/verification/history deleted or fabricated.
+- Validated private backup; dry-run transaction rolled back successfully before the approved commit. The write-once classification trigger was suspended only around the target update under an exclusive table lock and restored before commit; post-commit verification confirms it remains enabled. One immutable bootstrap audit and one normal bootstrap outbox event committed atomically. Private operation SQL/output retained in the existing sandbox recovery directory, not Git.
+- Live fresh browser sign-in succeeds (204), but portal resolution returns PLATFORM_ACCESS_FORBIDDEN (403) under unchanged administrator assurance checks; Platform Admin navigation is not claimed accessible. Initial ownership assignment no longer depends on TOTP enrollment, as explicitly authorized for this one recovery. Email-OTP administrator assurance remains a separate focused authentication task; no AAL1 email/password session was artificially elevated and no SMTP/UI/global authentication policy changed in this recovery.
+
 ## Latest account-correction checkpoint — sandbox (user-requested)
 
 - Confirmed the exact intended existing identity in staging `bidora_sandbox_control`: verified email, original user ID/password retained, account type TENDERPRENEUR, no Platform assignments, no tenant memberships or open tenant invitations, and no active authenticator. No account deleted, duplicated or forcibly promoted; provisioning rejected the ineligible candidate without committing changes.
