@@ -15,10 +15,23 @@ func TestEmailLayoutEscapesContentAndUsesTokenFreeActions(t *testing.T) {
 			t.Fatalf("missing expected layout element %q", want)
 		}
 	}
-	for _, forbidden := range []string{"<script>", "<img src=", "?code=", "?token=", "javascript:"} {
+	for _, forbidden := range []string{"<script>", "<img src=x", "?code=", "?token=", "javascript:"} {
 		if strings.Contains(html, forbidden) {
 			t.Fatalf("unsafe layout element %q", forbidden)
 		}
+	}
+}
+
+func TestEmailUsesExistingBrandLogoAndPalette(t *testing.T) {
+	html := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Origin: "https://sandbox.bidora.africa", Key: "identity.login_code"})
+	for _, want := range []string{"https://sandbox.bidora.africa/bidora-aperture-192.png", "#0f766e", "#e4f0ed", "#173b3d", `width="36"`, `height="36"`} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("missing brand element %q", want)
+		}
+	}
+	withoutOrigin := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Origin: "http://untrusted.example"})
+	if strings.Contains(withoutOrigin, "<img") || !strings.Contains(withoutOrigin, "Bidora") {
+		t.Fatal("missing safe wordmark fallback")
 	}
 }
 
