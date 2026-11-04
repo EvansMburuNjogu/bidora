@@ -108,16 +108,21 @@ type PublicPasswordRecoveryInput struct {
 	NetworkScope  attempt.Key
 }
 type PublicPasswordRecoveryService struct {
-	recovery PasswordRecoveryRequester
-	attempts RecoveryAttemptController
-	keyer    RecoveryAttemptKeyer
+	recovery     PasswordRecoveryRequester
+	attempts     RecoveryAttemptController
+	keyer        RecoveryAttemptKeyer
+	availability EmailLoginAvailability
 }
 
-func NewPublicPasswordRecoveryService(recovery PasswordRecoveryRequester, attempts RecoveryAttemptController, keyer RecoveryAttemptKeyer) (*PublicPasswordRecoveryService, error) {
-	if recovery == nil || attempts == nil || keyer == nil {
+func NewPublicPasswordRecoveryService(recovery PasswordRecoveryRequester, attempts RecoveryAttemptController, keyer RecoveryAttemptKeyer, availability ...EmailLoginAvailability) (*PublicPasswordRecoveryService, error) {
+	if recovery == nil || attempts == nil || keyer == nil || len(availability) > 1 || len(availability) == 1 && availability[0] == nil {
 		return nil, errors.New("public_password_recovery_service_invalid")
 	}
-	return &PublicPasswordRecoveryService{recovery, attempts, keyer}, nil
+	s := &PublicPasswordRecoveryService{recovery: recovery, attempts: attempts, keyer: keyer}
+	if len(availability) == 1 {
+		s.availability = availability[0]
+	}
+	return s, nil
 }
 func (s *PublicPasswordRecoveryService) Request(ctx context.Context, in PublicPasswordRecoveryInput) error {
 	if ctx == nil || in.CorrelationID.IsZero() || in.NetworkScope.IsZero() {
@@ -138,6 +143,11 @@ func (s *PublicPasswordRecoveryService) Request(ctx context.Context, in PublicPa
 		return safe("password_recovery_attempt_denied", nil)
 	} else if err != nil {
 		return safe("password_recovery_request_unavailable", err)
+	}
+	// This checks the globally configured delivery dependency, not whether an
+	// account exists. Do not acknowledge a request when no SMTP can send it.
+	if s.availability != nil && !s.availability.EmailLoginAvailable(ctx) {
+		return safe("password_recovery_request_unavailable", nil)
 	}
 	err = s.recovery.Request(ctx, in.Email, in.CorrelationID)
 	if err != nil && err.Error() == "password_recovery_request_invalid" {
