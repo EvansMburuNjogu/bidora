@@ -197,8 +197,12 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 		if e != nil {
 			return nil, e
 		}
+		origin := ""
+		if len(config.AllowedOrigins) == 1 {
+			origin = config.AllowedOrigins[0]
+		}
 		mfaStore.EnablePlatformEmailLogin()
-		if e = mfaService.EnablePlatformEmailLogin(mfaStore, &platformLoginMail{config: *config.PlatformLoginEmail, vault: vault}); e != nil {
+		if e = mfaService.EnablePlatformEmailLogin(mfaStore, &platformLoginMail{config: *config.PlatformLoginEmail, vault: vault, origin: origin}); e != nil {
 			return nil, e
 		}
 	}

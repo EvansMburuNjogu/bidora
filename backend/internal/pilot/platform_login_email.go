@@ -50,6 +50,7 @@ func LoadPlatformLoginEmailConfig(getenv func(string) string) (*PlatformLoginEma
 }
 
 type platformLoginMail struct {
+	origin string
 	config PlatformLoginEmailConfig
 	vault  smtpsecret.Resolver
 }
@@ -72,7 +73,7 @@ func (m *platformLoginMail) DeliverLoginCode(ctx context.Context, to email.Addre
 			if err != nil {
 				return err
 			}
-			transport, err := deliverysmtp.New(deliverysmtp.Config{Host: m.config.Host, Port: m.config.Port, Username: c.Username, Password: c.Password, Sender: sender, SenderName: "Bidora", TLS: &tls.Config{ServerName: m.config.Host, RootCAs: roots, MinVersion: tls.VersionTLS12}, Timeout: 20 * time.Second, MaxConcurrency: 2})
+			transport, err := deliverysmtp.New(deliverysmtp.Config{ActionOrigin: m.origin, Host: m.config.Host, Port: m.config.Port, Username: c.Username, Password: c.Password, Sender: sender, SenderName: "Bidora", TLS: &tls.Config{ServerName: m.config.Host, RootCAs: roots, MinVersion: tls.VersionTLS12}, Timeout: 20 * time.Second, MaxConcurrency: 2})
 			if err != nil {
 				return err
 			}
