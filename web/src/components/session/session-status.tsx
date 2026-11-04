@@ -1,27 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { Loader2Icon } from "lucide-react";
 import { AuthenticationExperience } from "@/components/auth/authentication-experience";
 import { Button } from "@/components/ui/button";
 
 export function SessionStatus({ kind, onRetry }: { kind: "loading" | "error"; onRetry: () => void }) {
+  if (kind === "loading") {
+    return (
+      <main className="grid min-h-svh place-items-center bg-background">
+        <div role="status" aria-label="Loading">
+          <Loader2Icon className="size-5 animate-spin text-muted-foreground" aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </div>
+      </main>
+    );
+  }
   return (
     <AuthenticationExperience
-      title={kind === "loading" ? "Signing you in" : "Access unavailable"}
-      description={
-        kind === "loading"
-          ? "Checking your account and access."
-          : "We couldn’t confirm your access. Try again or return to sign in."
-      }
+      title="Unable to load"
+      description="Please try again."
     >
-      {kind === "loading" ? (
-        <p className="type-body text-muted-foreground" role="status">Please wait…</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <Button type="button" onClick={onRetry}>Try again</Button>
-          <Button nativeButton={false} render={<Link href="/login" />} variant="outline">Back to sign in</Button>
-        </div>
-      )}
+      <div className="flex flex-col gap-3">
+        <Button type="button" onClick={onRetry}>Try again</Button>
+        <Button nativeButton={false} render={<Link href="/login" />} variant="outline">Back to sign in</Button>
+      </div>
     </AuthenticationExperience>
   );
 }

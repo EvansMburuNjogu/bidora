@@ -11,7 +11,7 @@ try {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/session/bootstrap") {
       bootstrapReads++;
-      if (bootstrapReads > 1) await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, bootstrapReads === 1 ? 1500 : 500));
       return route.fulfill({ status: revalidationStatus, contentType: "application/json", body: JSON.stringify({ data: { csrf_token: csrf }, meta: { trace_id: "fixture" } }) });
     }
     if (path === "/api/session/me") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: {
@@ -21,6 +21,9 @@ try {
     return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   });
   await page.goto((process.env.BIDORA_TEST_WEB_ORIGIN || "http://127.0.0.1:3000") + "/account/security");
+  await page.getByRole("status", { name: "Loading", exact: true }).waitFor();
+  assert.equal(await page.getByText("Signing you in", { exact: true }).count(), 0);
+  assert.equal(await page.getByText("Checking your account and access.", { exact: true }).count(), 0);
   const email = page.getByLabel("Email address", { exact: true });
   await email.fill("unsaved@example.test");
   const before = bootstrapReads;
