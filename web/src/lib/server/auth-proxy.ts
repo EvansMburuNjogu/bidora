@@ -2,6 +2,7 @@ import "server-only";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { clientNetwork } from "@/lib/server/client-network";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
+import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 
 const operations = {
   login: { path: "/v1/auth/login", body: true, cookie: false, csrf: false },
@@ -177,8 +178,8 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     return new Response(null, { status: upstream.status, headers: responseHeaders });
   }
 
-  const bytes = new Uint8Array(await upstream.arrayBuffer());
-  if (bytes.byteLength > 65_536) return safeFailure(503);
+  const bytes = await boundedUpstreamBody(upstream);
+  if (!bytes) return safeFailure(503);
   const contentType = upstream.headers.get("content-type");
   if (contentType?.split(";")[0] !== "application/json") return safeFailure(503);
   responseHeaders.set("Content-Type", "application/json");

@@ -1,5 +1,7 @@
 import "server-only";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
+import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
+import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -31,7 +33,7 @@ async function proxyMutation(request: Request, path: string, method: "DELETE" | 
   if (!csrf || !/^[A-Za-z0-9_-]{43}$/.test(csrf)) return failure(403);
 
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-CSRF-Token": csrf });
-  const cookie = request.headers.get("cookie");
+  const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   if (idempotency) headers.set("Idempotency-Key", idempotency);
 
@@ -46,13 +48,13 @@ async function proxyMutation(request: Request, path: string, method: "DELETE" | 
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
-  for (const value of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", value);
+  for (const value of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
   if (upstream.status === 204) {
     await upstream.body?.cancel();
     return new Response(null, { status: 204, headers: responseHeaders });
   }
-  const bytes = new Uint8Array(await upstream.arrayBuffer());
-  if (bytes.byteLength > 65_536 || upstream.headers.get("content-type")?.split(";")[0] !== "application/json") return failure(503);
+  const bytes = await boundedUpstreamBody(upstream);
+  if (!bytes || upstream.headers.get("content-type")?.split(";")[0] !== "application/json") return failure(503);
   return new Response(bytes, { status: upstream.status, headers: responseHeaders });
 }
 

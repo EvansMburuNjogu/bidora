@@ -6,6 +6,7 @@ import { Brand } from "@/components/brand";
 import { PasswordChangeForm } from "@/components/auth/password-change-form";
 import { SessionManagement } from "@/components/auth/session-management";
 import { EmailVerificationSettings } from "@/components/auth/email-verification-settings";
+import { GoogleLinking } from "@/components/auth/google-linking";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { useSignOut } from "@/hooks/use-sign-out";
@@ -42,6 +43,11 @@ export function AccountSecurity() {
             <h2 id="email-verification-heading" className="text-lg font-semibold">Email Verification</h2>
             <p className="mb-4 text-sm text-muted-foreground">Receive a one-time verification code by email when signing in.</p>
             <EmailVerificationSettings />
+          </section>
+          <section className="py-6" aria-labelledby="google-link-heading">
+            <h2 id="google-link-heading" className="text-lg font-semibold">Google sign-in</h2>
+            <p className="mb-4 text-sm text-muted-foreground">Link a Google identity only after re-entering this account’s password.</p>
+            <GoogleLinking />
           </section>
           <section className="py-6" aria-labelledby="sessions-heading">
             <h2 id="sessions-heading" className="text-lg font-semibold">Active Sessions</h2>

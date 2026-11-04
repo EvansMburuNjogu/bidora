@@ -1,6 +1,7 @@
 import "server-only";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
+import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 
 const sessionReads = {
   bootstrap: "/v1/auth/session/bootstrap",
@@ -63,6 +64,11 @@ export async function proxySessionRead(request: Request, operation: SessionRead)
     return failure(503);
   }
 
+  if (upstream.status === 404) {
+    await upstream.body?.cancel();
+    return failure(503);
+  }
+
   const responseHeaders = new Headers({
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
@@ -74,8 +80,8 @@ export async function proxySessionRead(request: Request, operation: SessionRead)
   }
   for (const value of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
 
-  const body = new Uint8Array(await upstream.arrayBuffer());
-  if (body.byteLength > 65_536) return failure(503);
+  const body = await boundedUpstreamBody(upstream);
+  if (!body) return failure(503);
   if (upstream.status !== 204 && upstream.headers.get("content-type")?.split(";")[0] !== "application/json") return failure(503);
   return new Response(body, { status: upstream.status, headers: responseHeaders });
 }

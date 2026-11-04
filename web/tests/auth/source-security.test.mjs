@@ -34,6 +34,14 @@ test("TOTP verification uses six accessible digits without changing the backend 
   assert.match(input, /onPaste=\{paste\}/);
 });
 
+test("account security exposes the existing password-confirmed Google linking workflow", async () => {
+  const account = await readFile(path.join(root, "src/components/auth/account-security.tsx"), "utf8");
+  const linking = await readFile(path.join(root, "src/components/auth/google-linking.tsx"), "utf8");
+  assert.match(account, /<GoogleLinking\s*\/>/);
+  assert.match(linking, /\/api\/auth\/google-link\/start/);
+  assert.match(linking, /password/);
+});
+
 test("Google and BFF boundaries retain fixed destinations and fail-closed client-network mode", async () => {
   const google = await readFile(path.join(root, "src/lib/server/google-link-proxy.ts"), "utf8");
   const auth = await readFile(path.join(root, "src/lib/server/auth-proxy.ts"), "utf8");

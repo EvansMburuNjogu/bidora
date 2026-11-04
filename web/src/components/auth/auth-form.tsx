@@ -144,7 +144,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       }
       if (mode === "password-recovery" && response.status === 202) {
         form.reset();
-        toast.success("Check your email", { description: "Enter the recovery code to reset your password." });
+        toast.success("Request received", { description: "If recovery is available for this account, check your email for a code." });
         router.push("/reset-password");
         return;
       }
@@ -430,7 +430,7 @@ function VerificationResendForm() {
       const response = await submitAuth("verification-resend", { email });
       if (response.status === 202) {
         form.reset();
-        toast.success("Check your email", { description: "If verification is available, a replacement code has been sent." });
+        toast.success("Request received", { description: "If verification is available for this account, check your email for a replacement code." });
         return;
       }
       toast.error(response.status === 429 ? "Try again later" : "Unable to resend", {
