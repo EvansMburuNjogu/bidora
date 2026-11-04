@@ -12,6 +12,9 @@ Update from GitHub:
 ```sh
 cd /opt/bidora-sandbox/app
 git pull --ff-only origin sandbox
+# Mandatory before replacing the working backend with managed-only SMTP:
+# stop here if the saved SMTP revision is still a draft/pending approval.
+bash deploy/sandbox/check-managed-smtp.sh
 docker compose -f deploy/sandbox/compose.yml build backend web
 # Apply only reviewed forward migrations for this designated sandbox database.
 docker compose -f deploy/sandbox/compose.yml run --rm migrate
@@ -19,6 +22,8 @@ docker compose -f deploy/sandbox/compose.yml run --rm grants
 docker compose -f deploy/sandbox/compose.yml up -d backend web
 docker compose -f deploy/sandbox/compose.yml ps
 ```
+
+Readiness is not authentication readiness: `/health/ready` can pass while managed SMTP is pending and login-code delivery fails. `check-managed-smtp.sh` is a read-only deployment gate; it neither approves pending changes nor sends email. Keep the previous backend image and private runtime environment backup until an authorized login verifies the new delivery path. During the reported login-503 recovery, the previous backend image and its existing deployment login-channel configuration were restored; this is a temporary rollback, not delivery from the unactivated managed revision. Do not replace that working image with managed-only SMTP until the gate passes.
 
 Do not run `down -v`, reset databases, prune unrelated Docker resources or reuse production credentials. Initial `bootstrap.py` refuses to replace existing secrets. PostgreSQL initialization creates the migration ledger schema and denies runtime database CREATE/TEMPORARY privileges; runtime table grants come from the existing grant command.
 
