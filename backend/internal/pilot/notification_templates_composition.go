@@ -25,6 +25,7 @@ import (
 type configuredTemplateRenderer struct {
 	templates   *app.TemplateService
 	information *settingsapp.InformationService
+	origin      string
 }
 
 func (r configuredTemplateRenderer) Render(ctx context.Context, key string, values map[string]string) (app.RenderedTemplate, error) {
@@ -37,6 +38,7 @@ func (r configuredTemplateRenderer) Render(ctx context.Context, key string, valu
 		copyValues[k] = v
 	}
 	copyValues["platform_name"] = info.PlatformName
+	copyValues["web_origin"] = r.origin
 	rendered, e := r.templates.Render(ctx, key, copyValues)
 	if e != nil {
 		return rendered, e
@@ -178,5 +180,9 @@ func buildNotificationTemplateService(pool *postgres.Pool, config Config) (*app.
 	if e != nil {
 		return nil, nil, e
 	}
-	return service, configuredTemplateRenderer{service, information}, nil
+	origin := ""
+	if len(config.AllowedOrigins) == 1 {
+		origin = config.AllowedOrigins[0]
+	}
+	return service, configuredTemplateRenderer{service, information, origin}, nil
 }

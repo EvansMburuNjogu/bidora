@@ -24,11 +24,13 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"bidora/backend/internal/emailhtml"
 	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/identity/verification"
 )
 
 type Config struct {
+	ActionOrigin   string // Explicit browser origin for token-free quick actions.
 	SenderName     string
 	ReplyTo        email.Address
 	MaxConcurrency int32
@@ -74,7 +76,7 @@ func (d *Delivery) PrepareEmailVerification(recipient email.Address, token verif
 	if recipient.IsZero() || token.IsZero() || expiresAt.IsZero() {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	return Prepared{recipient: recipient, message: verificationMessage(d.config.Sender, recipient, token, expiresAt.UTC())}, nil
+	return d.prepareStyled(recipient, "Verify your email", "identity.email_verification", token.RevealForDelivery(), expiresAt, verificationMessage(d.config.Sender, recipient, token, expiresAt.UTC()))
 }
 func (d *Delivery) PreparePasswordRecovery(recipient email.Address, token verification.Token, expiresAt time.Time) (Prepared, error) {
 	if d == nil || !validConfig(d.config) {
@@ -83,8 +85,22 @@ func (d *Delivery) PreparePasswordRecovery(recipient email.Address, token verifi
 	if recipient.IsZero() || token.IsZero() || expiresAt.IsZero() {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	return Prepared{recipient: recipient, message: passwordRecoveryMessage(d.config.Sender, recipient, token, expiresAt.UTC())}, nil
+	return d.prepareStyled(recipient, "Reset your password", "identity.password_recovery", token.RevealForDelivery(), expiresAt, passwordRecoveryMessage(d.config.Sender, recipient, token, expiresAt.UTC()))
 }
+func (d *Delivery) prepareStyled(recipient email.Address, title, key, code string, expiry time.Time, legacy string) (Prepared, error) {
+	_, text, ok := strings.Cut(legacy, "\r\n\r\n")
+	if !ok {
+		return Prepared{}, errors.New("email_delivery_invalid")
+	}
+	body := strings.ReplaceAll(text, code, "(shown below)")
+	if action := emailhtml.QuickAction(d.config.ActionOrigin, key); action.URL != "" {
+		text += "\n" + action.Label + ": " + action.URL
+	}
+	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: title, Body: body, Code: code, Expiry: expiry.UTC().Format(time.RFC3339), Origin: d.config.ActionOrigin, Key: key})
+	message, err := renderedMessage(d.config.Sender, recipient, title, text, html)
+	return Prepared{recipient: recipient, message: message}, err
+}
+
 func (d *Delivery) DeliverPrepared(ctx context.Context, prepared Prepared) error {
 	if ctx == nil || prepared.recipient.IsZero() || prepared.message == "" {
 		return errors.New("email_delivery_invalid")
@@ -115,7 +131,18 @@ func (d *Delivery) DeliverLoginCode(ctx context.Context, recipient email.Address
 	if recipient.IsZero() || !validLoginCode(code) || expiresAt.IsZero() {
 		return errors.New("email_delivery_invalid")
 	}
-	return d.deliver(ctx, recipient, loginCodeMessage(d.config.Sender, recipient, code, expiresAt.UTC()))
+	expiry := expiresAt.UTC().Format("2 Jan 2006, 15:04 UTC")
+	text := "Use this six-digit code to finish signing in to Bidora:\n\n" + code + "\n\nExpires " + expiry + ". Use it once and never share it.\nIf you did not attempt to sign in, ignore this message."
+	action := emailhtml.QuickAction(d.config.ActionOrigin, "identity.login_code")
+	if action.URL != "" {
+		text += "\n\n" + action.Label + ": " + action.URL
+	}
+	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: "Verify your sign-in", Body: "Enter this code to continue signing in. It works once.", Code: code, Expiry: expiry, Origin: d.config.ActionOrigin, Key: "identity.login_code"})
+	message, err := renderedMessage(d.config.Sender, recipient, "Your Bidora sign-in code", text, html)
+	if err != nil {
+		return err
+	}
+	return d.deliver(ctx, recipient, message)
 }
 func (d *Delivery) DeliverTenantInvitation(ctx context.Context, recipient email.Address, rawToken string, expiresAt time.Time) error {
 	return d.DeliverTenantRoleInvitation(ctx, recipient, "CONTRIBUTOR", rawToken, expiresAt)
@@ -129,7 +156,7 @@ func (d *Delivery) PrepareTenantRoleInvitation(recipient email.Address, role, ra
 	if recipient.IsZero() || !validTenantRole(role) || err != nil || len(decoded) != 32 || expiresAt.IsZero() {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	return Prepared{recipient: recipient, message: invitationMessage(d.config.Sender, recipient, role, rawToken, expiresAt.UTC())}, nil
+	return d.prepareStyled(recipient, "You are invited to a workspace", "tenant.invitation", rawToken, expiresAt, invitationMessage(d.config.Sender, recipient, role, rawToken, expiresAt.UTC()))
 }
 func (d *Delivery) DeliverTenantRoleInvitation(ctx context.Context, recipient email.Address, role, rawToken string, expiresAt time.Time) error {
 	prepared, err := d.PrepareTenantRoleInvitation(recipient, role, rawToken, expiresAt)

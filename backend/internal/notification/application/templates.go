@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"bidora/backend/internal/emailhtml"
 	"bidora/backend/internal/notification/domain"
 )
 
@@ -312,7 +312,18 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		return RenderedTemplate{}, e
 	}
 	body += "\n\nIf you did not expect this notification, contact your authorised support channel. Never share passwords or sign-in codes."
-	return RenderedTemplate{Subject: subject, Text: body, HTML: "<!doctype html><html><body><p>" + strings.ReplaceAll(html.EscapeString(body), "\n", "<br>") + "</p></body></html>", Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
+	displayBody := strings.TrimSuffix(body, "\n\nIf you did not expect this notification, contact your authorised support channel. Never share passwords or sign-in codes.")
+	if action := emailhtml.QuickAction(values["web_origin"], t.Key); action.URL != "" {
+		body += "\n\n" + action.Label + ": " + action.URL
+	}
+	code := values["code"]
+	if code == "" {
+		code = values["token"]
+	}
+	if code != "" {
+		displayBody = strings.ReplaceAll(displayBody, code, "(shown below)")
+	}
+	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key}), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
 }
 func (s *TemplateService) Render(ctx context.Context, key string, values map[string]string) (out RenderedTemplate, err error) {
 	if s == nil || ctx == nil || !SupportedTemplate(key) {
