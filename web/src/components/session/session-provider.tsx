@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { MePortalResponse } from "@/contracts/auth.generated";
 import { parseMePortal, parseSessionBootstrap } from "@/lib/session-contract";
@@ -31,6 +31,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<State>({ status: "loading" });
+  const checking = useRef(false);
 
   const refresh = useCallback(() => {
     setState({ status: "loading" });
@@ -39,6 +40,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
+    checking.current = true;
+    const update = (next: State) => { if (!controller.signal.aborted) setState(next); };
 
     async function load() {
       try {
@@ -46,8 +50,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
-          signal: controller.signal,
+          signal,
         });
+        signal.throwIfAborted();
         if (bootstrapResponse.status === 401) {
           setState({ status: "unauthenticated" });
           return;
@@ -57,6 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
         const bootstrap = parseSessionBootstrap(await bootstrapResponse.json());
+        signal.throwIfAborted();
         if (!bootstrap) {
           setState({ status: "error" });
           return;
@@ -66,8 +72,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
-          signal: controller.signal,
+          signal,
         });
+        signal.throwIfAborted();
         if (meResponse.status === 401) {
           setState({ status: "unauthenticated" });
           return;
@@ -77,18 +84,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
         const me = parseMePortal(await meResponse.json());
+        signal.throwIfAborted();
         if (!me) {
           setState({ status: "error" });
           return;
         }
         setState({ status: "ready", csrfToken: bootstrap.data.csrf_token, response: me });
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setState({ status: "error" });
+      } catch {
+        if (!controller.signal.aborted) update({ status: "error" });
+      } finally {
+        if (!controller.signal.aborted) checking.current = false;
       }
     }
 
     void load();
-    return () => controller.abort();
+    return () => { controller.abort(); checking.current = false; };
   }, [generation]);
 
   useEffect(() => {
@@ -102,11 +112,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function revalidateVisibleSession() {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState !== "visible" || checking.current) return;
+      if (state.status === "ready" && Date.now() < Math.min(
+        Date.parse(state.response.data.session.idle_expires_at),
+        Date.parse(state.response.data.session.absolute_expires_at),
+      )) {
+        // Keep the mounted page while rechecking a still-valid session.
+        setGeneration((value) => value + 1);
+      } else {
+        refresh();
+      }
     }
     document.addEventListener("visibilitychange", revalidateVisibleSession);
     return () => document.removeEventListener("visibilitychange", revalidateVisibleSession);
-  }, [refresh]);
+  }, [refresh, state]);
 
   useEffect(() => {
     if (state.status === "unauthenticated") {
@@ -155,7 +174,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   if (redirecting) return <SessionStatus kind="loading" onRetry={refresh} />;
 
-  return <SessionContext value={value}>{children}</SessionContext>;
+  const contextKey = `${state.csrfToken}:${state.response.data.account_type}:${state.response.data.platform_context_generation}:${destination}`;
+  return <SessionContext key={contextKey} value={value}>{children}</SessionContext>;
 }
 
 export function useSession(): SessionValue {
