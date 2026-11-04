@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	identityapp "bidora/backend/internal/identity/application"
@@ -104,7 +105,8 @@ func (h *LoginHandler) Handle(c fiber.Ctx) error {
 		return loginFailure(c, err)
 	}
 	if result.MFARequired {
-		c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.MFAToken, Path: "/", Expires: result.MFAExpiresAt, Secure: true, HTTPOnly: true, SameSite: "Lax"})
+		c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.MFAToken, Path: "/", Expires: result.MFAExpiresAt.Add(identityapp.EmailLoginResendGrace), Secure: true, HTTPOnly: true, SameSite: "Lax"})
+		c.Set("X-Bidora-Challenge-Expires-At", result.MFAExpiresAt.UTC().Format(time.RFC3339Nano))
 		return c.Status(202).JSON(fiber.Map{"data": fiber.Map{"mfa_required": true, "expires_at": result.MFAExpiresAt}, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
 	}
 	sessionCookie, err := browser.SessionCookie(result.Session.RevealForCookie(), result.AbsoluteExpiresAt)
