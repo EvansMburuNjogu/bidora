@@ -50,6 +50,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     return () => window.clearInterval(timer);
   }, [mode]);
   const resendSeconds = Math.max(0, Math.ceil((resendUntil - now) / 1000));
+  const challengeExpired = mode === "login-code" && hint.expiresAt !== null && now > 0 && now >= hint.expiresAt;
 
   const needsEmail = mode === "login" || mode === "register" || mode === "password-recovery";
   const needsPassword = mode === "login" || mode === "register" || mode === "password-reset";
@@ -200,8 +201,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
           setResendUntil(Date.now() + retry * 1000);
         }
         toast.error("Please wait before requesting another code");
+      } else if (response.status === 401) {
+        setHint({ ...hint, expiresAt: Date.now() });
+        setNow(Date.now());
+        toast.error("Sign-in expired", { description: "Back to sign in to request a new code." });
       } else {
-        toast.error(response.status === 401 ? "Sign in again to request a code" : "Couldn’t send a new code");
+        toast.error("Couldn’t send a new code", { description: response.status === 503 ? "Email delivery is unavailable. Try again later." : "Please try again." });
       }
     } catch {
       toast.error("Couldn’t send a new code");
@@ -388,7 +393,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </Field>
           )}
 
-          <Button type="submit" size="lg" className="w-full" disabled={pending || restartPending || resendPending || completed || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
+          <Button type="submit" size="lg" className="w-full" disabled={pending || restartPending || resendPending || completed || challengeExpired || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
             {completed ? "Verified. Continuing…" : pending ? "Verifying…" : config[mode].submit}
             {mode === "login" && !pending && <ArrowRightIcon aria-hidden="true" />}
           </Button>
@@ -399,10 +404,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <div className="flex flex-col items-center gap-2 text-center text-sm">
           {hint.expiresAt !== null && now > 0 ? (
             <p role="timer" aria-live="off" className="text-muted-foreground tabular-nums">
-              {now >= hint.expiresAt ? "Code expired. Request a new code." : `Expires in ${countdownLabel(hint.expiresAt, now)}`}
+              {challengeExpired ? "Sign-in expired. Sign in again for a new code." : `Expires in ${countdownLabel(hint.expiresAt, now)}`}
             </p>
           ) : <p className="text-muted-foreground">Use your latest code.</p>}
-          <Button type="button" variant="outline" size="sm" disabled={pending || restartPending || resendPending || completed || resendSeconds > 0} onClick={() => void resendLoginCode()}>
+          <Button type="button" variant="outline" size="sm" disabled={pending || restartPending || resendPending || completed || challengeExpired || resendSeconds > 0} onClick={() => void resendLoginCode()}>
             {resendPending ? "Sending…" : resendSeconds > 0 ? `Resend in ${resendSeconds}s` : "Resend code"}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={pending || restartPending || resendPending || completed} onClick={() => void restartLogin()}>

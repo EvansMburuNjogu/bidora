@@ -27,7 +27,15 @@ try {
   await page.getByRole("button", { name: "Resend code", exact: true }).click();
   await page.getByRole("button", { name: /Resend in \d+s/ }).waitFor();
   assert.match(await timer.textContent(), /Expires in [45]:\d{2}/);
-  console.log("PASS: masked email, ticking expiry and server-deadline resend reset (intercepted APIs only)");
+  await page.unroute("**/api/**");
+  await page.route("**/api/auth/login-code-resend", route => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
+  await page.clock.install();
+  await page.clock.fastForward(31_000);
+  await page.getByRole("button", { name: "Resend code", exact: true }).click();
+  await page.getByText("Sign-in expired. Sign in again for a new code.", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Resend code", exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole("button", { name: "Back to sign in", exact: true }).isEnabled(), true);
+  console.log("PASS: masked email, expiry/resend reset and expired-challenge recovery (intercepted APIs only)");
 } finally {
   await browser.close();
 }
