@@ -29,6 +29,9 @@ func TestEmailUsesExistingBrandLogoAndPalette(t *testing.T) {
 			t.Fatalf("missing brand element %q", want)
 		}
 	}
+	if strings.Contains(html, "border-top:4px") {
+		t.Fatal("colored top border must not render")
+	}
 	withoutOrigin := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Origin: "http://untrusted.example"})
 	if strings.Contains(withoutOrigin, "<img") || !strings.Contains(withoutOrigin, "Bidora") {
 		t.Fatal("missing safe wordmark fallback")
