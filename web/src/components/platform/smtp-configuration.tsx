@@ -76,7 +76,7 @@ export function SMTPConfiguration() {
       ]);
       if (current !== sequence.current) return;
       if ([401, 409].includes(activeResponse.status) || [401, 409].includes(versionsResponse.status)) { refresh(); return; }
-      if (activeResponse.status === 403 || versionsResponse.status === 403) { setStatus({ kind: "error", message: "SMTP settings require current integration access and recent TOTP verification." }); return; }
+      if (activeResponse.status === 403 || versionsResponse.status === 403) { setStatus({ kind: "error", message: "SMTP settings require current integration access and recent email verification." }); return; }
       const versions = versionsResponse.ok ? parseSMTPVersions(await versionsResponse.json()) : null;
       const active = activeResponse.ok ? parseSMTPVersion(await activeResponse.json()) : null;
       if (!versions || activeResponse.status !== 404 && !active) { setStatus({ kind: "error", message: "SMTP settings are temporarily unavailable." }); return; }

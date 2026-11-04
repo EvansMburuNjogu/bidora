@@ -17,11 +17,6 @@ const operations = {
   "google-start": { path: "/v1/auth/google/start", body: false, cookie: false, csrf: false },
   logout: { path: "/v1/auth/logout", body: false, cookie: true, csrf: true },
   "password-change": { path: "/v1/auth/password", body: true, cookie: true, csrf: true },
-  "mfa-enroll": { path: "/v1/auth/mfa/totp/enroll", body: true, cookie: true, csrf: true },
-  "mfa-confirm": { path: "/v1/auth/mfa/totp/confirm", body: true, cookie: true, csrf: true },
-  "mfa-step-up": { path: "/v1/auth/mfa/step-up", body: true, cookie: true, csrf: true },
-  "mfa-recovery-codes": { path: "/v1/auth/mfa/recovery-codes/regenerate", body: true, cookie: true, csrf: true },
-  "mfa-replace": { path: "/v1/auth/mfa/totp/replace", body: true, cookie: true, csrf: true },
 } as const;
 
 export type ProxyOperation = keyof typeof operations;

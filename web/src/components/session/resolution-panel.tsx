@@ -18,12 +18,12 @@ const actionCopy: Record<RequiredAction, { title: string; message: string }> = {
     message: "Accept an invitation from an existing Tenderpreneur organization, or request a new organization of your own.",
   },
   ENROLL_PLATFORM_MFA: {
-    title: "Set up verification",
-    message: "Two-step verification is required for Platform Administration.",
+    title: "Verify your email",
+    message: "Sign in again to receive a fresh verification code by email.",
   },
   COMPLETE_PLATFORM_STEP_UP: {
-    title: "Additional verification required",
-    message: "Confirm with your authenticator or a recovery code to open Platform Administration. An email sign-in code alone does not provide administrator assurance.",
+    title: "Verify your email",
+    message: "Sign in again to receive a fresh verification code by email.",
   },
 };
 
@@ -52,16 +52,11 @@ export function ResolutionPanel() {
         <Button nativeButton={false} render={<Link href="/organization/create" />}>Create an organization</Button>
       ) : null}
       {(action === "ENROLL_PLATFORM_MFA" || action === "COMPLETE_PLATFORM_STEP_UP") ? (
-        <Button nativeButton={false} render={<Link href="/account/security/authenticator" />}>
-          {action === "ENROLL_PLATFORM_MFA" ? "Set up authenticator" : "Verify with authenticator"}
+        <Button type="button" disabled={isSigningOut} onClick={() => void signOut()}>
+          {isSigningOut ? "Continuing…" : "Sign in again"}
         </Button>
       ) : null}
-      {action === "COMPLETE_PLATFORM_STEP_UP" ? (
-        <Button type="button" variant="outline" disabled={isSigningOut} onClick={() => void signOut()}>
-          {isSigningOut ? "Signing out…" : "Sign out"}
-        </Button>
-      ) : null}
-      {action !== "SELECT_ACCOUNT_TYPE" && action !== "COMPLETE_PLATFORM_STEP_UP" ? (
+      {action !== "SELECT_ACCOUNT_TYPE" && action !== "ENROLL_PLATFORM_MFA" && action !== "COMPLETE_PLATFORM_STEP_UP" ? (
         <Button type="button" variant="outline" onClick={refresh}>Check again</Button>
       ) : null}
     </AuthenticationExperience>

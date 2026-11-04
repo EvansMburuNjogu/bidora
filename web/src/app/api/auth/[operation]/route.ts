@@ -12,11 +12,6 @@ const allowed = new Set<ProxyOperation>([
   "google-start",
   "logout",
   "password-change",
-  "mfa-enroll",
-  "mfa-confirm",
-  "mfa-step-up",
-  "mfa-recovery-codes",
-  "mfa-replace",
 ]);
 
 export async function POST(request: Request, context: RouteContext<"/api/auth/[operation]">) {

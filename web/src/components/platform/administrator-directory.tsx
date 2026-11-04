@@ -141,7 +141,7 @@ function DirectoryRows({ value }: { value: PlatformAdministratorList }) {
               <div className="min-w-0"><Link href={`/platform/users/${administrator.user_id}`} className="break-all text-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:underline">{administrator.email}</Link>{administrator.effective_owner ? <p className="mt-1 text-xs text-muted-foreground">Platform owner</p> : null}</div>
               <div className="flex min-w-0 flex-wrap gap-1.5">{roles.length ? roles.map((label) => <span key={label} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{label}</span>) : <span className="text-sm text-muted-foreground">No active assignment</span>}</div>
               <div><PlatformStatus value={administrator.state === "ACTIVE" ? "Active" : "Disabled"} /></div>
-              <p className="text-sm text-muted-foreground">{administrator.totp_enrolled ? "Two-step enabled" : "Not enabled"}</p>
+              <p className="text-sm text-muted-foreground">Email code required</p>
               <PlatformRowActions label={administrator.email} actions={[{ label: "View details", href: `/platform/users/${administrator.user_id}` }]} />
             </article>
           );

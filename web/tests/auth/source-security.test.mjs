@@ -26,7 +26,7 @@ test("password confirmations remain client-only", async () => {
   assert.doesNotMatch(client, /confirm_password/);
 });
 
-test("TOTP verification uses six accessible digits without changing the backend contract", async () => {
+test("Email verification uses six accessible digits without changing the backend contract", async () => {
   const input = await readFile(path.join(root, "src/components/auth/verification-code-input.tsx"), "utf8");
   assert.match(input, /const codeLength = 6/);
   assert.match(input, /name="code"/);
@@ -42,14 +42,14 @@ test("account security exposes the existing password-confirmed Google linking wo
   assert.match(linking, /password/);
 });
 
-test("Platform assurance resolution offers the protected authenticator journey without treating email as AAL2", async () => {
+test("Platform verification uses fresh email sign-in and retires authenticator setup", async () => {
   const resolution = await readFile(path.join(root, "src/components/session/resolution-panel.tsx"), "utf8");
-  const provider = await readFile(path.join(root, "src/components/session/session-provider.tsx"), "utf8");
-  assert.match(resolution, /ENROLL_PLATFORM_MFA/);
+  const settings = await readFile(path.join(root, "src/components/auth/email-verification-settings.tsx"), "utf8");
+  const legacy = await readFile(path.join(root, "src/app/(session)/account/security/authenticator/page.tsx"), "utf8");
   assert.match(resolution, /COMPLETE_PLATFORM_STEP_UP/);
-  assert.match(resolution, /<Link href="\/account\/security\/authenticator"\s*\/>/);
-  assert.match(resolution, /email sign-in code alone does not provide administrator assurance/);
-  assert.match(provider, /"\/account\/security\/authenticator"/);
+  assert.match(resolution, /fresh verification code by email/);
+  assert.doesNotMatch(resolution + settings, /href="\/account\/security\/authenticator"|Verify with authenticator/);
+  assert.match(legacy, /redirect\("\/account\/security"\)/);
 });
 
 test("Google and BFF boundaries retain fixed destinations and fail-closed client-network mode", async () => {
