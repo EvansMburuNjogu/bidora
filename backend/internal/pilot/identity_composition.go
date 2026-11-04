@@ -137,6 +137,7 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err != nil {
 		return nil, err
 	}
+	mfaService.RequireEmailLogin()
 	loginService, err := identityapp.NewLoginService(authenticator, rehasher, identityapp.SecureSessionTokenGenerator{}, identityIDs{}, systemClock{}, loginCommitter)
 	if err != nil {
 		return nil, err
@@ -193,6 +194,10 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err = mfaService.EnableEmailLogin(delivery, config.EmailLoginHMACSecret); err != nil {
 		return nil, errors.New("pilot_runtime_invalid")
 	}
+	mfaStore.EnablePlatformEmailLogin()
+	if err = mfaService.EnablePlatformEmailLogin(mfaStore, delivery); err != nil {
+		return nil, err
+	}
 	if config.PlatformLoginEmail != nil {
 		vault, e := smtpsecret.NewVault(control, config.SMTPVaultKey, config.SMTPVaultKeyVersion)
 		if e != nil {
@@ -202,7 +207,6 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 		if len(config.AllowedOrigins) == 1 {
 			origin = config.AllowedOrigins[0]
 		}
-		mfaStore.EnablePlatformEmailLogin()
 		if e = mfaService.EnablePlatformEmailLogin(mfaStore, &platformLoginMail{config: *config.PlatformLoginEmail, vault: vault, origin: origin}); e != nil {
 			return nil, e
 		}
@@ -573,7 +577,7 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err = mfaHandler.EnableEmailLoginResend(composition.ipResolver, emailLoginResendKeyAdapter{deriver: composition.deriver}); err != nil {
 		return fail(err)
 	}
-	mfaReadiness, err := identityapp.NewMFAReadinessServiceWithFactors(composition.passwordReader, composition.mfaStore, systemClock{})
+	mfaReadiness, err := identityapp.NewMFAReadinessServiceWithFactors(composition.passwordReader, composition.mfaStore, systemClock{}, true)
 	if err != nil {
 		return fail(err)
 	}

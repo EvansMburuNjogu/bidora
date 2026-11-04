@@ -75,11 +75,13 @@ func NewIdentityAccountApp(state *health.State, routes IdentityAccountRoutes) (*
 	app.Post(MFAChallengePath, ready, routes.MFA.Challenge)
 	app.Post(EmailLoginResendPath, ready, routes.MFA.ResendLoginCode)
 	app.Post(EmailLoginCancelPath, ready, routes.MFA.CancelLoginCode)
-	app.Post(MFAEnrollPath, ready, routes.Browser.NoTouch, routes.MFA.Enroll)
-	app.Post(MFAConfirmPath, ready, routes.Browser.NoTouch, routes.MFA.Confirm)
-	app.Post(MFAStepUpPath, ready, routes.Browser.NoTouch, routes.MFA.StepUp)
-	app.Post(MFARecoveryRegeneratePath, ready, routes.Browser.NoTouch, routes.MFA.Regenerate)
-	app.Post(MFAReplacePath, ready, routes.Browser.NoTouch, routes.MFA.Replace)
+	if !routes.MFA.emailOnly {
+		app.Post(MFAEnrollPath, ready, routes.Browser.NoTouch, routes.MFA.Enroll)
+		app.Post(MFAConfirmPath, ready, routes.Browser.NoTouch, routes.MFA.Confirm)
+		app.Post(MFAStepUpPath, ready, routes.Browser.NoTouch, routes.MFA.StepUp)
+		app.Post(MFARecoveryRegeneratePath, ready, routes.Browser.NoTouch, routes.MFA.Regenerate)
+		app.Post(MFAReplacePath, ready, routes.Browser.NoTouch, routes.MFA.Replace)
+	}
 	app.Get(MembershipDirectoryPath, ready, routes.Browser.Handle, routes.Memberships.Handle)
 	app.Post(LogoutPath, ready, routes.Browser.Handle, routes.Logout.Handle)
 	return app, nil

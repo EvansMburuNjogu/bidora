@@ -355,7 +355,9 @@ LIMIT sqlc.arg(page_limit);
 SELECT EXISTS(SELECT 1 FROM platform_administration.role_assignments r
  JOIN identity.users u ON u.id=r.user_id
  JOIN identity.authentication_identities a ON a.user_id=u.id
- JOIN identity.mfa_factors f ON f.user_id=u.id AND f.state='ACTIVE'
  WHERE r.role_key='PLATFORM_OWNER' AND r.state='ACTIVE'
- AND u.account_type='PLATFORM_ADMIN' AND u.disabled_at IS NULL AND u.email_verified_at IS NOT NULL);
+ AND u.account_type='PLATFORM_ADMIN' AND u.disabled_at IS NULL AND u.email_verified_at IS NOT NULL
+ AND EXISTS(SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch
+   AND s.revoked_at IS NULL AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP')
+   AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP));
 

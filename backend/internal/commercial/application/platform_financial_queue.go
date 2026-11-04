@@ -2,6 +2,7 @@ package application
 
 import (
 	"bidora/backend/internal/commercial/domain"
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"errors"
 	"time"
@@ -120,7 +121,7 @@ func (s *PlatformFinancialQueueService) ListAIUsage(ctx context.Context, in Plat
 		if x != nil {
 			return x
 		}
-		if tie || !facts.BillingAdministrator || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || facts.AssuranceMethod != "AAL2:TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
+		if tie || !facts.BillingAdministrator || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
 			return ErrPlatformFinancialQueueNotAuthorized
 		}
 		items, x := tx.ListPlatformAIUsageSettlements(c, in.Limit+1, in.Cursor)
@@ -220,7 +221,7 @@ func (s *PlatformFinancialQueueService) run(ctx context.Context, in PlatformQueu
 			return x
 		}
 		allowed := (capability == "platform.invoice.read" && facts.InvoiceReader) || (capability == "platform.payment.read" && facts.PaymentReader)
-		if tie || !allowed || (!facts.BillingAdministrator && !facts.PlatformOwner) || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || facts.AssuranceMethod != "AAL2:TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
+		if tie || !allowed || (!facts.BillingAdministrator && !facts.PlatformOwner) || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
 			return ErrPlatformFinancialQueueNotAuthorized
 		}
 		count, more, x := load(c, tx)

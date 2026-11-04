@@ -49,7 +49,7 @@ func RenderPlatformInvitation(input PlatformInvitationInput) (Message, error) {
 	}
 	expires := input.ExpiresAt.UTC().Format("2 Jan 2006, 15:04 UTC")
 	details := "Role: " + roleLabel + "\nExpires: " + expires
-	instruction := "Sign in using the exact invited email address, confirm TOTP, then enter this code."
+	instruction := "Sign in using the exact invited email address, complete email verification, then enter this code."
 	if input.Token != "" {
 		details = "Role: " + roleLabel + "\nInvitation code: " + input.Token + "\nExpires: " + expires
 	} else {
@@ -99,6 +99,6 @@ var platformInvitationHTML = template.Must(template.New("platform-invitation").P
 <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Role</div><div style="margin-top:4px;font-size:16px;font-weight:600">{{.Role}}</div>
 {{if .Token}}<div style="margin-top:16px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Invitation code</div><div style="margin-top:6px;font:600 15px/1.5 monospace;word-break:break-all">{{.Token}}</div>{{end}}</div>
 <p style="margin:0 0 16px;font-size:14px;line-height:1.6"><strong>Expires:</strong> {{.Expires}}</p>
-{{if .Token}}<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Sign in using the exact invited email address, confirm TOTP, then enter the invitation code.</p>{{else}}<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Use the code in your original invitation email. If it is unavailable, ask the Platform Owner to resend the invitation; a resend invalidates the previous code.</p>{{end}}
+{{if .Token}}<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Sign in using the exact invited email address, complete email verification, then enter the invitation code.</p>{{else}}<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Use the code in your original invitation email. If it is unavailable, ask the Platform Owner to resend the invitation; a resend invalidates the previous code.</p>{{end}}
 <p style="margin:0;font-size:13px;line-height:1.6;color:#64748b">Bidora support will never ask you to send this code by email or chat. If you did not expect this invitation, ignore this message.</p></td></tr>
 </table></td></tr></table></body></html>`))

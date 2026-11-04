@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -199,7 +200,7 @@ func (s *SubmissionService) Confirm(ctx context.Context, in ConfirmSubmissionInp
 	now := s.clock.Now().UTC()
 	age := now.Sub(in.SessionAuthenticatedAt.UTC())
 	assuranceAge := now.Sub(in.AssuranceAt.UTC())
-	if age < 0 || age > 15*time.Minute || in.AssuranceLevel != "AAL2" || in.AssuranceMethod != "TOTP" || assuranceAge < 0 || assuranceAge > 15*time.Minute {
+	if age < 0 || age > 15*time.Minute || !assurance.Interactive(in.AssuranceLevel, in.AssuranceMethod) || assuranceAge < 0 || assuranceAge > 15*time.Minute {
 		return SubmissionConfirmationResult{}, safe("submission_fresh_auth_required", nil)
 	}
 	raw, _ := json.Marshal(struct {

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -131,7 +132,7 @@ func (s *OrganizationCreationService) Create(ctx context.Context, in Organizatio
 		if !facts.Verified || facts.Disabled || !facts.Tenderpreneur {
 			return ErrOrganizationCreationIneligible
 		}
-		if facts.MFAEnrolled && (in.AssuranceLevel != "AAL2" || in.AssuranceMethod != "TOTP") {
+		if facts.MFAEnrolled && (!assurance.Interactive(in.AssuranceLevel, in.AssuranceMethod)) {
 			return ErrOrganizationCreationAssuranceRequired
 		}
 		replay, found, txErr := tx.GetOrganizationCreationCommand(txCtx, in.CreatorUserID, keyHash)

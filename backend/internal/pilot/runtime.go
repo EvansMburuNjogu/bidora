@@ -599,7 +599,7 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err != nil {
 		return fail(err)
 	}
-	mfaReadinessService, err := identityapp.NewMFAReadinessServiceWithFactors(passwordReader, mfaStore, systemClock{})
+	mfaReadinessService, err := identityapp.NewMFAReadinessServiceWithFactors(passwordReader, mfaStore, systemClock{}, true)
 	if err != nil {
 		return fail(err)
 	}

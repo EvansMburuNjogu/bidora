@@ -1,6 +1,7 @@
 package domain
 
 import (
+	verification "bidora/backend/internal/identity/assurance"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -94,7 +95,7 @@ func allocateCredit(total int64, c AdjustmentCandidate) (int64, int64, error) {
 }
 
 func AdjustmentAuthorityHash(user ID, contextGeneration, administratorVersion int64, role, capability, assurance string, assuredAt time.Time) ([32]byte, error) {
-	if user.IsZero() || contextGeneration < 1 || administratorVersion < 1 || role == "" || capability == "" || assurance != "AAL2:TOTP" || assuredAt.IsZero() {
+	if user.IsZero() || contextGeneration < 1 || administratorVersion < 1 || role == "" || capability == "" || !verification.Platform(assurance) || assuredAt.IsZero() {
 		return [32]byte{}, ErrAdjustmentInvalid
 	}
 	b, err := json.Marshal(struct {
