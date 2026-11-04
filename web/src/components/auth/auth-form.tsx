@@ -24,7 +24,7 @@ type AuthFieldError = { field: AuthField; message: string };
 const config: Record<Mode, { submit: string }> = {
   login: { submit: "Sign in" },
   register: { submit: "Create account" },
-  "password-recovery": { submit: "Send recovery instructions" },
+  "password-recovery": { submit: "Send recovery link" },
   "password-reset": { submit: "Reset password" },
   "verify-email": { submit: "Verify email" },
   "login-code": { submit: "Verify & Continue" },
@@ -45,7 +45,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    if (mode !== "login-code") return;
+    if (mode !== "login-code" && mode !== "password-recovery") return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [mode]);
@@ -59,6 +59,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending || (mode === "password-recovery" && resendSeconds > 0)) return;
     setFieldError(null);
 
     const form = event.currentTarget;
@@ -156,8 +157,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       }
       if (mode === "password-recovery" && response.status === 202) {
         form.reset();
-        toast.success("Request received", { description: "If recovery is available for this account, check your email for a code." });
-        router.push("/reset-password");
+        router.replace("/forgot-password/check-email");
         return;
       }
       if ((mode === "password-reset" || mode === "verify-email") && response.status === 204) {
@@ -170,6 +170,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
         form.reset();
         setVerificationAttempt((value) => value + 1);
         setFieldError({ field: "code", message: "Invalid or expired code. Check the latest email or request a new code." });
+        return;
+      }
+      if (mode === "password-recovery" && response.status === 429) {
+        const retry = Number(response.headers.get("Retry-After"));
+        setNow(Date.now());
+        setResendUntil(Date.now() + (Number.isFinite(retry) && retry > 0 && retry <= 3600 ? retry : 900) * 1000);
+        setFieldError({ field: "email", message: "Too many recovery requests. Wait before requesting another link." });
+        return;
+      }
+      if (mode === "password-recovery" && response.status === 503) {
+        toast.error("Recovery email unavailable", { description: "Email delivery is not ready. Contact your administrator or try again later." });
         return;
       }
       toast.error(response.status === 429 ? "Try again later" : "Unable to continue", {
@@ -392,8 +403,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </Field>
           )}
 
-          <Button type="submit" size="lg" className="w-full" disabled={pending || restartPending || resendPending || completed || challengeExpired || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
-            {completed ? "Verified. Continuing…" : pending ? "Verifying…" : config[mode].submit}
+          <Button type="submit" size="lg" className="w-full" disabled={pending || restartPending || resendPending || completed || challengeExpired || (mode === "password-recovery" && resendSeconds > 0) || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
+            {completed ? "Verified. Continuing…" : pending ? mode === "password-recovery" ? "Sending…" : "Verifying…" : mode === "password-recovery" && resendSeconds > 0 ? `Try again in ${countdownLabel(resendUntil, now)}` : config[mode].submit}
             {mode === "login" && !pending && <ArrowRightIcon aria-hidden="true" />}
           </Button>
         </FieldGroup>
