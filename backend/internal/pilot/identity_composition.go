@@ -67,6 +67,7 @@ type identityComposition struct {
 	delivery         smtpDelivery
 }
 type smtpDelivery interface {
+	identityapp.EmailLoginAvailability
 	identityapp.EmailVerificationDelivery
 	identityapp.PasswordRecoveryDelivery
 	identityapp.EmailLoginCodeDelivery
@@ -225,7 +226,7 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err != nil {
 		return nil, err
 	}
-	publicRecovery, err := identityapp.NewPublicPasswordRecoveryService(recoveryRequest, recoveryAttempts, deriver)
+	publicRecovery, err := identityapp.NewPublicPasswordRecoveryService(recoveryRequest, recoveryAttempts, deriver, delivery)
 	if err != nil {
 		return nil, err
 	}
