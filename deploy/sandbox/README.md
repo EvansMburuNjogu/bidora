@@ -26,6 +26,8 @@ Nginx configuration is sandbox-only. The web BFF reaches the API through verifie
 
 The dedicated Let's Encrypt certificate renews through the existing Certbot timer; `renew-hook.sh` reloads Nginx only for this certificate. This deployment runs the existing identity/Platform API, not the full tenant document-processing worker stack.
 
+The web SMTP draft proxy requires a deployment-owned PEM trust root before it may submit a draft without browser-provided certificate material. Provision `/opt/bidora-sandbox/secrets/tls/smtp-roots.pem` as a readable, bounded public CA certificate bundle, verified against the configured SMTP host (Zoho currently chains via Thawte TLS RSA CA G1 to DigiCert Global Root G2). Compose mounts it read-only as `NODE_EXTRA_CA_CERTS`; do not put private keys or SMTP credentials in this file, bypass TLS checks or use a large generic system bundle. Recheck the host chain before replacing a root. Missing/unreadable trust fails closed with a 503; a draft/test is not provider activation or inbox-delivery proof.
+
 No initial administrator, tenant data or provider credentials are copied from local or production environments. Initial Owner setup and provider configuration remain separate.
 
 ## Initial Owner setup

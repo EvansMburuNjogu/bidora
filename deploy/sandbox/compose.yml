@@ -59,6 +59,9 @@ services:
       BIDORA_API_ORIGIN: https://api-sandbox.bidora.africa
       BIDORA_WEB_ORIGIN: https://sandbox.bidora.africa
       BIDORA_BFF_CLIENT_IP_MODE: trusted-header
+      NODE_EXTRA_CA_CERTS: /run/bidora/smtp-roots.pem
+    volumes:
+      - /opt/bidora-sandbox/secrets/tls/smtp-roots.pem:/run/bidora/smtp-roots.pem:ro
     extra_hosts:
       - "api-sandbox.bidora.africa:host-gateway"
     ports: ["127.0.0.1:3100:3000"]
