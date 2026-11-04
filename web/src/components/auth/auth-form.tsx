@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { PasswordInput } from "@/components/auth/password-input";
 import { VerificationCodeInput } from "@/components/auth/verification-code-input";
+import { useLoginChallenge } from "@/components/auth/login-challenge-provider";
+import { challengeDeadline, countdownLabel, maskLoginEmail } from "@/lib/login-challenge";
 import { submitAuth, type AuthOperation } from "@/lib/auth-client";
 import { isAcceptedEmail, isAcceptedPersonalName, isEmailCode, validatePassword } from "@/lib/auth-validation";
 
@@ -30,6 +32,7 @@ const config: Record<Mode, { submit: string }> = {
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const { hint, setHint } = useLoginChallenge();
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<AuthFieldError | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -42,10 +45,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    if (!resendUntil || now >= resendUntil) return;
+    if (mode !== "login-code") return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [now, resendUntil]);
+  }, [mode]);
   const resendSeconds = Math.max(0, Math.ceil((resendUntil - now) / 1000));
 
   const needsEmail = mode === "login" || mode === "register" || mode === "password-recovery";
@@ -128,11 +131,19 @@ export function AuthForm({ mode }: { mode: Mode }) {
           break;
       }
       if (mode === "login" && response.status === 202) {
+        let expiresAt = challengeDeadline(response.headers.get("X-Bidora-Challenge-Expires-At"));
+        if (expiresAt === null) {
+          const body = await response.json().catch(() => null);
+          expiresAt = challengeDeadline(body?.data?.expires_at);
+        }
+        setHint({ maskedEmail: maskLoginEmail(email), expiresAt });
+        form.reset();
         router.push("/auth/login-code");
         return;
       }
       if ((mode === "login" || mode === "login-code") && response.status === 204) {
         if (mode === "login-code") setCompleted(true);
+        setHint({ maskedEmail: null, expiresAt: null });
         router.push("/auth/resolve");
         return;
       }
@@ -176,6 +187,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     try {
       const response = await submitAuth("login-code-resend", {});
       if (response.status === 202) {
+        setHint({ ...hint, expiresAt: challengeDeadline(response.headers.get("X-Bidora-Challenge-Expires-At")) });
         setVerificationAttempt((value) => value + 1);
         setFieldError(null);
         setNow(Date.now());
@@ -350,7 +362,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           {needsCode && (
             <Field data-invalid={fieldError?.field === "code"}>
               <FieldLabel>Verification code</FieldLabel>
-              <FieldDescription>Use the current code once, then continue.</FieldDescription>
+              {hint.maskedEmail && <FieldDescription>For {hint.maskedEmail}</FieldDescription>}
               <VerificationCodeInput
                 key={verificationAttempt}
                 disabled={pending || restartPending}
@@ -385,7 +397,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       {mode === "login-code" && (
         <div className="flex flex-col items-center gap-2 text-center text-sm">
-          <p className="text-muted-foreground">Codes expire after five minutes. Use the latest email.</p>
+          {hint.expiresAt !== null && now > 0 ? (
+            <p role="timer" aria-live="off" className="text-muted-foreground tabular-nums">
+              {now >= hint.expiresAt ? "Code expired. Request a new code." : `Expires in ${countdownLabel(hint.expiresAt, now)}`}
+            </p>
+          ) : <p className="text-muted-foreground">Use your latest code.</p>}
           <Button type="button" variant="outline" size="sm" disabled={pending || restartPending || resendPending || completed || resendSeconds > 0} onClick={() => void resendLoginCode()}>
             {resendPending ? "Sending…" : resendSeconds > 0 ? `Resend in ${resendSeconds}s` : "Resend code"}
           </Button>

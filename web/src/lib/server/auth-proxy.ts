@@ -153,7 +153,13 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
-  for (const value of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
+  for (const value of upstream.headers.getSetCookie()) {
+    responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
+    if (upstream.status === 202 && (operation === "login" || operation === "login-code-resend") && value.startsWith("__Host-bidora_login_code=")) {
+      const expiry = value.match(/;\s*Expires=([^;]+)/i)?.[1];
+      if (expiry && Number.isFinite(Date.parse(expiry))) responseHeaders.set("X-Bidora-Challenge-Expires-At", new Date(expiry).toISOString());
+    }
+  }
 
   if (upstream.status === 404) {
     await upstream.body?.cancel();

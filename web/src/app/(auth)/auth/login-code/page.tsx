@@ -7,8 +7,8 @@ export const metadata: Metadata = { title: "Verify sign-in" };
 export default function MfaPage() {
   return (
     <AuthenticationExperience
-      title="Enter verification code"
-      description="Enter your current six-digit code."
+      title="Verify sign-in"
+      description="Enter your six-digit code."
     >
       <AuthForm mode="login-code" />
     </AuthenticationExperience>
