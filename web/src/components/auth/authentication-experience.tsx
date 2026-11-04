@@ -14,7 +14,7 @@ export function AuthenticationExperience({
   children,
 }: {
   title: string;
-  description: string;
+  description: ReactNode;
   children: ReactNode;
 }) {
   return (

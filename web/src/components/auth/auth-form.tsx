@@ -367,7 +367,6 @@ export function AuthForm({ mode }: { mode: Mode }) {
           {needsCode && (
             <Field data-invalid={fieldError?.field === "code"}>
               <FieldLabel>Verification code</FieldLabel>
-              {hint.maskedEmail && <FieldDescription>For {hint.maskedEmail}</FieldDescription>}
               <VerificationCodeInput
                 key={verificationAttempt}
                 disabled={pending || restartPending}

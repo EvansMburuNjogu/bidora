@@ -15,7 +15,7 @@ try {
   await page.getByLabel("Password", { exact: true }).fill("synthetic password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.waitForURL("**/auth/login-code");
-  await page.getByText("For a***@e***.com", { exact: true }).waitFor();
+  await page.getByText("Enter the six-digit verification code sent to a***@e***.com.", { exact: true }).waitFor();
   const timer = page.getByRole("timer");
   await timer.waitFor();
   await page.waitForFunction(() => document.querySelector('[role="timer"]')?.textContent?.includes("Expires in"));
