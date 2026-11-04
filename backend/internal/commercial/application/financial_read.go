@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"errors"
 	"time"
@@ -229,7 +230,7 @@ func authorizePlatformFinancialRead(ctx context.Context, tx FinancialReadTx, act
 		return e
 	}
 	allowed := (capability == "platform.invoice.read" && facts.InvoiceReader) || (capability == "platform.payment.read" && facts.PaymentReader)
-	if tie || !allowed || facts.UserID != actor.UserID || facts.ContextGeneration != actor.ContextGeneration || (!facts.BillingAdministrator && !facts.PlatformOwner) || facts.AssuranceMethod != "AAL2:TOTP" || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+	if tie || !allowed || facts.UserID != actor.UserID || facts.ContextGeneration != actor.ContextGeneration || (!facts.BillingAdministrator && !facts.PlatformOwner) || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
 		return ErrFinancialReadNotAuthorized
 	}
 	return nil

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -73,7 +74,7 @@ func (s *ProposalApprovalService) Approve(ctx context.Context, in ApproveProposa
 	now := s.clock.Now().UTC()
 	age := now.Sub(in.SessionAuthenticatedAt.UTC())
 	assuranceAge := now.Sub(in.AssuranceAt.UTC())
-	if age < 0 || age > 15*time.Minute || in.AssuranceLevel != "AAL2" || in.AssuranceMethod != "TOTP" || assuranceAge < 0 || assuranceAge > 15*time.Minute {
+	if age < 0 || age > 15*time.Minute || !assurance.Interactive(in.AssuranceLevel, in.AssuranceMethod) || assuranceAge < 0 || assuranceAge > 15*time.Minute {
 		return ProposalApprovalResult{}, safe("proposal_approval_fresh_auth_required", nil)
 	}
 	key := sha256.Sum256([]byte("proposal-approval:v1:" + in.IdempotencyKey))

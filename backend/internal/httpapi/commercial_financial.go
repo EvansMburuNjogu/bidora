@@ -3,6 +3,7 @@ package httpapi
 import (
 	commercialapp "bidora/backend/internal/commercial/application"
 	"bidora/backend/internal/commercial/domain"
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
@@ -138,7 +139,7 @@ func RegisterCommercialPaymentInitiationRoute(app *fiber.App, b *BrowserSessionM
 
 func (h *CommercialFinancialHandler) initiatePayment(c fiber.Ctx) error {
 	principal, ok := SessionPrincipalFrom(c)
-	if !ok || principal.AssuranceLevel != "AAL2" || principal.AssuranceMethod != "TOTP" || principal.AssuredAt.IsZero() || principal.AssuredAt.After(time.Now().UTC()) || time.Since(principal.AssuredAt) > 15*time.Minute {
+	if !ok || !assurance.Platform(principal.AssuranceLevel+":"+principal.AssuranceMethod) || principal.AssuredAt.IsZero() || principal.AssuredAt.After(time.Now().UTC()) || time.Since(principal.AssuredAt) > 15*time.Minute {
 		return fail(c, 403, "ASSURANCE_REQUIRED", "Recent two-step verification is required.", false)
 	}
 	var b initiatePaymentBody

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/assurance"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -184,7 +185,7 @@ func (s *MembershipOffboardingService) Cancel(ctx context.Context, c MembershipO
 }
 func validOffboarding(ctx context.Context, a, t, c ID, g int64, r, k string, auth time.Time, level, method string, assured, now time.Time) bool {
 	authAge, assuranceAge := now.Sub(auth.UTC()), now.Sub(assured.UTC())
-	return ctx != nil && !a.IsZero() && !t.IsZero() && !c.IsZero() && g > 0 && len(r) >= 1 && len(r) <= 2000 && len(k) >= 1 && len(k) <= 200 && !auth.IsZero() && !now.IsZero() && authAge >= 0 && authAge <= 15*time.Minute && level == "AAL2" && method == "TOTP" && assuranceAge >= 0 && assuranceAge <= 15*time.Minute
+	return ctx != nil && !a.IsZero() && !t.IsZero() && !c.IsZero() && g > 0 && len(r) >= 1 && len(r) <= 2000 && len(k) >= 1 && len(k) <= 200 && !auth.IsZero() && !now.IsZero() && authAge >= 0 && authAge <= 15*time.Minute && assurance.Interactive(level, method) && assuranceAge >= 0 && assuranceAge <= 15*time.Minute
 }
 func (s *MembershipOffboardingService) newIDs(n int) (MembershipOffboardingIDs, error) {
 	v := make([]ID, n)

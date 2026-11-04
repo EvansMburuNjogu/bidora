@@ -190,7 +190,10 @@ WHERE u.id = $1
   AND u.email_verified_at IS NOT NULL
   AND u.disabled_at IS NULL
   AND u.account_type IS NULL
-  AND EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
+  AND EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch
+    AND s.revoked_at IS NULL AND s.assurance_method='EMAIL_OTP' AND s.assurance_level IN ('AAL1','AAL2')
+    AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP
+    AND s.assured_at<=CURRENT_TIMESTAMP AND s.assured_at>=CURRENT_TIMESTAMP-interval '15 minutes')
 FOR UPDATE OF u
 `
 
@@ -212,13 +215,12 @@ SELECT u.id, u.auth_epoch, u.email_lookup
 FROM identity.users AS u
 WHERE u.id = $1 AND u.email_lookup = $2
   AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.account_type IS NULL
-  AND EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE')
   AND EXISTS (
       SELECT 1 FROM identity.sessions AS s
       WHERE s.id = $3 AND s.user_id = u.id AND s.auth_epoch = u.auth_epoch
         AND s.revoked_at IS NULL AND s.idle_expires_at > $4
         AND s.absolute_expires_at > $4
-        AND s.assurance_level = 'AAL2' AND s.assurance_method = 'TOTP'
+        AND s.assurance_level IN ('AAL1','AAL2') AND s.assurance_method = 'EMAIL_OTP'
         AND s.assured_at <= $4
         AND s.assured_at >= $4 - interval '15 minutes'
   )

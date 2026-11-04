@@ -371,7 +371,7 @@ func (s *MFAStore) CommitMFALogin(ctx context.Context, c app.MFALoginCommit) err
 				return app.ErrMFAConflict
 			}
 			if policy.PlatformAdmin {
-				if !s.platformEmailLogin || policy.PrimaryMethod != string(app.AuthenticationMethodPassword) {
+				if !s.platformEmailLogin || (policy.PrimaryMethod != string(app.AuthenticationMethodPassword) && policy.PrimaryMethod != string(app.AuthenticationMethodGoogle)) {
 					return app.ErrMFAConflict
 				}
 				level = "AAL2"

@@ -39,13 +39,18 @@ type MFAHandler struct {
 	protection *browser.Protection
 	ips        LoginClientIPResolver
 	resendKeys EmailLoginResendNetworkKeyer
+	emailOnly  bool
 }
 
 func NewMFAHandler(s MFAUseCase, p *browser.Protection) (*MFAHandler, error) {
 	if s == nil || p == nil {
 		return nil, errors.New("mfa_handler_invalid")
 	}
-	return &MFAHandler{s: s, protection: p}, nil
+	h := &MFAHandler{s: s, protection: p}
+	if policy, ok := s.(interface{ EmailOnlyLogin() bool }); ok {
+		h.emailOnly = policy.EmailOnlyLogin()
+	}
+	return h, nil
 }
 func (h *MFAHandler) EnableEmailLoginResend(ips LoginClientIPResolver, keys EmailLoginResendNetworkKeyer) error {
 	if h == nil || ips == nil || keys == nil {

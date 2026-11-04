@@ -168,6 +168,7 @@ type MFAService struct {
 	emailMACKey           []byte
 	emailResendLimits     EmailLoginResendLimiter
 	emailResendKeys       EmailLoginResendKeyer
+	emailOnly             bool
 }
 
 func NewMFAService(s MFAEnrollmentStore, k *mfa.KeyRing, t SessionTokenGenerator, ids LoginIDGenerator, c LoginClock, attempts MFAAttemptController, scopes MFAScopeDeriver) (*MFAService, error) {
@@ -358,9 +359,18 @@ func (s *MFAService) StepUp(ctx context.Context, p SessionPrincipal, correlation
 	}
 	return LoginResult{Session: pair.Session, CSRF: pair.CSRF, IdleExpiresAt: idle, AbsoluteExpiresAt: absolute}, nil
 }
+
+// RequireEmailLogin retires authenticator challenges from the active runtime.
+// Missing SMTP remains a dependency error, never a password-only fallback.
+func (s *MFAService) RequireEmailLogin()   { s.emailOnly = true }
+func (s *MFAService) EmailOnlyLogin() bool { return s.emailOnly }
+
 func (s *MFAService) BeginLogin(ctx context.Context, user ID, epoch int64, method AuthenticationMethod) (MFALoginGateResult, error) {
 	if ctx == nil || user.IsZero() || epoch < 1 || (method != AuthenticationMethodPassword && method != AuthenticationMethodGoogle) || s == nil || s.store == nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", nil)
+	}
+	if s.emailOnly {
+		return s.beginEmailLogin(ctx, user, epoch, method)
 	}
 	platformRequired := false
 	if s.platformEmailPolicy != nil {
@@ -536,6 +546,9 @@ func (s *MFAService) CompleteLogin(ctx context.Context, raw, code, kind string, 
 		challenge.Purpose = "MFA_LOGIN"
 	}
 	if challenge.Purpose == "MFA_LOGIN" {
+		if s.emailOnly {
+			return LoginResult{}, safe("mfa_invalid", nil)
+		}
 		// The browser login-code contract is method-neutral in presentation and
 		// currently submits EMAIL_OTP. The server-owned transaction determines
 		// that this is an enrolled TOTP challenge and preserves AAL2 provenance.

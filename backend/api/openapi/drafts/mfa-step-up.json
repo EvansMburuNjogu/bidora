@@ -4,9 +4,9 @@
     "title": "Bidora pilot MFA and step-up",
     "version": "0.3.0-draft"
   },
-  "x-status": "BID-ADR-023 approved and source-conformant; IMPLEMENTED_NOT_VERIFIED",
+  "x-status": "Active runtimes use email verification; authenticator operations are deprecated historical contracts and are not mounted",
   "x-security-semantics": {
-    "factor": "TOTP",
+    "factor": "EMAIL_OTP",
     "session_assurance": [
       "AAL1",
       "AAL2"
@@ -15,12 +15,13 @@
     "administrator_reset": false,
     "trusted_device_bypass": false,
     "login_factor": "EMAIL_OTP",
-    "privileged_factor": "TOTP"
+    "privileged_factor": "EMAIL_OTP"
   },
   "paths": {
     "/v1/auth/mfa/totp/enroll": {
       "post": {
         "summary": "Begin one pending TOTP enrollment",
+        "deprecated": true,
         "description": "Requires current session, exact Origin, session-bound CSRF and an exact strict application/json {} body no larger than 4 KiB. Requires a session created within 15 minutes; returns the raw enrollment secret once.",
         "requestBody": {
           "required": true,
@@ -75,6 +76,7 @@
     "/v1/auth/mfa/totp/confirm": {
       "post": {
         "summary": "Confirm pending TOTP and activate MFA",
+        "deprecated": true,
         "description": "Requires current session, exact Origin and session-bound CSRF. Activation advances auth epoch, revokes sessions and returns replacement AAL2 cookies plus ten recovery codes once.",
         "requestBody": {
           "required": true,
@@ -137,6 +139,7 @@
     "/v1/auth/mfa/step-up": {
       "post": {
         "summary": "Rotate current session to AAL2",
+        "deprecated": true,
         "description": "Requires current session, exact Origin and session-bound CSRF. TOTP or recovery code verifies before atomic current-session rotation.",
         "requestBody": {
           "required": true,
@@ -189,6 +192,7 @@
     "/v1/auth/mfa/recovery-codes/regenerate": {
       "post": {
         "summary": "Replace all recovery codes",
+        "deprecated": true,
         "description": "Requires current session, exact Origin, session-bound CSRF and an exact strict application/json {} body no larger than 4 KiB. Requires AAL2 assurance within 15 minutes and returns ten raw codes once.",
         "requestBody": {
           "required": true,
@@ -240,6 +244,7 @@
     "/v1/auth/mfa/totp/replace": {
       "post": {
         "summary": "Replace the active TOTP factor",
+        "deprecated": true,
         "description": "Requires current session, exact Origin, session-bound CSRF and recent TOTP or recovery-code AAL2. An empty object starts a ten-minute pending replacement; a request containing only code confirms it.",
         "requestBody": {
           "required": true,

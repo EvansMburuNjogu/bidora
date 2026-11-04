@@ -17,9 +17,10 @@ type MFAStatusReader interface {
 	HasActiveMFA(context.Context, ID) (bool, error)
 }
 type MFAReadinessService struct {
-	reader  RecoveryPreparationReader
-	factors MFAStatusReader
-	clock   SessionClock
+	reader    RecoveryPreparationReader
+	factors   MFAStatusReader
+	clock     SessionClock
+	emailOnly bool
 }
 
 func NewMFAReadinessService(reader RecoveryPreparationReader, clock SessionClock) (*MFAReadinessService, error) {
@@ -28,11 +29,11 @@ func NewMFAReadinessService(reader RecoveryPreparationReader, clock SessionClock
 	}
 	return &MFAReadinessService{reader: reader, clock: clock}, nil
 }
-func NewMFAReadinessServiceWithFactors(reader RecoveryPreparationReader, factors MFAStatusReader, clock SessionClock) (*MFAReadinessService, error) {
-	if reader == nil || factors == nil || clock == nil {
+func NewMFAReadinessServiceWithFactors(reader RecoveryPreparationReader, factors MFAStatusReader, clock SessionClock, emailOnly ...bool) (*MFAReadinessService, error) {
+	if reader == nil || factors == nil || clock == nil || len(emailOnly) > 1 {
 		return nil, errors.New("mfa_readiness_service_invalid")
 	}
-	return &MFAReadinessService{reader: reader, factors: factors, clock: clock}, nil
+	return &MFAReadinessService{reader: reader, factors: factors, clock: clock, emailOnly: len(emailOnly) == 1 && emailOnly[0]}, nil
 }
 func (s *MFAReadinessService) Get(ctx context.Context, principal SessionPrincipal) (MFAReadiness, error) {
 	if ctx == nil || principal.UserID.IsZero() || principal.SessionID.IsZero() || principal.AuthEpoch < 1 || principal.AbsoluteExpiresAt.IsZero() {
@@ -58,5 +59,5 @@ func (s *MFAReadinessService) Get(ctx context.Context, principal SessionPrincipa
 			return MFAReadiness{}, safe("mfa_readiness_unavailable", err)
 		}
 	}
-	return MFAReadiness{Facts: facts, MFAEnrollmentAvailable: !enrolled, MFAEnrolled: enrolled, StepUpAvailable: enrolled, StepUpPolicyConfigured: true, SessionAssuranceProvenanceAvailable: true, RecoveryCodesAvailable: enrolled, SessionAuthenticatedAt: authenticatedAt, ObservedAt: observed, SessionAgeSeconds: age}, nil
+	return MFAReadiness{Facts: facts, MFAEnrollmentAvailable: !s.emailOnly && !enrolled, MFAEnrolled: enrolled, StepUpAvailable: !s.emailOnly && enrolled, StepUpPolicyConfigured: true, SessionAssuranceProvenanceAvailable: true, RecoveryCodesAvailable: !s.emailOnly && enrolled, SessionAuthenticatedAt: authenticatedAt, ObservedAt: observed, SessionAgeSeconds: age}, nil
 }
