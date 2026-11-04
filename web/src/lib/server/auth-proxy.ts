@@ -179,7 +179,10 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     }
   }
 
-  if (upstream.status === 204 || (upstream.status >= 300 && upstream.status < 400)) {
+  // These commands deliberately return a generic, bodyless acknowledgement.
+  // Fiber's SendStatus(202) can carry text/plain "Accepted", not JSON.
+  const acknowledged = upstream.status === 202 && ["register", "password-recovery", "verification-resend", "login-code-resend"].includes(operation);
+  if (acknowledged || upstream.status === 204 || (upstream.status >= 300 && upstream.status < 400)) {
     await upstream.body?.cancel();
     return new Response(null, { status: upstream.status, headers: responseHeaders });
   }
