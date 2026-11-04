@@ -102,7 +102,7 @@ func (h *GoogleCallbackHandler) Handle(c fiber.Ctx) error {
 		return h.redirectFailure(c)
 	}
 	if result.Login.MFARequired {
-		c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.Login.MFAToken, Path: "/", Expires: result.Login.MFAExpiresAt, Secure: true, HTTPOnly: true, SameSite: "Lax"})
+		c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.Login.MFAToken, Path: "/", Expires: result.Login.MFAExpiresAt.Add(identityapp.EmailLoginResendGrace), Secure: true, HTTPOnly: true, SameSite: "Lax"})
 		c.Location(h.successRedirect)
 		return c.Status(fiber.StatusSeeOther).Send(nil)
 	}

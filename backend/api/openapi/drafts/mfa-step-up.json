@@ -324,7 +324,7 @@
     "/v1/auth/login-code/resend": {
       "post": {
         "summary": "Replace and resend the current email login code",
-        "description": "Requires the browser-bound login correlation cookie and exact Origin. Fail-closed HMAC-scoped limits allow at most one request per 30 seconds, three per 15 minutes per identity and ten per 15 minutes per validated client network. A permitted resend invalidates the former transaction before authenticated STARTTLS delivery; delivery failure returns 503 and issues no session.",
+        "description": "Requires the browser-bound login correlation cookie and exact Origin. Fail-closed HMAC-scoped limits allow at most one request per 30 seconds, three per 15 minutes per identity and ten per 15 minutes per validated client network. A permitted resend invalidates the former transaction before authenticated STARTTLS delivery; delivery failure returns 503 and issues no session. An expired EMAIL_LOGIN code may be replaced for up to ten additional minutes while its browser correlation cookie, current identity/auth epoch, unconsumed state and attempt limits remain valid. Expired codes never verify. TOTP transactions cannot use email resend. The replacement cookie lasts 15 minutes; X-Bidora-Challenge-Expires-At reports the fresh five-minute code deadline.",
         "requestBody": {
           "required": true,
           "content": {

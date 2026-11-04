@@ -47,6 +47,15 @@ type MFALoginChallenge struct {
 	Recipient                       email.Address
 	Factor                          MFAFactorMaterial
 }
+
+// EmailLoginResendGrace keeps only the browser's resend capability alive after
+// the five-minute code expires. It never extends code verification validity.
+const EmailLoginResendGrace = 10 * time.Minute
+
+type EmailLoginResendStore interface {
+	GetEmailLoginResendChallenge(context.Context, [32]byte, [32]byte, time.Time) (MFALoginChallenge, error)
+}
+
 type MFALoginGateResult struct {
 	Required  bool
 	Token     string
@@ -424,8 +433,14 @@ func (s *MFAService) ResendLogin(ctx context.Context, raw string, networkScope [
 		return MFALoginGateResult{}, safe("mfa_invalid", nil)
 	}
 	defer zero(decoded)
-	challenge, err := s.store.GetMFALoginChallenge(ctx, tokenHash, bindingHash, s.clock.Now().UTC())
-	if err != nil {
+	var challenge MFALoginChallenge
+	var err error
+	if store, ok := s.store.(EmailLoginResendStore); ok {
+		challenge, err = store.GetEmailLoginResendChallenge(ctx, tokenHash, bindingHash, s.clock.Now().UTC())
+	} else {
+		challenge, err = s.store.GetMFALoginChallenge(ctx, tokenHash, bindingHash, s.clock.Now().UTC())
+	}
+	if err != nil || challenge.Purpose != "EMAIL_LOGIN" {
 		return MFALoginGateResult{}, safe("mfa_invalid", nil)
 	}
 	if s.emailResendLimits == nil || s.emailResendKeys == nil || networkScope == ([32]byte{}) {

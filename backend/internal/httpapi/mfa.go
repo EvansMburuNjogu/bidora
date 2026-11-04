@@ -164,7 +164,8 @@ func (h *MFAHandler) ResendLoginCode(c fiber.Ctx) error {
 	if e != nil {
 		return emailLoginFailure(c, e)
 	}
-	c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.Token, Path: "/", Expires: result.ExpiresAt, Secure: true, HTTPOnly: true, SameSite: "Lax"})
+	c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.Token, Path: "/", Expires: result.ExpiresAt.Add(app.EmailLoginResendGrace), Secure: true, HTTPOnly: true, SameSite: "Lax"})
+	c.Set("X-Bidora-Challenge-Expires-At", result.ExpiresAt.UTC().Format(time.RFC3339Nano))
 	c.Set("Cache-Control", "private, no-store")
 	return c.SendStatus(202)
 }

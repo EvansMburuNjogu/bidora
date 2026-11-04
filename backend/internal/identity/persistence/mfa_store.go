@@ -299,6 +299,18 @@ func (s *MFAStore) BeginMFALogin(ctx context.Context, u app.ID, epoch int64, met
 		return q.InsertTOTPLoginTransaction(tc, qsql.InsertTOTPLoginTransactionParams{ID: identityID(id), UserID: identityID(u), TokenHash: token[:], BrowserBindingHash: binding[:], PrimaryMethod: string(method), AuthEpoch: epoch, At: identityTime(at)})
 	})
 }
+
+// Only resend uses the earlier expiry cutoff. The shared query still enforces
+// current user/auth epoch, unconsumed transaction, browser binding and attempts.
+// CompleteLogin continues using the real clock, so expired codes stay invalid.
+func (s *MFAStore) GetEmailLoginResendChallenge(ctx context.Context, token, binding [32]byte, at time.Time) (app.MFALoginChallenge, error) {
+	v, err := s.GetMFALoginChallenge(ctx, token, binding, at.Add(-app.EmailLoginResendGrace))
+	if err != nil || v.Purpose != "EMAIL_LOGIN" || v.ExpiresAt.After(at.Add(5*time.Minute)) {
+		return app.MFALoginChallenge{}, app.ErrMFAConflict
+	}
+	return v, nil
+}
+
 func (s *MFAStore) GetMFALoginChallenge(ctx context.Context, token, binding [32]byte, at time.Time) (out app.MFALoginChallenge, err error) {
 	err = s.runner.WithinTransaction(ctx, func(tc context.Context, db postgres.DBTX) error {
 		v, e := qsql.New(db).GetMFALoginChallenge(tc, qsql.GetMFALoginChallengeParams{TokenHash: token[:], BrowserBindingHash: binding[:], At: identityTime(at)})
