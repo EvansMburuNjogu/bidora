@@ -40,6 +40,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [restartPending, setRestartPending] = useState(false);
   const [resendPending, setResendPending] = useState(false);
+  const [resendExpired, setResendExpired] = useState(false);
   const [resendUntil, setResendUntil] = useState(0);
   const [now, setNow] = useState(0);
   const [completed, setCompleted] = useState(false);
@@ -199,6 +200,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     try {
       const response = await submitAuth("login-code-resend", {});
       if (response.status === 202) {
+        setResendExpired(false);
         setHint({ ...hint, expiresAt: challengeDeadline(response.headers.get("X-Bidora-Challenge-Expires-At")) });
         setVerificationAttempt((value) => value + 1);
         setFieldError(null);
@@ -213,6 +215,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         }
         toast.error("Please wait before requesting another code");
       } else if (response.status === 401) {
+        setResendExpired(true);
         setHint({ ...hint, expiresAt: Date.now() });
         setNow(Date.now());
         toast.error("Sign-in expired", { description: "Back to sign in to request a new code." });
@@ -414,10 +417,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <div className="flex flex-col items-center gap-2 text-center text-sm">
           {hint.expiresAt !== null && now > 0 ? (
             <p role="timer" aria-live="off" className="text-muted-foreground tabular-nums">
-              {challengeExpired ? "Sign-in expired. Sign in again for a new code." : `Expires in ${countdownLabel(hint.expiresAt, now)}`}
+              {resendExpired ? "Sign-in expired. Sign in again for a new code." : challengeExpired ? "Code expired. Resend for a new code." : `Expires in ${countdownLabel(hint.expiresAt, now)}`}
             </p>
           ) : <p className="text-muted-foreground">Use your latest code.</p>}
-          <Button type="button" variant="outline" size="sm" disabled={pending || restartPending || resendPending || completed || challengeExpired || resendSeconds > 0} onClick={() => void resendLoginCode()}>
+          <Button type="button" variant="outline" size="sm" disabled={pending || restartPending || resendPending || completed || resendExpired || resendSeconds > 0} onClick={() => void resendLoginCode()}>
             {resendPending ? "Sending…" : resendSeconds > 0 ? `Resend in ${resendSeconds}s` : "Resend code"}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={pending || restartPending || resendPending || completed} onClick={() => void restartLogin()}>

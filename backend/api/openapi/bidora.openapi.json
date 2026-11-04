@@ -8812,7 +8812,7 @@
     },
     "/v1/auth/login": {
       "post": {
-        "description": "Requires an exact approved HTTPS Origin but no pre-session CSRF value. Resolves the network scope through configured trusted proxies before atomic attempt control. Existing sessions remain valid. Successful primary authentication creates a five-minute browser-bound EMAIL_LOGIN transaction and delivers a cryptographically random six-digit code through explicit authenticated STARTTLS. No session exists until code completion; SMTP unavailability fails closed.",
+        "description": "Requires an exact approved HTTPS Origin but no pre-session CSRF value. Resolves the network scope through configured trusted proxies before atomic attempt control. Existing sessions remain valid. Successful primary authentication creates a five-minute browser-bound EMAIL_LOGIN transaction and delivers a cryptographically random six-digit code through explicit authenticated STARTTLS. No session exists until code completion; SMTP unavailability fails closed. The HttpOnly browser correlation cookie lasts 15 minutes to allow a rate-limited resend after code expiry; the code itself remains valid for five minutes only. X-Bidora-Challenge-Expires-At reports the code deadline, not the cookie deadline.",
         "operationId": "loginWithPassword",
         "parameters": [
           {
@@ -8951,7 +8951,7 @@
     },
     "/v1/auth/login-code/resend": {
       "post": {
-        "description": "Requires the browser-bound login correlation cookie and exact Origin. Fail-closed HMAC-scoped limits allow at most one request per 30 seconds, three per 15 minutes per identity and ten per 15 minutes per validated client network. A permitted resend invalidates the former transaction before authenticated STARTTLS delivery; delivery failure returns 503 and issues no session.",
+        "description": "Requires the browser-bound login correlation cookie and exact Origin. Fail-closed HMAC-scoped limits allow at most one request per 30 seconds, three per 15 minutes per identity and ten per 15 minutes per validated client network. A permitted resend invalidates the former transaction before authenticated STARTTLS delivery; delivery failure returns 503 and issues no session. An expired EMAIL_LOGIN code may be replaced for up to ten additional minutes while its browser correlation cookie, current identity/auth epoch, unconsumed state and attempt limits remain valid. Expired codes never verify. TOTP transactions cannot use email resend. The replacement cookie lasts 15 minutes; X-Bidora-Challenge-Expires-At reports the fresh five-minute code deadline.",
         "operationId": "postAuthLoginCodeResend",
         "parameters": [
           {

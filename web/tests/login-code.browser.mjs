@@ -7,7 +7,7 @@ try {
   await page.route("**/api/**", async route => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/auth/login") return route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify({ data: { mfa_required: true, expires_at: new Date(Date.now() + 65_000).toISOString() } }) });
-    if (path === "/api/auth/login-code-resend") return route.fulfill({ status: 202, headers: { "X-Bidora-Challenge-Expires-At": new Date(Date.now() + 300_000).toISOString() } });
+    if (path === "/api/auth/login-code-resend") return route.fulfill({ status: 202, headers: { "X-Bidora-Challenge-Expires-At": await page.evaluate(() => new Date(Date.now() + 300_000).toISOString()) } });
     return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   });
   await page.goto(process.env.BIDORA_TEST_WEB_ORIGIN || "http://127.0.0.1:3000/login");
@@ -24,12 +24,15 @@ try {
   assert.notEqual(await timer.textContent(), first);
   assert.ok(!(await page.locator("body").innerText()).includes("alice@example.com"));
   assert.ok(!(await page.locator("body").innerText()).includes("Codes expire after five minutes"));
+  await page.clock.install();
+  await page.clock.fastForward(70_000);
+  await page.getByText("Code expired. Resend for a new code.", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Resend code", exact: true }).isEnabled(), true);
   await page.getByRole("button", { name: "Resend code", exact: true }).click();
   await page.getByRole("button", { name: /Resend in \d+s/ }).waitFor();
   assert.match(await timer.textContent(), /Expires in [45]:\d{2}/);
   await page.unroute("**/api/**");
   await page.route("**/api/auth/login-code-resend", route => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
-  await page.clock.install();
   await page.clock.fastForward(31_000);
   await page.getByRole("button", { name: "Resend code", exact: true }).click();
   await page.getByText("Sign-in expired. Sign in again for a new code.", { exact: true }).waitFor();

@@ -17,7 +17,7 @@ test("auth acknowledgements preserve 202 without requiring upstream JSON", async
   process.env.BIDORA_BFF_CLIENT_IP_MODE = "trusted-header";
   try {
     for (const operation of ["register", "password-recovery", "verification-resend", "login-code-resend"]) {
-      globalThis.fetch = async () => new Response("Accepted", { status: 202, headers: { "Content-Type": "text/plain; charset=utf-8", "Set-Cookie": "__Host-bidora_login_code=synthetic; Path=/; Secure; HttpOnly; Expires=Thu, 01 Jan 2037 12:00:00 GMT" } });
+      globalThis.fetch = async () => new Response("Accepted", { status: 202, headers: { "Content-Type": "text/plain; charset=utf-8", "X-Bidora-Challenge-Expires-At": "2037-01-01T12:00:00Z", "Set-Cookie": "__Host-bidora_login_code=synthetic; Path=/; Secure; HttpOnly; Expires=Thu, 01 Jan 2037 12:10:00 GMT" } });
       const response = await proxyAuth(new Request("http://127.0.0.1:13000/api/auth/" + operation, { method: "POST", headers: { Origin: process.env.BIDORA_WEB_ORIGIN, "Content-Type": "application/json", "X-Bidora-Client-IP": "192.0.2.1" }, body: "{}" }), operation);
       assert.equal(response.status, 202, operation);
       assert.equal(await response.text(), "");
