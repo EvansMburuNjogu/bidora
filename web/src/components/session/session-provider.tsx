@@ -34,7 +34,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const checking = useRef(false);
 
   const refresh = useCallback(() => {
-    setState({ status: "loading" });
+    if (checking.current) return;
+    checking.current = true;
+    setState(current => {
+      if (current.status === "ready" && Date.now() < Math.min(
+        Date.parse(current.response.data.session.idle_expires_at),
+        Date.parse(current.response.data.session.absolute_expires_at),
+      )) return current;
+      return { status: "loading" };
+    });
     setGeneration((value) => value + 1);
   }, []);
 
@@ -113,19 +121,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function revalidateVisibleSession() {
       if (document.visibilityState !== "visible" || checking.current) return;
-      if (state.status === "ready" && Date.now() < Math.min(
-        Date.parse(state.response.data.session.idle_expires_at),
-        Date.parse(state.response.data.session.absolute_expires_at),
-      )) {
-        // Keep the mounted page while rechecking a still-valid session.
-        setGeneration((value) => value + 1);
-      } else {
-        refresh();
-      }
+      refresh();
     }
     document.addEventListener("visibilitychange", revalidateVisibleSession);
     return () => document.removeEventListener("visibilitychange", revalidateVisibleSession);
-  }, [refresh, state]);
+  }, [refresh]);
 
   useEffect(() => {
     if (state.status === "unauthenticated") {
