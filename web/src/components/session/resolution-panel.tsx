@@ -23,7 +23,7 @@ const actionCopy: Record<RequiredAction, { title: string; message: string }> = {
   },
   COMPLETE_PLATFORM_STEP_UP: {
     title: "Additional verification required",
-    message: "Your email-verified session cannot open Platform Administration because this workspace requires stronger verification.",
+    message: "Confirm with your authenticator or a recovery code to open Platform Administration. An email sign-in code alone does not provide administrator assurance.",
   },
 };
 
@@ -51,9 +51,14 @@ export function ResolutionPanel() {
       {action === "ESTABLISH_TENDERPRENEUR_MEMBERSHIP" ? (
         <Button nativeButton={false} render={<Link href="/organization/create" />}>Create an organization</Button>
       ) : null}
+      {(action === "ENROLL_PLATFORM_MFA" || action === "COMPLETE_PLATFORM_STEP_UP") ? (
+        <Button nativeButton={false} render={<Link href="/account/security/authenticator" />}>
+          {action === "ENROLL_PLATFORM_MFA" ? "Set up authenticator" : "Verify with authenticator"}
+        </Button>
+      ) : null}
       {action === "COMPLETE_PLATFORM_STEP_UP" ? (
         <Button type="button" variant="outline" disabled={isSigningOut} onClick={() => void signOut()}>
-          {isSigningOut ? "Signing out…" : "Sign out and return to login"}
+          {isSigningOut ? "Signing out…" : "Sign out"}
         </Button>
       ) : null}
       {action !== "SELECT_ACCOUNT_TYPE" && action !== "COMPLETE_PLATFORM_STEP_UP" ? (
