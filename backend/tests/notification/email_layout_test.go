@@ -1,0 +1,46 @@
+package notification_test
+
+import (
+	"strings"
+	"testing"
+
+	"bidora/backend/internal/emailhtml"
+	app "bidora/backend/internal/notification/application"
+)
+
+func TestEmailLayoutEscapesContentAndUsesTokenFreeActions(t *testing.T) {
+	html := emailhtml.Render(emailhtml.Content{Brand: "<script>alert(1)</script>", Title: "Sign in", Body: "<img src=x onerror=bad>", Code: "123456", Origin: "https://sandbox.bidora.africa", Key: "identity.login_code"})
+	for _, want := range []string{"role=\"presentation\"", "123456", "Continue sign-in", "https://sandbox.bidora.africa/auth/login-code", "&lt;script&gt;"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("missing expected layout element %q", want)
+		}
+	}
+	for _, forbidden := range []string{"<script>", "<img src=", "?code=", "?token=", "javascript:"} {
+		if strings.Contains(html, forbidden) {
+			t.Fatalf("unsafe layout element %q", forbidden)
+		}
+	}
+}
+
+func TestEmailActionsRequireExplicitHTTPSOrigin(t *testing.T) {
+	for _, origin := range []string{"", "http://example.com", "https://user:pass@example.com", "https://example.com/path", "https://example.com?token=secret", "javascript:alert(1)", "//example.com"} {
+		if got := emailhtml.QuickAction(origin, "identity.login_code"); got.URL != "" {
+			t.Fatal("unsafe origin accepted")
+		}
+	}
+	for key, path := range map[string]string{"identity.login_code": "/auth/login-code", "identity.password_recovery": "/reset-password", "identity.email_verification": "/verify-email", "tenant.invitation": "/login", "platform.role_change": "/account/security"} {
+		if got := emailhtml.QuickAction("https://sandbox.bidora.africa", key); got.URL != "https://sandbox.bidora.africa"+path {
+			t.Fatalf("incorrect action for %s", key)
+		}
+	}
+}
+
+func TestManagedEmailKeepsEditableCopyAndPlainTextAlternative(t *testing.T) {
+	v, err := app.RenderTemplate(app.Template{Key: "identity.login_code", Name: "Login", Subject: "{{platform_name}} sign-in", Body: "Use {{code}} before {{expires_at}}.", Enabled: true, Version: 1}, map[string]string{"platform_name": "Bidora", "code": "123456", "expires_at": "2030-01-01T12:00:00Z", "web_origin": "https://sandbox.bidora.africa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(v.HTML, "123456") != 1 || !strings.Contains(v.Text, "123456") || !strings.Contains(v.Text, "https://sandbox.bidora.africa/auth/login-code") {
+		t.Fatal("code presentation or plain alternative lost")
+	}
+}
