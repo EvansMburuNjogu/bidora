@@ -90,7 +90,7 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 ## Google settings field removal — BID-MVP-03 / BID-MVP-05
 
 - Implementation: removed Allowed Email Domains from Google Login & Signup entirely, without relocating it. Removed domain-editing draft state; other saves retain the exact previously saved `allowed_domains` so removing a field never silently widens existing login restrictions. Backend policy/schema/API contract unchanged.
-- Verification: TypeScript, affected ESLint, eight managed-settings/submission tests, Next production build and three intercepted-API Google browser tests passed. Desktop/mobile checks assert the field is absent and signup edits preserve saved restrictions across failed save/retry. No deployment, configuration mutation or live Google call performed.
+- Verification: TypeScript, affected ESLint, eight managed-settings/submission tests, Next production build and three intercepted-API Google browser tests passed. Desktop/mobile checks assert the field is absent and signup edits preserve saved restrictions across failed save/retry. Deployed web-only as `32bbe04` on `maalim-server`; server production build passed, web healthy with zero restarts, Google settings/API readiness 200 and anonymous Google settings API 401. Backend image/start time unchanged and rollback web image retained. No configuration mutation, live Google call or authenticated sandbox verification performed.
 
 ## Complete permissions matrix — BID-MVP-03 / BID-MVP-05
 
