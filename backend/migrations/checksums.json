@@ -2,6 +2,13 @@
   "status": "pre-release-reviewed-slice",
   "algorithm": "sha256",
   "files": {
+    "migrations/control/00044_platform_audit_export_projection.sql": "48b66241f54ce79b9d3da54f3edcf8b4ca80d7ebedca80c7bc479a192f7bd628",
+    "migrations/control/00045_platform_support_cases.sql": "b4a07f4d9b5a8b1254009f64bf7713f40867419d7058ea944309ccaa0486efbf",
+    "migrations/control/00046_platform_plan_versions.sql": "c1a31d289e86043fcf2d34d91891bf1fb53714a85189c5d4e7a09701fca61d76",
+    "migrations/control/00047_platform_subscription_commands.sql": "54578aa6c9a7c9372f2e0071a2e7b3e32a203f9c0626c4846a1d31ca5b889ba9",
+    "migrations/control/00048_platform_invitation_reissue.sql": "f75dda9ea74b5091f70d1f9938386e0d2a8636c2d6708c21bea2c9f077169df5",
+    "migrations/control/00049_platform_subscription_inventory_projection.sql": "4640f277e3bed7ab1f6afb9daab033c5c89c386d1b6725a4f81a8b9d03403d46",
+    "migrations/control/00050_platform_audit_details.sql": "30661a46b19143ed0fad7a2c810ce6444bbc865305e3ef2b2567bc7992f17dda",
     "queries/commercial/payment_callback.sql": "54419bd6dfdd78f2c87b03ec7f3fca613a84c01a361710aff7a63d324bbc90b2",
     "migrations/control/00040_managed_openai_runtime.sql": "a8b852bfdaee9520d589b88499c9a0a417b764cabfc343258b9de655474f3680",
     "migrations/control/00041_countries_and_operational_policy.sql": "035a226179aad5eb1dd73c319ee72a9dec33b476e2704b9561162b54dbf75cd6",
