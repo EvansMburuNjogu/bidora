@@ -87,6 +87,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Platform Information saved values — BID-MVP-03 / BID-MVP-05
+
+- Implementation: `/platform/settings/platform` retrieves saved name, website, support email and phone on entry/re-entry and confirms writes with an uncached read. Failed initial reads now show a retry action rather than editable defaults; successful write values/version survive a failed confirmation read. Conflicts provide explicit reload, requests have bounded timeouts, and read-only administrators see saved values without editable controls. Removed “Manage countries and localisation” from this form; live read-only regional defaults remain separate from its save payload. Existing authorization, CSRF, version checks and backend audit/persistence are unchanged.
+- Verification: TypeScript, affected ESLint, contract generation check, two settings contract tests, 30 auth/BFF tests, focused Go platformsettings tests and Next production build passed. Six production-server Playwright tests with intercepted APIs passed desktop/mobile save → readback → refresh → reopen, cancel, failed loading/retry, permission/validation errors, failed-save input retention, failed confirmation/version retention and conflict reload. No live database write or sandbox deployment performed for this increment; authenticated persisted sandbox verification remains BID-MVP-05.
+
 ## Password recovery — BID-MVP-03 / BID-MVP-05
 
 - Deployment: source `1a1f9fe` pushed to `sandbox`; compatible backend `c538ed4` pushed to `sandbox-email-recovery` and deployed on `maalim-server`, preserving the existing login configuration. Web/backend rebuilt and healthy with zero restarts; public confirmation/reset/login and API readiness passed (200), and confirmation shows Enter recovery code. Rollback images retained. No migrations, grants, provider send or SMTP activation; managed SMTP gate still reports pending approval, so genuine recovery-email delivery/reset remains unverified.
