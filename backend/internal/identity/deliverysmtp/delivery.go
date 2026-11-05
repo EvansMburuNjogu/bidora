@@ -353,7 +353,7 @@ func loginCodeMessage(sender, recipient email.Address, code string, expiresAt ti
 }
 func passwordRecoveryMessage(sender, recipient email.Address, token verification.Token, expiresAt time.Time) string {
 	createdAt := expiresAt.Add(-verification.Lifetime)
-	return "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: Reset your Bidora password\r\nDate: " + createdAt.Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\nUse this password recovery token to reset your Bidora password:\r\n\r\n" + token.RevealForDelivery() + "\r\n\r\nThis token expires at " + expiresAt.Format(time.RFC3339) + ".\r\nIf you did not request this, ignore this message.\r\n"
+	return "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: Reset your Bidora password\r\nDate: " + createdAt.Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\nOpen the Reset password link, then enter this recovery code, your new password, and confirm your new password:\r\n\r\n" + token.RevealForDelivery() + "\r\n\r\nThis token expires at " + expiresAt.Format(time.RFC3339) + ".\r\nIf you did not request this, ignore this message.\r\n"
 }
 func verificationMessage(sender, recipient email.Address, token verification.Token, expiresAt time.Time) string {
 	createdAt := expiresAt.Add(-verification.Lifetime)

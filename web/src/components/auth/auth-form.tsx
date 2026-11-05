@@ -70,7 +70,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     const email = String(data.get("email") ?? "");
     const password = String(data.get("password") ?? "");
     const confirmPassword = String(data.get("confirm_password") ?? "");
-    const token = String(data.get("token") ?? "");
+    const token = String(data.get("token") ?? "").trim();
     const code = String(data.get("code") ?? "");
     const normalizedCode = code.trim().toUpperCase();
 
@@ -165,6 +165,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
         form.reset();
         toast.success(mode === "password-reset" ? "Password reset" : "Email verified");
         router.push("/login");
+        return;
+      }
+      if (mode === "password-reset" && response.status === 400) {
+        setFieldError({ field: "token", message: "The recovery code is invalid, expired, or already used. Check the latest email or request a new recovery link." });
+        return;
+      }
+      if (mode === "password-reset" && response.status === 503) {
+        toast.error("Password reset unavailable", { description: "Please try again later." });
         return;
       }
       if (mode === "login-code" && response.status === 401) {

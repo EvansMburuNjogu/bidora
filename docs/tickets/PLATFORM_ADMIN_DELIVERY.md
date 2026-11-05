@@ -87,6 +87,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Password recovery — BID-MVP-03 / BID-MVP-05
+
+- Implementation: reused the existing eligible-account lookup, hashed single-use 30-minute recovery challenge, managed SMTP/template delivery and password reset/session revocation transaction. Recovery emails now explicitly explain link → code → new password → confirmation; check-email offers direct reset and request-again navigation. Reset trims pasted codes and shows inline invalid/expired/used-code errors without revealing account existence. Links remain token-free; confirmation stays client-only.
+- Verification: focused identity/notification/HTTP Go tests and identity-api build passed; TypeScript, affected ESLint, auth contract check, 30 auth tests and Next production build passed. Production-server Playwright with intercepted APIs passed recovery rate limits, reset navigation, password mismatch/no submission, invalid code and successful reset redirect. Email rendering test checks code, reset URL, expiry, instructions and no secret URL parameters. No live SMTP/inbox or database reset performed; genuine email delivery and persisted reset remain BID-MVP-05 verification.
+
 ## BID-MVP-05 — verification tasks and external readiness
 
 - Identify disposable or expressly designated development targets before integration writes; never reset an unknown/existing database.

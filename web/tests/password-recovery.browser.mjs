@@ -5,10 +5,16 @@ try {
  const page = await browser.newPage();
  let status = 429;
  let requests = 0;
+ let resetStatus = 400;
+ const resets = [];
  await page.route("**/api/**", route => {
   if (new URL(route.request().url()).pathname === "/api/auth/password-recovery") {
    requests++;
    return route.fulfill({ status, headers: { "Retry-After": "900" } });
+  }
+  if (new URL(route.request().url()).pathname === "/api/auth/password-reset") {
+   resets.push(route.request().postDataJSON());
+   return route.fulfill({ status: resetStatus });
   }
   return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
  });
@@ -28,8 +34,22 @@ try {
  assert.equal(await page.getByRole("heading",{name:"Check your email",exact:true}).count(),1);
  assert.equal(await page.locator('input[type="password"]').count(),0);
  assert.equal(await page.locator('input[name="token"]').count(),0);
- await page.goto(origin+"/reset-password");
- await page.getByLabel("Recovery code",{exact:true}).waitFor();
- await page.getByLabel("New password",{exact:true}).waitFor();
- console.log("PASS: recovery respects rate limits and separates email confirmation from code/password reset (intercepted APIs only)");
+ await page.locator('a[href="/reset-password"]').click();
+ await page.waitForURL("**/reset-password");
+ const token = "a".repeat(42) + "A";
+ await page.getByLabel("Recovery code",{exact:true}).fill(token);
+ await page.getByLabel("New password",{exact:true}).fill("A new secure passphrase");
+ await page.getByLabel("Confirm new password",{exact:true}).fill("A different passphrase");
+ await page.getByRole("button",{name:"Reset password",exact:true}).click();
+ await page.getByText("Passwords do not match. Enter the same password again.").waitFor();
+ assert.equal(resets.length,0);
+ await page.getByLabel("Confirm new password",{exact:true}).fill("A new secure passphrase");
+ await page.getByRole("button",{name:"Reset password",exact:true}).click();
+ await page.getByText(/The recovery code is invalid, expired, or already used/).waitFor();
+ assert.deepEqual(resets,[{token,new_password:"A new secure passphrase"}]);
+ resetStatus=204;
+ await page.getByRole("button",{name:"Reset password",exact:true}).click();
+ await page.waitForURL("**/login");
+ assert.equal(resets.length,2);
+ console.log("PASS: recovery rate limits, reset navigation, password confirmation, invalid code and reset success (intercepted APIs only)");
 } finally { await browser.close(); }
