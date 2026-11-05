@@ -113,7 +113,7 @@ export function PlatformRoleCatalogue() {
       {accessible && directory.status === "ready" && directory.nextCursor && <p className="mt-2 text-xs text-muted-foreground">Counts are shown only after all administrators load. <button type="button" className="text-primary hover:underline" onClick={() => void fetchPage(directory.nextCursor, directoryEpoch.current)}>Load more</button></p>}
     </section>
     <section aria-labelledby="permissions-matrix-heading">
-      <h2 id="permissions-matrix-heading" className="text-lg font-semibold">Permissions Matrix</h2><p className="mb-4 text-sm text-muted-foreground">Access included with each role.</p>
+      <h2 id="permissions-matrix-heading" className="text-lg font-semibold">Permissions Matrix</h2><p className="mb-4 text-sm text-muted-foreground">Permissions defined by the backend role catalogue. A granted permission does not bypass approval or verification requirements, or mean its feature is available.</p>
       <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[880px] text-sm"><thead className="bg-muted/40"><tr><th scope="col" className="px-3 py-3 text-left font-medium">Permission</th>{visibleRoles.map((role) => <th scope="col" key={role.role_key} title={platformRoleLabels[role.role_key]} className="px-2 py-3 text-center text-xs font-medium">{shortRoleLabels[role.role_key]}</th>)}</tr></thead><tbody className="divide-y">
         {accessible ? permissionMatrix.map((group) => <FragmentGroup key={group.name} group={group} roles={visibleRoles} />) : <tr><td colSpan={7} className="px-4 py-5 text-center text-muted-foreground">Permission details unavailable for this session.</td></tr>}
       </tbody></table></div>

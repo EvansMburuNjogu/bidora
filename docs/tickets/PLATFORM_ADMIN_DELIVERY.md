@@ -87,6 +87,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Complete permissions matrix — BID-MVP-03 / BID-MVP-05
+
+- Implementation: Roles & Permissions now displays each of the backend fixed-role catalogue's 56 distinct capabilities exactly once, including identity reactivation, support session operations, integration test/activate/pause/rollback/failures, migrations, maintenance and retention drafts. Removed the combined duplicate financial summary and invented empty AI Usage permission row. Live `/v1/platform/roles` capabilities still determine grants; generated fixed-role bundles are display-only outage fallback. Clarified that permissions do not imply feature availability or bypass verification/approval. No roles, grants, APIs or authorization rules changed.
+- Verification: backend-source capability coverage, published-bundle parity and supplied-live-grant tests plus the existing role contract test passed (four tests). Production-server desktop/mobile Playwright with intercepted APIs passed complete row coverage and a deliberately changed live Owner grant (two tests). TypeScript, affected ESLint, contract generation check and Next production build passed. Not deployed; no authenticated sandbox or database changes performed.
+
 ## Platform Information saved values — BID-MVP-03 / BID-MVP-05
 
 - Placeholder follow-up: all eight form inputs have non-empty placeholders; added name/support-email examples and a complete phone example. Existing saved values and regional unavailable-state placeholders remain unchanged. Desktop/mobile browser coverage now asserts placeholder presence for every input. TypeScript, affected ESLint, production build and all six intercepted-API browser tests passed. Deployed web-only as `6e22909` on `maalim-server`; server production build passed, web healthy with zero restarts, settings page/API readiness 200, backend image/start time unchanged and rollback image retained. No database/provider operations or authenticated save verification performed.

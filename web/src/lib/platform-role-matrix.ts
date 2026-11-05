@@ -20,17 +20,28 @@ export type MatrixRow = { label: string; keys: readonly string[] };
 export type MatrixGroup = { name: string; rows: readonly MatrixRow[] };
 const row = (label: string, key: string): MatrixRow => ({ label, keys: [key] });
 export const permissionMatrix: readonly MatrixGroup[] = [
-  { name: "Overview", rows: [{ label: "Financial overview", keys: ["platform.invoice.read", "platform.payment.read"] }, row("Service health", "platform.operations.health.read")] },
+  { name: "Overview", rows: [row("Service health", "platform.operations.health.read")] },
   { name: "Tenderpreneurs", rows: [row("View organisations", "platform.tenant.read"), row("Register organisations", "platform.tenant.create"), row("Retry setup", "platform.tenant.provision.retry"), row("Suspend organisations", "platform.tenant.suspend"), row("Reactivate organisations", "platform.tenant.reactivate")] },
-  { name: "Users", rows: [row("View administrators", "platform.admin.read"), row("Invite administrators", "platform.admin.invite"), row("Assign roles", "platform.admin.role.assign"), row("Revoke roles", "platform.admin.role.revoke"), row("Disable accounts", "platform.admin.identity.disable"), row("Revoke sessions", "platform.admin.session.revoke"), row("Review changes", "platform.governance.review"), row("Approve changes", "platform.governance.approve")] },
+  { name: "Users", rows: [row("View administrators", "platform.admin.read"), row("Invite administrators", "platform.admin.invite"), row("Assign roles", "platform.admin.role.assign"), row("Revoke roles", "platform.admin.role.revoke"), row("Disable accounts", "platform.admin.identity.disable"), row("Reactivate accounts", "platform.admin.identity.reactivate"), row("Revoke sessions", "platform.admin.session.revoke"), row("Review changes", "platform.governance.review"), row("Approve changes", "platform.governance.approve")] },
   { name: "Plans & Subscriptions", rows: [row("View plans", "platform.plan.read"), row("Manage plans", "platform.plan.manage"), row("Publish plans", "platform.plan.publish"), row("View subscriptions", "platform.subscription.read"), row("Manage subscriptions", "platform.subscription.manage")] },
   { name: "Billing", rows: [row("View invoices", "platform.invoice.read"), row("View payments", "platform.payment.read"), row("Reconcile payments", "platform.payment.reconcile"), row("Request adjustments", "platform.billing.adjustment.request")] },
-  { name: "AI Usage", rows: [{ label: "Usage history", keys: [] }] },
   { name: "Communications", rows: [row("Manage announcements", "platform.announcement.manage")] },
-  { name: "Support", rows: [row("View cases", "platform.support.case.read"), row("Manage cases", "platform.support.case.manage"), row("Request access", "platform.support.access.request")] },
+  { name: "Support", rows: [row("View cases", "platform.support.case.read"), row("Manage cases", "platform.support.case.manage"), row("Request access", "platform.support.access.request"), row("Use approved support sessions", "platform.support.session.use"), row("View support sessions", "platform.support.session.read"), row("Revoke support sessions", "platform.support.session.revoke")] },
   { name: "Reports", rows: [row("Export billing records", "platform.billing.export"), row("Export audit records", "platform.audit.export")] },
   { name: "Audit Trails", rows: [row("View audit records", "platform.audit.read"), row("View security events", "platform.security.event.read")] },
-  { name: "Settings", rows: [row("View connections", "platform.integration.read"), row("Manage email", "platform.integration.smtp.manage"), row("Manage AI connection", "platform.integration.ai.manage"), row("Manage payment connection", "platform.integration.pesapal.manage"), row("View reference settings", "platform.reference.read"), row("Manage reference settings", "platform.reference.manage"), row("View retention policy", "platform.retention.policy.read")] },
+  { name: "Connections", rows: [
+    row("View connections", "platform.integration.read"),
+    row("Manage email", "platform.integration.smtp.manage"), row("Test email", "platform.integration.smtp.test"), row("Activate email configuration", "platform.integration.smtp.activate"),
+    row("Manage AI connection", "platform.integration.ai.manage"), row("Test AI connection", "platform.integration.ai.test"), row("Activate AI configuration", "platform.integration.ai.activate"),
+    row("Manage payment connection", "platform.integration.pesapal.manage"), row("Test payment connection", "platform.integration.pesapal.test"), row("Activate payment configuration", "platform.integration.pesapal.activate"),
+    row("Pause connections", "platform.integration.pause"), row("Roll back connection configuration", "platform.integration.rollback"), row("View connection failures", "platform.integration.failure.read"),
+  ] },
+  { name: "Settings & Operations", rows: [
+    row("View reference settings", "platform.reference.read"), row("Manage reference settings", "platform.reference.manage"),
+    row("View maintenance settings", "platform.maintenance.read"), row("Manage maintenance settings", "platform.maintenance.manage"),
+    row("View migrations", "platform.migration.read"), row("Manage migrations", "platform.migration.manage"),
+    row("View retention policy", "platform.retention.policy.read"), row("Draft retention policy changes", "platform.retention.policy.draft"),
+  ] },
 ];
 export function roleName(role: PlatformRole): string { return platformRoleLabels[role]; }
 export function granted(capabilities: readonly string[], keys: readonly string[]): boolean { return keys.length > 0 && keys.every((key) => capabilities.includes(key)); }
