@@ -89,6 +89,8 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 
 ## Password recovery — BID-MVP-03 / BID-MVP-05
 
+- Deployment: source `1a1f9fe` pushed to `sandbox`; compatible backend `c538ed4` pushed to `sandbox-email-recovery` and deployed on `maalim-server`, preserving the existing login configuration. Web/backend rebuilt and healthy with zero restarts; public confirmation/reset/login and API readiness passed (200), and confirmation shows Enter recovery code. Rollback images retained. No migrations, grants, provider send or SMTP activation; managed SMTP gate still reports pending approval, so genuine recovery-email delivery/reset remains unverified.
+
 - Implementation: reused the existing eligible-account lookup, hashed single-use 30-minute recovery challenge, managed SMTP/template delivery and password reset/session revocation transaction. Recovery emails now explicitly explain link → code → new password → confirmation; check-email offers direct reset and request-again navigation. Reset trims pasted codes and shows inline invalid/expired/used-code errors without revealing account existence. Links remain token-free; confirmation stays client-only.
 - Verification: focused identity/notification/HTTP Go tests and identity-api build passed; TypeScript, affected ESLint, auth contract check, 30 auth tests and Next production build passed. Production-server Playwright with intercepted APIs passed recovery rate limits, reset navigation, password mismatch/no submission, invalid code and successful reset redirect. Email rendering test checks code, reset URL, expiry, instructions and no secret URL parameters. No live SMTP/inbox or database reset performed; genuine email delivery and persisted reset remain BID-MVP-05 verification.
 
