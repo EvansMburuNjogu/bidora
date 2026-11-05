@@ -23,6 +23,12 @@ docker compose -f deploy/sandbox/compose.yml up -d backend web
 docker compose -f deploy/sandbox/compose.yml ps
 ```
 
+## Current audit rollout and rollback
+
+Control schema/ledger are now **50**. The audit web source is `26471c0`; the running backend is the login-compatible `6ca77a8` from `sandbox-email-recovery`, not the managed-only main runtime. The existing login configuration was preserved; unrelated business handlers and provider activations were not deployed. Private database backups and pre-upgrade images are retained outside Git.
+
+For binary rollback at schema 50, use the retained `bidora-sandbox/backend:audit-schema50-rollback` image (source `39fb8dc`, branch `sandbox-audit-rollback`), first running **that image's** `grant-runtime -plane control -manifest-version 1` with the existing designated migrator environment/TLS mount, then retag/recreate only the backend. Its grant manifest restores the earlier audit projection access without granting raw audit reads. Retain the previous web image `bidora-sandbox/web:before-audit-schema50` if frontend rollback is also necessary. The original schema-43 backend cannot simply be restarted against schema 50. Never run destructive down migrations or restore over the live database; database recovery remains restore-to-new under explicit authorization.
+
 Readiness is not authentication readiness: `/health/ready` can pass while managed SMTP is pending and login-code delivery fails. `check-managed-smtp.sh` is a read-only deployment gate; it neither approves pending changes nor sends email. Keep the previous backend image and private runtime environment backup until an authorized login verifies the new delivery path. During the reported login-503 recovery, the previous backend image and its existing deployment login-channel configuration were restored; this is a temporary rollback, not delivery from the unactivated managed revision. Do not replace that working image with managed-only SMTP until the gate passes.
 
 Do not run `down -v`, reset databases, prune unrelated Docker resources or reuse production credentials. Initial `bootstrap.py` refuses to replace existing secrets. PostgreSQL initialization creates the migration ledger schema and denies runtime database CREATE/TEMPORARY privileges; runtime table grants come from the existing grant command.
