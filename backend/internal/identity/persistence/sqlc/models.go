@@ -25,6 +25,21 @@ type BidoraControlAuditAuditEvent struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type BidoraControlAuditPlatformActionDetailsV1 struct {
+	ID                 pgtype.UUID
+	ActorID            pgtype.UUID
+	Action             string
+	OccurredAt         pgtype.Timestamptz
+	Module             string
+	AffectedRecordID   pgtype.UUID
+	Result             string
+	AdministratorName  string
+	AffectedRecordName string
+	Changes            interface{}
+	IpAddress          *netip.Addr
+	Browser            *string
+}
+
 type BidoraControlAuditPlatformActionTimesV1 struct {
 	ID               pgtype.UUID
 	ActorID          pgtype.UUID
@@ -105,6 +120,46 @@ type BidoraControlMetaSchemaCompatibility struct {
 	MinWriterGeneration int64
 	MaxWriterGeneration int64
 	UpdatedAt           pgtype.Timestamptz
+}
+
+type BidoraSupportCase struct {
+	ID          pgtype.UUID
+	TenantID    pgtype.UUID
+	Title       string
+	Description string
+	State       string
+	AssignedTo  pgtype.UUID
+	CreatedBy   pgtype.UUID
+	Version     int64
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+type BidoraSupportCaseCommand struct {
+	ActorID       pgtype.UUID
+	Operation     string
+	KeyHash       []byte
+	RequestHash   []byte
+	CaseID        pgtype.UUID
+	ResultVersion int64
+	CreatedAt     pgtype.Timestamptz
+}
+
+type BidoraSupportCaseEvent struct {
+	ID        pgtype.UUID
+	CaseID    pgtype.UUID
+	ActorID   pgtype.UUID
+	Action    string
+	Version   int64
+	CreatedAt pgtype.Timestamptz
+}
+
+type BidoraSupportCaseMessage struct {
+	ID        pgtype.UUID
+	CaseID    pgtype.UUID
+	ActorID   pgtype.UUID
+	Body      string
+	CreatedAt pgtype.Timestamptz
 }
 
 type BidoraTenancyDatabaseCluster struct {
@@ -497,6 +552,54 @@ type CommercialPaymentSettlementEffect struct {
 	Currency                     string
 	SettledAt                    pgtype.Timestamptz
 	EffectHash                   []byte
+}
+
+type CommercialPlatformPlanCommand struct {
+	ActorID           pgtype.UUID
+	Operation         string
+	KeyHash           []byte
+	RequestHash       []byte
+	PlanKey           string
+	ResultVersion     int64
+	ResultHeadVersion int64
+	CreatedAt         pgtype.Timestamptz
+}
+
+type CommercialPlatformPlanHead struct {
+	PlanKey       string
+	ActiveVersion int64
+	NextVersion   int64
+	HeadVersion   int64
+	UpdatedAt     pgtype.Timestamptz
+}
+
+type CommercialPlatformPlanVersion struct {
+	PlanKey                string
+	Version                int64
+	MonthlyMinor           int64
+	AnnualMinor            int64
+	AdditionalLicenceMinor int64
+	BidWorkspaces          int32
+	IncludedLicences       int32
+	StorageBytes           int64
+	DocumentVersions       int64
+	AiCredits              int64
+	ConcurrentAiJobs       int32
+	CreatedBy              pgtype.UUID
+	CreatedAt              pgtype.Timestamptz
+}
+
+type CommercialPlatformSubscriptionCommand struct {
+	ActorID        pgtype.UUID
+	Operation      string
+	KeyHash        []byte
+	RequestHash    []byte
+	TenantID       pgtype.UUID
+	SubscriptionID pgtype.UUID
+	ResultState    string
+	ResultVersion  int64
+	ResultCancelAt pgtype.Timestamptz
+	CreatedAt      pgtype.Timestamptz
 }
 
 type CommercialReceipt struct {

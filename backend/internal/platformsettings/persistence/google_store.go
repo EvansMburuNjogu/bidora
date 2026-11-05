@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -160,7 +161,15 @@ func (t *GoogleSettingsTx) AppendGoogleEvidence(ctx context.Context, audit, outb
 			return e
 		}
 	}
-	if e := t.q.AppendGoogleSettingsAudit(ctx, q.AppendGoogleSettingsAuditParams{ID: uuid(audit), ActorID: uuid(actor), TargetID: uuid(v.Configuration.ID), CorrelationID: uuid(correlation), Action: action, Version: v.Configuration.Version, Result: result, At: when}); e != nil {
+	changes := v.Changes
+	if changes == nil {
+		changes = []app.FieldChange{}
+	}
+	raw, err := json.Marshal(changes)
+	if err != nil {
+		return err
+	}
+	if e := t.q.AppendGoogleSettingsAudit(ctx, q.AppendGoogleSettingsAuditParams{ID: uuid(audit), ActorID: uuid(actor), TargetID: uuid(v.Configuration.ID), CorrelationID: uuid(correlation), Action: action, Version: v.Configuration.Version, Result: result, At: when, Changes: raw}); e != nil {
 		return e
 	}
 	return t.q.AppendGoogleSettingsOutbox(ctx, q.AppendGoogleSettingsOutboxParams{ID: uuid(outbox), ActorID: uuid(actor), TargetID: uuid(v.Configuration.ID), Action: action, Version: v.Configuration.Version, At: when})

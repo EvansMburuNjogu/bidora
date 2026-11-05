@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 
@@ -38,6 +39,7 @@ export async function proxyAdministratorChanges(request: Request, operation: "li
     headers.set("X-CSRF-Token", csrf);
     headers.set("Idempotency-Key", key);
   }
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   const path = operation === "list" ? `/v1/platform/administrator-changes${url.search}` : operation === "create" ? "/v1/platform/administrator-changes" : `/v1/platform/administrator-changes/${changeID}/${operation}`;

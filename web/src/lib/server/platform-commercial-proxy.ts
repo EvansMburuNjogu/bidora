@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 import { commercialQueueConfig, commercialQueues, commercialUUID, type CommercialQueue } from "@/lib/platform-commercial-contract";
@@ -23,6 +24,7 @@ export async function proxyPlatformCommercial(request: Request, queue: string, r
     name === "cursor" ? !/^[A-Za-z0-9_-]{1,512}$/.test(value) : name === "limit" ? !/^(?:[1-9]|[1-9]\d|100)$/.test(value) :
       name === "state" ? !config.states.some((s) => s === value) : name === secondaryName && secondaryName ? !config.secondary.some((s) => s === value) : true)) return failure(400);
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   const path = recordID ? `/${queue}/${recordID}` : `/${queue}${url.search}`;

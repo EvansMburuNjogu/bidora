@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 
@@ -33,6 +34,7 @@ export async function proxyPlatformInformation(request: Request, section: "infor
     } else if (Object.keys(fields).length < 2 || Object.keys(fields).length > 4 || Object.keys(fields).some((key) => !["platform_name", "contact_phone", "support_email", "website"].includes(key)) || typeof fields.support_email !== "string" || typeof fields.website !== "string" || "platform_name" in fields && typeof fields.platform_name !== "string" || "contact_phone" in fields && typeof fields.contact_phone !== "string") return failure(400);
     headers.set("Content-Type", "application/json"); headers.set("X-CSRF-Token", csrf); headers.set("If-Match", version); headers.set("Idempotency-Key", key);
   }
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   let upstream: Response;

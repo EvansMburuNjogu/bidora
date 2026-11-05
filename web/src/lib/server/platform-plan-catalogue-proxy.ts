@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 import { proxySessionRead } from "@/lib/server/session-proxy";
@@ -27,6 +28,7 @@ export async function proxyPlatformPlanCatalogue(request: Request): Promise<Resp
       me.data.session.assurance_level !== "AAL2" || !me.data.capabilities.includes("platform.plan.read")) return failure(403);
 
   const headers = new Headers({ Accept: "application/json", Origin: browser });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   let upstream: Response;

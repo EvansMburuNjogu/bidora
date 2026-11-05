@@ -227,7 +227,7 @@ func (t *RegionalPolicyTx) Evidence(ctx context.Context, s app.RegionalSubject, 
 	if kind == "OPERATIONS" {
 		action = "OperationalPolicyUpdated"
 	}
-	summary, _ := json.Marshal(map[string]any{"kind": kind, "target": target, "version": version})
+	summary, _ := json.Marshal(map[string]any{"kind": kind, "target": target, "version": version, "changes": s.Changes})
 	if e := t.q.AppendRegionalPolicyAudit(ctx, q.AppendRegionalPolicyAuditParams{ID: uuid(audit), ActorID: uuid(s.ActorID), Action: action, TargetID: uuid(id), At: ts(at), CorrelationID: uuid(s.CorrelationID), Summary: summary}); e != nil {
 		return e
 	}

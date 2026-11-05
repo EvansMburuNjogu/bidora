@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 import { platformTenantStates } from "@/lib/platform-tenant-contract";
@@ -21,6 +22,7 @@ export async function proxyPlatformTenants(request: Request, tenantID?: string):
       key === "cursor" ? !/^[A-Za-z0-9_-]{1,512}$/.test(value) : key === "state" ? !platformTenantStates.includes(value as (typeof platformTenantStates)[number]) : key === "country" ? !/^[A-Z]{2}$/.test(value) : key === "search" ? new TextEncoder().encode(value).length < 2 || new TextEncoder().encode(value).length > 100 || value.trim() !== value || /[\u0000-\u001f\u007f]/.test(value) : true) ||
       new Set(entries.map(([key]) => key)).size !== entries.length) return failure(400);
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   let upstream: Response;

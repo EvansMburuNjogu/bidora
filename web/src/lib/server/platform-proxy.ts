@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { integrationTrustRoots } from "@/lib/server/integration-trust";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
@@ -29,6 +30,7 @@ export async function proxyPlatformAdministrators(request: Request, administrato
       key === "role_key" ? !PLATFORM_ROLES.some((role) => role === value) : true))) return failure(400);
 
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
 
@@ -80,6 +82,7 @@ export async function proxyAdministratorEmailSearch(request: Request): Promise<R
       search.role_key !== undefined && !PLATFORM_ROLES.some((role) => role === search.role_key)) return failure(400);
   const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", Origin: browser,
     "X-Bidora-Platform-Context-Generation": generation, "X-CSRF-Token": csrf });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   let upstream: Response;
@@ -115,6 +118,7 @@ export async function proxyPlatformSessionRevocation(request: Request, administr
   try { bytes = await request.arrayBuffer(); } catch { return failure(400); }
   if (bytes.byteLength < 2 || bytes.byteLength > 4096) return failure(400);
   const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", Origin: browser, "X-CSRF-Token": csrf, "X-Bidora-Platform-Context-Generation": generation, "Idempotency-Key": key });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   let upstream: Response;
@@ -188,6 +192,7 @@ export async function proxyPlatformIntegration(request: Request, operation: "act
     if (supplied && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(supplied)) return failure(400);
     headers.set("Idempotency-Key", supplied ?? crypto.randomUUID());
   }
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   if (operation === "create" && payload) {

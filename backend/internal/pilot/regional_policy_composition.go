@@ -27,32 +27,29 @@ func registerRegionalRuntime(f *fiber.App, b *httpapi.BrowserSessionMiddleware, 
 		return e
 	}
 	httpapi.RegisterRegionalPolicyRoutes(f, b, httpapi.NewRegionalPolicyHandler(service))
-	var observe func(fiber.Ctx, identity.SessionPrincipal)
-	if config.DevelopmentLoopbackHTTP {
-		ips, e := browser.NewClientIPResolver(config.TrustedProxies)
+	ips, e := browser.NewClientIPResolver(config.TrustedProxies)
+	if e != nil {
+		return e
+	}
+	observe := func(c fiber.Ctx, principal identity.SessionPrincipal) {
+		if !strings.HasPrefix(c.Path(), "/v1/platform/") || c.Response().StatusCode() < 200 || c.Response().StatusCode() >= 300 || c.RemoteAddr() == nil {
+			return
+		}
+		peer, e := netip.ParseAddrPort(c.RemoteAddr().String())
 		if e != nil {
-			return e
+			return
 		}
-		observe = func(c fiber.Ctx, principal identity.SessionPrincipal) {
-			if !strings.HasPrefix(c.Path(), "/v1/platform/") || c.Response().StatusCode() < 200 || c.Response().StatusCode() >= 300 || c.RemoteAddr() == nil {
-				return
-			}
-			peer, e := netip.ParseAddrPort(c.RemoteAddr().String())
-			if e != nil {
-				return
-			}
-			ip, e := ips.Resolve(peer, c.Get("X-Forwarded-For"))
-			if e != nil {
-				return
-			}
-			correlation, e := uuid.Parse(c.GetRespHeader("X-Request-ID"))
-			if e != nil {
-				return
-			}
-			ctx, cancel := context.WithTimeout(c.Context(), time.Second)
-			defer cancel()
-			_ = store.ObserveRequest(ctx, domain.ID(principal.UserID), domain.ID(correlation), ip, c.Get("User-Agent"), time.Now().UTC())
+		ip, e := ips.Resolve(peer, c.Get("X-Forwarded-For"))
+		if e != nil {
+			return
 		}
+		correlation, e := uuid.Parse(c.GetRespHeader("X-Request-ID"))
+		if e != nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.Context(), time.Second)
+		defer cancel()
+		_ = store.ObserveRequest(ctx, domain.ID(principal.UserID), domain.ID(correlation), ip, browser.Name(c.Get("User-Agent")), time.Now().UTC())
 	}
 	b.ConfigureOperationalHooks(store.Gate, observe)
 	return nil

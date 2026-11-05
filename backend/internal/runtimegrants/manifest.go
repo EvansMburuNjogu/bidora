@@ -35,7 +35,7 @@ type Manifest struct {
 
 var control = map[string]string{
 	"bidora_control_audit.audit_events":                         "I",
-	"bidora_control_audit.platform_action_times_v1":             "S",
+	"bidora_control_audit.platform_action_details_v1":           "S",
 	"bidora_control_eventing.ai_acknowledgement_dispatch_holds": "SI",
 	"bidora_control_eventing.inbox_events":                      "I",
 	"bidora_control_eventing.outbox_events":                     "SIU",
@@ -203,7 +203,7 @@ func Load(plane string) (Manifest, error) {
 	switch plane {
 	case "control":
 		source = control
-		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 43}
+		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 50}
 	case "tenant":
 		source = tenant
 		result = Manifest{Plane: plane, CompatibilitySet: "tenant_common+tenant_tenderpreneur", CompatibilityVersion: 9_000_034}

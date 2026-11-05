@@ -31,6 +31,7 @@ type Information struct {
 	UpdatedAt                  *time.Time
 }
 type InformationSave struct {
+	Changes                    []FieldChange // Computed from the locked record; not client-supplied.
 	PlatformName, ContactPhone *string
 	Subject                    Subject
 	SupportEmail, Website      string
@@ -178,6 +179,11 @@ func (s *InformationService) Save(ctx context.Context, in InformationSave) (resu
 		if in.ContactPhone != nil {
 			phone = *in.ContactPhone
 		}
+		in.Changes = nil
+		in.Changes = append(in.Changes, settingChange("platform_name", current.PlatformName, name)...)
+		in.Changes = append(in.Changes, settingChange("contact_phone", current.ContactPhone, phone)...)
+		in.Changes = append(in.Changes, settingChange("support_email", textValue(current.SupportEmail), in.SupportEmail)...)
+		in.Changes = append(in.Changes, settingChange("website", textValue(current.Website), in.Website)...)
 		in.PlatformName, in.ContactPhone = &name, &phone
 		affected, e := tx.UpdateInformation(c, in, at)
 		if e != nil {

@@ -127,7 +127,7 @@ func verifyCompatibility(ctx context.Context, tx *sql.Tx, manifest Manifest) err
 	var matched int64
 	switch manifest.Plane {
 	case "control":
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM bidora_control_meta.schema_compatibility WHERE migration_set='control_registry' AND schema_version=43`).Scan(&matched); err != nil || matched != 1 {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM bidora_control_meta.schema_compatibility WHERE migration_set='control_registry' AND schema_version=$1`, manifest.CompatibilityVersion).Scan(&matched); err != nil || matched != 1 {
 			return fmt.Errorf("%w: control compatibility", ErrPrecondition)
 		}
 	case "tenant":

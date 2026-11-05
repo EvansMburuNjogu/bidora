@@ -21,6 +21,7 @@ type infoIDs struct{ next byte }
 func (i *infoIDs) NewID() (domain.ID, error) { i.next++; return domain.ID{i.next}, nil }
 
 type infoFixture struct {
+	changes          []settings.FieldChange
 	value            settings.Information
 	authority        settings.Authority
 	commands         map[[32]byte]settings.InformationCommand
@@ -64,7 +65,8 @@ func (f *infoFixture) UpdateInformation(_ context.Context, in settings.Informati
 	f.writes++
 	return 1, nil
 }
-func (f *infoFixture) AppendInformationEvidence(_ context.Context, _, _ domain.ID, _ settings.InformationSave, version int64, _ time.Time, key, request [32]byte) error {
+func (f *infoFixture) AppendInformationEvidence(_ context.Context, _, _ domain.ID, in settings.InformationSave, version int64, _ time.Time, key, request [32]byte) error {
+	f.changes = in.Changes
 	f.commands[key] = settings.InformationCommand{RequestHash: request, ResultVersion: version}
 	f.evidence++
 	return nil

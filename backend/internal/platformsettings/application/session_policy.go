@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"bidora/backend/internal/platformsettings/domain"
@@ -18,6 +19,7 @@ type SessionPolicy struct {
 	Version         int64
 }
 type SessionPolicySave struct {
+	Changes        []FieldChange
 	Subject        Subject
 	Policy         SessionPolicy
 	IdempotencyKey string
@@ -120,6 +122,8 @@ func (s *SessionPolicyService) Save(ctx context.Context, in SessionPolicySave) (
 		if current.Version != in.Policy.Version {
 			return ErrInformationConflict
 		}
+		in.Changes = settingChange("idle_seconds", strconv.Itoa(int(current.IdleSeconds)), strconv.Itoa(int(in.Policy.IdleSeconds)))
+		in.Changes = append(in.Changes, settingChange("absolute_seconds", strconv.Itoa(int(current.AbsoluteSeconds)), strconv.Itoa(int(in.Policy.AbsoluteSeconds)))...)
 		affected, e := tx.UpdateSessionPolicy(c, in, at)
 		if e != nil {
 			return e

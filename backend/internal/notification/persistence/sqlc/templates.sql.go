@@ -13,7 +13,7 @@ import (
 
 const appendNotificationTemplateAudit = `-- name: AppendNotificationTemplateAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1,NULL,$2,$3,'notification_template',$4::uuid,$5,'SUCCEEDED',$6,jsonb_build_object('template_key',$7::text,'version',$8::bigint,'result',$9::text),1,$5)
+VALUES($1,NULL,$2,$3,'notification_template',$4::uuid,$5,'SUCCEEDED',$6,jsonb_build_object('template_key',$7::text,'version',$8::bigint,'result',$9::text,'changes',$10::jsonb),1,$5)
 `
 
 type AppendNotificationTemplateAuditParams struct {
@@ -26,6 +26,7 @@ type AppendNotificationTemplateAuditParams struct {
 	TemplateKey   string
 	Version       int64
 	Result        string
+	Changes       []byte
 }
 
 func (q *Queries) AppendNotificationTemplateAudit(ctx context.Context, arg AppendNotificationTemplateAuditParams) error {
@@ -39,6 +40,7 @@ func (q *Queries) AppendNotificationTemplateAudit(ctx context.Context, arg Appen
 		arg.TemplateKey,
 		arg.Version,
 		arg.Result,
+		arg.Changes,
 	)
 	return err
 }

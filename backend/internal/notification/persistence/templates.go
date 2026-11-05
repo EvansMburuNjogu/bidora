@@ -3,6 +3,7 @@ package persistence
 import (
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -156,7 +157,15 @@ func (t *templateTx) AppendTemplateEvidence(ctx context.Context, audit, outbox d
 	actor := pgtype.UUID{Bytes: s.ActorID, Valid: true}
 	target := pgtype.UUID{Bytes: googleuuid.NewSHA1(googleuuid.NameSpaceURL, []byte("bidora.notification-template:"+v.Key)), Valid: true}
 	when := pgtype.Timestamptz{Time: at, Valid: true}
-	if e := t.q.AppendNotificationTemplateAudit(ctx, q.AppendNotificationTemplateAuditParams{TargetID: target, ID: pgtype.UUID{Bytes: audit, Valid: true}, ActorID: actor, Action: action, At: when, CorrelationID: pgtype.UUID{Bytes: s.CorrelationID, Valid: true}, TemplateKey: v.Key, Version: v.Version, Result: result}); e != nil {
+	changes := v.AuditChanges
+	if changes == nil {
+		changes = []app.TemplateAuditChange{}
+	}
+	raw, err := json.Marshal(changes)
+	if err != nil {
+		return err
+	}
+	if e := t.q.AppendNotificationTemplateAudit(ctx, q.AppendNotificationTemplateAuditParams{TargetID: target, ID: pgtype.UUID{Bytes: audit, Valid: true}, ActorID: actor, Action: action, At: when, CorrelationID: pgtype.UUID{Bytes: s.CorrelationID, Valid: true}, TemplateKey: v.Key, Version: v.Version, Result: result, Changes: raw}); e != nil {
 		return e
 	}
 	return t.q.AppendNotificationTemplateOutbox(ctx, q.AppendNotificationTemplateOutboxParams{TargetID: target, ID: pgtype.UUID{Bytes: outbox, Valid: true}, ActorID: actor, Action: action, At: when, TemplateKey: v.Key, Version: v.Version})

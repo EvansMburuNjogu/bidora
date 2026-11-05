@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 
@@ -20,6 +21,7 @@ export async function proxyManagedSettings(request: Request, section: "google" |
   if (method === "GET" ? operation === "preview" || operation === "test" : (section === "shared-countries" || section === "availability") ? true : method === "PUT" ? operation !== undefined || (section === "templates" || section === "countries") && !key : method === "POST" ? section === "countries" ? !!key || operation !== undefined : regional || operation !== "preview" && operation !== "test" : true) return failure(405);
   const generation = request.headers.get("x-bidora-platform-context-generation"); if ((section !== "shared-countries" && section !== "availability") && (!generation || !/^[1-9]\d{0,18}$/.test(generation))) return failure(400);
   const headers = new Headers({ Accept: "application/json", Origin: browser }); if ((section !== "shared-countries" && section !== "availability") && generation) headers.set("X-Bidora-Platform-Context-Generation", generation);
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser); if (cookie) headers.set("Cookie", cookie);
   let body: Uint8Array | undefined;
   if (method === "GET") { if (request.body || Number(request.headers.get("content-length") ?? "0") !== 0) return failure(400); }

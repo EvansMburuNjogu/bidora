@@ -2372,6 +2372,38 @@
           }
         },
         {
+          "description": "`getPlatformAuditActionsExport` — source: `api/openapi/drafts/platform-control-audit-actions.json`",
+          "name": "Download a complete bounded Platform control audit CSV",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "disabled": false,
+                  "key": "from",
+                  "value": "{{from}}"
+                },
+                {
+                  "disabled": false,
+                  "key": "to",
+                  "value": "{{to}}"
+                }
+              ],
+              "raw": "{{base_url}}/v1/platform/audit/actions/export"
+            }
+          }
+        },
+        {
           "description": "`getPlatformAuditActionsAuditId` — source: `api/openapi/drafts/platform-control-audit-actions.json`",
           "name": "Read one allowed Platform activity record",
           "request": {

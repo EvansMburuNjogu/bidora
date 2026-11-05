@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 
@@ -18,6 +19,7 @@ export async function proxyIntegrationRead(request: Request, kind: "SMTP" | "OPE
   const entries = [...url.searchParams.entries()];
   if (changeID || active ? entries.length !== 0 : entries.length > 1 || entries.some(([name, value]) => name !== "cursor" || !/^[A-Za-z0-9_-]{1,256}$/.test(value))) return failure(400);
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   const path = changeID ? `/v1/platform/integration-setting-changes/${changeID}` : active ? `/v1/platform/integration-settings/${kind}` : `/v1/platform/integration-settings/${kind}/versions?limit=25${url.search ? `&${url.search.slice(1)}` : ""}`;

@@ -13,7 +13,7 @@ import (
 
 const appendPlatformInformationAudit = `-- name: AppendPlatformInformationAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1::uuid,NULL,$2::uuid,'PlatformInformationUpdated','platform_information','00000000-0000-4000-8000-000000000035'::uuid,$3::timestamptz,'SUCCEEDED',$4::uuid,jsonb_build_object('fields',jsonb_build_array('platform_name','contact_phone','support_email','website'),'version',$5::bigint),1,$3::timestamptz)
+VALUES($1::uuid,NULL,$2::uuid,'PlatformInformationUpdated','platform_information','00000000-0000-4000-8000-000000000035'::uuid,$3::timestamptz,'SUCCEEDED',$4::uuid,jsonb_build_object('changes',$5::jsonb,'version',$6::bigint),1,$3::timestamptz)
 `
 
 type AppendPlatformInformationAuditParams struct {
@@ -21,6 +21,7 @@ type AppendPlatformInformationAuditParams struct {
 	ActorID       pgtype.UUID
 	At            pgtype.Timestamptz
 	CorrelationID pgtype.UUID
+	Changes       []byte
 	Version       int64
 }
 
@@ -30,6 +31,7 @@ func (q *Queries) AppendPlatformInformationAudit(ctx context.Context, arg Append
 		arg.ActorID,
 		arg.At,
 		arg.CorrelationID,
+		arg.Changes,
 		arg.Version,
 	)
 	return err
