@@ -34,13 +34,18 @@ for (const [name, viewport] of [["desktop", { width: 1280, height: 850 }], ["mob
         if (route.request().method() === "GET") return fulfill(route, envelope(route.request().url().endsWith("/history") ? [current] : current));
         calls++; keys.push(route.request().headers()["idempotency-key"]);
         if (calls === 1) { await gate; return fulfill(route, failure, 503); }
-        current = { ...current, version: 8, allowed_domains: ["updated.test"] };
+        const payload = route.request().postDataJSON();
+        assert.deepEqual(payload.allowed_domains, googleSeed.allowed_domains, "unrelated edits preserve saved domain restrictions");
+        current = { ...current, ...payload, version: 8 };
         return fulfill(route, envelope(current));
       });
       await page.goto(origin + "/platform/settings/sso");
-      await expect(page.locator("#google-domains")).toHaveValue("example.test");
+      const signup = page.getByRole("switch", { name: "Allow Google Signup", exact: true });
+      await expect(signup).toBeEnabled();
+      await expect(page.locator("#google-domains")).toHaveCount(0);
+      await expect(page.getByText("Allowed Email Domains", { exact: true })).toHaveCount(0);
       await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
-      await page.locator("#google-domains").fill("updated.test");
+      await signup.click();
       await page.getByRole("button", { name: "Save Changes", exact: true }).click();
       const submit = page.locator('button[type="submit"]');
       await expect(submit).toBeDisabled(); await expect(submit.locator("svg.animate-spin")).toBeVisible();
@@ -48,7 +53,7 @@ for (const [name, viewport] of [["desktop", { width: 1280, height: 850 }], ["mob
       await expect.poll(() => calls).toBe(1);
       release();
       await expect(page.locator('[data-sonner-toast][data-type="error"]')).toHaveCount(1);
-      await expect(page.locator("#google-domains")).toHaveValue("updated.test"); await expect(submit).toBeEnabled();
+      await expect(signup).toHaveAttribute("aria-checked", "true"); await expect(submit).toBeEnabled();
       await expect(page.getByText("private diagnostic must not appear")).toHaveCount(0);
       await submit.click();
       await expect(page.locator('[data-sonner-toast][data-type="success"]')).toHaveText(/Changes saved successfully/);

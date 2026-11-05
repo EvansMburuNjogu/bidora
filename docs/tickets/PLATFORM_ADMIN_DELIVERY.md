@@ -87,6 +87,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Google settings field removal — BID-MVP-03 / BID-MVP-05
+
+- Implementation: removed Allowed Email Domains from Google Login & Signup entirely, without relocating it. Removed domain-editing draft state; other saves retain the exact previously saved `allowed_domains` so removing a field never silently widens existing login restrictions. Backend policy/schema/API contract unchanged.
+- Verification: TypeScript, affected ESLint, eight managed-settings/submission tests, Next production build and three intercepted-API Google browser tests passed. Desktop/mobile checks assert the field is absent and signup edits preserve saved restrictions across failed save/retry. No deployment, configuration mutation or live Google call performed.
+
 ## Complete permissions matrix — BID-MVP-03 / BID-MVP-05
 
 - Implementation: Roles & Permissions now displays each of the backend fixed-role catalogue's 56 distinct capabilities exactly once, including identity reactivation, support session operations, integration test/activate/pause/rollback/failures, migrations, maintenance and retention drafts. Removed the combined duplicate financial summary and invented empty AI Usage permission row. Live `/v1/platform/roles` capabilities still determine grants; generated fixed-role bundles are display-only outage fallback. Clarified that permissions do not imply feature availability or bypass verification/approval. No roles, grants, APIs or authorization rules changed.
