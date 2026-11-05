@@ -51,6 +51,27 @@ func TestEmailActionsRequireExplicitHTTPSOrigin(t *testing.T) {
 	}
 }
 
+func TestPasswordRecoveryEmailIncludesLinkCodeAndInstructions(t *testing.T) {
+	code := strings.Repeat("a", 43)
+	v, err := app.RenderTemplate(app.Template{Key: "identity.password_recovery", Name: "Recovery", Subject: "Reset your password", Body: "Recovery code: {{token}}. Expires: {{expires_at}}.", Enabled: true, Version: 1}, map[string]string{"platform_name": "Bidora", "token": code, "expires_at": "2030-01-01T12:00:00Z", "web_origin": "https://sandbox.bidora.africa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range []string{v.Text, v.HTML} {
+		for _, want := range []string{code, "https://sandbox.bidora.africa/reset-password", "confirm your new password", "only be used once", "2030"} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("recovery email missing %q", want)
+			}
+		}
+		if strings.Contains(body, "?token=") || strings.Contains(body, "?code=") {
+			t.Fatal("recovery secret must not appear in link")
+		}
+	}
+	if strings.Count(v.HTML, code) != 1 {
+		t.Fatal("recovery code should be displayed once")
+	}
+}
+
 func TestManagedEmailKeepsEditableCopyAndPlainTextAlternative(t *testing.T) {
 	v, err := app.RenderTemplate(app.Template{Key: "identity.login_code", Name: "Login", Subject: "{{platform_name}} sign-in", Body: "Use {{code}} before {{expires_at}}.", Enabled: true, Version: 1}, map[string]string{"platform_name": "Bidora", "code": "123456", "expires_at": "2030-01-01T12:00:00Z", "web_origin": "https://sandbox.bidora.africa"})
 	if err != nil {

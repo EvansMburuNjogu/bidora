@@ -311,6 +311,9 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 	if e != nil {
 		return RenderedTemplate{}, e
 	}
+	if t.Key == "identity.password_recovery" {
+		body += "\n\nOpen the Reset password link, then enter the recovery code above, your new password, and confirm your new password. This code can only be used once. If you did not request a password reset, ignore this email."
+	}
 	body += "\n\nIf you did not expect this notification, contact your authorised support channel. Never share passwords or sign-in codes."
 	displayBody := strings.TrimSuffix(body, "\n\nIf you did not expect this notification, contact your authorised support channel. Never share passwords or sign-in codes.")
 	if action := emailhtml.QuickAction(values["web_origin"], t.Key); action.URL != "" {
