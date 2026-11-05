@@ -25,19 +25,26 @@ type TemplateSubject struct {
 	ActorID, SessionID, CorrelationID domain.ID
 	ContextGeneration                 int64
 }
+type TemplateAuditChange struct {
+	Field     string  `json:"field"`
+	Operation string  `json:"operation"`
+	Before    *string `json:"before"`
+	After     *string `json:"after"`
+}
 type Template struct {
-	Key           string    `json:"template_key"`
-	Name          string    `json:"name"`
-	Category      string    `json:"category"`
-	Channel       string    `json:"channel"`
-	Mandatory     bool      `json:"mandatory"`
-	Enabled       bool      `json:"enabled"`
-	Subject       string    `json:"subject"`
-	Body          string    `json:"body"`
-	Version       int64     `json:"version"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Placeholders  []string  `json:"placeholders"`
-	TestAvailable bool      `json:"test_available"`
+	AuditChanges  []TemplateAuditChange `json:"-"`
+	Key           string                `json:"template_key"`
+	Name          string                `json:"name"`
+	Category      string                `json:"category"`
+	Channel       string                `json:"channel"`
+	Mandatory     bool                  `json:"mandatory"`
+	Enabled       bool                  `json:"enabled"`
+	Subject       string                `json:"subject"`
+	Body          string                `json:"body"`
+	Version       int64                 `json:"version"`
+	UpdatedAt     time.Time             `json:"updated_at"`
+	Placeholders  []string              `json:"placeholders"`
+	TestAvailable bool                  `json:"test_available"`
 }
 type TemplateSave struct {
 	Subject        TemplateSubject
@@ -242,6 +249,17 @@ func (s *TemplateService) Save(ctx context.Context, in TemplateSave) (out Templa
 		}
 		if current.Version != t.Version {
 			return ErrTemplateConflict
+		}
+		t.AuditChanges = nil
+		// Mail copy may contain sensitive text. Record changed field names only.
+		for _, field := range []struct {
+			name    string
+			changed bool
+		}{{"template_name", current.Name != t.Name}, {"template_subject", current.Subject != t.Subject}, {"template_body", current.Body != t.Body}, {"enabled", current.Enabled != t.Enabled}} {
+			if field.changed {
+				marker := "[changed]"
+				t.AuditChanges = append(t.AuditChanges, TemplateAuditChange{Field: field.name, Operation: "MODIFIED", After: &marker})
+			}
 		}
 		if e = tx.WriteTemplate(c, t, in.Subject, at); e != nil {
 			return e

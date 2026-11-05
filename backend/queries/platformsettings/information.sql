@@ -25,7 +25,7 @@ VALUES(sqlc.arg(actor_id)::uuid,sqlc.arg(key_hash)::bytea,sqlc.arg(request_hash)
 
 -- name: AppendPlatformInformationAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES(sqlc.arg(id)::uuid,NULL,sqlc.arg(actor_id)::uuid,'PlatformInformationUpdated','platform_information','00000000-0000-4000-8000-000000000035'::uuid,sqlc.arg(at)::timestamptz,'SUCCEEDED',sqlc.arg(correlation_id)::uuid,jsonb_build_object('fields',jsonb_build_array('platform_name','contact_phone','support_email','website'),'version',sqlc.arg(version)::bigint),1,sqlc.arg(at)::timestamptz);
+VALUES(sqlc.arg(id)::uuid,NULL,sqlc.arg(actor_id)::uuid,'PlatformInformationUpdated','platform_information','00000000-0000-4000-8000-000000000035'::uuid,sqlc.arg(at)::timestamptz,'SUCCEEDED',sqlc.arg(correlation_id)::uuid,jsonb_build_object('changes',sqlc.arg(changes)::jsonb,'version',sqlc.arg(version)::bigint),1,sqlc.arg(at)::timestamptz);
 
 -- name: AppendPlatformInformationOutbox :exec
 INSERT INTO bidora_control_eventing.outbox_events(id,tenant_id,actor_id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,classification,payload,occurred_at,next_attempt_at,created_at)

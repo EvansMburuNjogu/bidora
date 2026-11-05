@@ -30,7 +30,7 @@ func (q *Queries) AdvanceGoogleHead(ctx context.Context, arg AdvanceGoogleHeadPa
 
 const appendGoogleSettingsAudit = `-- name: AppendGoogleSettingsAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1,NULL,$2,$3,'platform_google_configuration',$4,$5,'SUCCEEDED',$6,jsonb_build_object('version',$7::bigint,'result',$8::text),1,$5)
+VALUES($1,NULL,$2,$3,'platform_google_configuration',$4,$5,'SUCCEEDED',$6,jsonb_build_object('version',$7::bigint,'result',$8::text,'changes',$9::jsonb),1,$5)
 `
 
 type AppendGoogleSettingsAuditParams struct {
@@ -42,6 +42,7 @@ type AppendGoogleSettingsAuditParams struct {
 	CorrelationID pgtype.UUID
 	Version       int64
 	Result        string
+	Changes       []byte
 }
 
 func (q *Queries) AppendGoogleSettingsAudit(ctx context.Context, arg AppendGoogleSettingsAuditParams) error {
@@ -54,6 +55,7 @@ func (q *Queries) AppendGoogleSettingsAudit(ctx context.Context, arg AppendGoogl
 		arg.CorrelationID,
 		arg.Version,
 		arg.Result,
+		arg.Changes,
 	)
 	return err
 }

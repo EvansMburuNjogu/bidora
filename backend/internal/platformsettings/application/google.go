@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ type GoogleConfiguration struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 type GoogleStored struct {
+	Changes       []FieldChange // Safe audit delta only; never contains secret material.
 	Configuration GoogleConfiguration
 	Secret        GoogleCipher
 }
@@ -302,6 +304,16 @@ func (s *GoogleService) Save(ctx context.Context, in GoogleSave) (out GoogleConf
 			return ErrInformationInvalid
 		}
 		stored := GoogleStored{Configuration: in.Configuration, Secret: current.Secret}
+		stored.Changes = append(stored.Changes, settingChange("enabled", strconv.FormatBool(current.Configuration.Enabled), strconv.FormatBool(in.Configuration.Enabled))...)
+		stored.Changes = append(stored.Changes, settingChange("allow_signup", strconv.FormatBool(current.Configuration.AllowSignup), strconv.FormatBool(in.Configuration.AllowSignup))...)
+		stored.Changes = append(stored.Changes, settingChange("client_id", current.Configuration.ClientID, in.Configuration.ClientID)...)
+		if strings.Join(current.Configuration.AllowedDomains, ",") != strings.Join(in.Configuration.AllowedDomains, ",") {
+			stored.Changes = append(stored.Changes, settingChange("allowed_domains", "[previous configuration]", "[changed]")...)
+		}
+		if in.ClientSecret != nil {
+			marker := "[redacted]"
+			stored.Changes = append(stored.Changes, FieldChange{Field: "client_secret", Operation: "MODIFIED", After: &marker})
+		}
 		stored.Configuration.Version++
 		stored.Configuration.CreatedAt = at
 		stored.Configuration.ConnectionStatus = "UNTESTED"

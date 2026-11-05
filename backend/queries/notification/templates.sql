@@ -20,7 +20,7 @@ UPDATE notification.template_commands SET state='COMPLETED',result_code=sqlc.arg
 SELECT count(*)::bigint FROM notification.template_commands WHERE actor_id=sqlc.arg(actor_id) AND operation='TEST' AND created_at>sqlc.arg(after)::timestamptz;
 -- name: AppendNotificationTemplateAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES(sqlc.arg(id),NULL,sqlc.arg(actor_id),sqlc.arg(action),'notification_template',sqlc.arg(target_id)::uuid,sqlc.arg(at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('template_key',sqlc.arg(template_key)::text,'version',sqlc.arg(version)::bigint,'result',sqlc.arg(result)::text),1,sqlc.arg(at));
+VALUES(sqlc.arg(id),NULL,sqlc.arg(actor_id),sqlc.arg(action),'notification_template',sqlc.arg(target_id)::uuid,sqlc.arg(at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('template_key',sqlc.arg(template_key)::text,'version',sqlc.arg(version)::bigint,'result',sqlc.arg(result)::text,'changes',sqlc.arg(changes)::jsonb),1,sqlc.arg(at));
 -- name: AppendNotificationTemplateOutbox :exec
 INSERT INTO bidora_control_eventing.outbox_events(id,tenant_id,actor_id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,classification,payload,occurred_at,next_attempt_at,created_at)
 VALUES(sqlc.arg(id),NULL,sqlc.arg(actor_id),'notification_template',sqlc.arg(target_id)::uuid,sqlc.arg(version),sqlc.arg(action),1,'INTERNAL',jsonb_build_object('template_key',sqlc.arg(template_key)::text,'version',sqlc.arg(version)::bigint),sqlc.arg(at),sqlc.arg(at),sqlc.arg(at));

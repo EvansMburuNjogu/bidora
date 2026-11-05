@@ -35,7 +35,7 @@ func NewBrowserSessionMiddleware(validator SessionValidator, toucher SessionTouc
 }
 
 // ConfigureOperationalHooks adds owner-composed feature/maintenance checks and
-// optional development metadata observation; authentication remains unchanged.
+// authenticated request metadata observation; authentication remains unchanged.
 func (m *BrowserSessionMiddleware) ConfigureOperationalHooks(gate func(context.Context, string) error, observe func(fiber.Ctx, identityapp.SessionPrincipal)) {
 	m.operationalGate = gate
 	m.metadataObserver = observe

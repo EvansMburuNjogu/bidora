@@ -51,8 +51,8 @@ func (s *RegionalPolicyStore) Gate(ctx context.Context, path string) error {
 	return nil
 }
 
-// Observation is optional, authenticated Platform activity only, and composed
-// only for explicit loopback development. Retention here masks reads; it does
+// Observation captures authenticated Platform activity only using trusted-peer
+// network resolution. Retention here masks reads; it does
 // not claim physical deletion or create destructive automation/legal holds.
 func (s *RegionalPolicyStore) ObserveRequest(ctx context.Context, actor, correlation domain.ID, ip netip.Addr, browser string, at time.Time) error {
 	if actor.IsZero() || correlation.IsZero() || !ip.IsValid() || len(browser) > 512 || !utf8.ValidString(browser) || strings.ContainsAny(browser, "\r\n\x00") {

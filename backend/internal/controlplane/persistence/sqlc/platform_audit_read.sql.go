@@ -12,13 +12,35 @@ import (
 )
 
 const getPlatformAuditAction = `-- name: GetPlatformAuditAction :one
-SELECT id,actor_id,action,occurred_at,module,affected_record_id,result
-FROM bidora_control_audit.platform_action_times_v1 WHERE id=$1
+SELECT id,actor_id,action,occurred_at,module,affected_record_id,result,administrator_name,affected_record_name,changes::jsonb AS changes,
+ CASE WHEN $1::boolean THEN coalesce(host(ip_address),'') ELSE '' END::text AS ip_address,
+ CASE WHEN $1::boolean THEN coalesce(browser,'') ELSE '' END::text AS browser
+FROM bidora_control_audit.platform_action_details_v1 WHERE id=$2
 `
 
-func (q *Queries) GetPlatformAuditAction(ctx context.Context, id pgtype.UUID) (BidoraControlAuditPlatformActionTimesV1, error) {
-	row := q.db.QueryRow(ctx, getPlatformAuditAction, id)
-	var i BidoraControlAuditPlatformActionTimesV1
+type GetPlatformAuditActionParams struct {
+	IncludeMetadata bool
+	ID              pgtype.UUID
+}
+
+type GetPlatformAuditActionRow struct {
+	ID                 pgtype.UUID
+	ActorID            pgtype.UUID
+	Action             string
+	OccurredAt         pgtype.Timestamptz
+	Module             string
+	AffectedRecordID   pgtype.UUID
+	Result             string
+	AdministratorName  string
+	AffectedRecordName string
+	Changes            []byte
+	IpAddress          string
+	Browser            string
+}
+
+func (q *Queries) GetPlatformAuditAction(ctx context.Context, arg GetPlatformAuditActionParams) (GetPlatformAuditActionRow, error) {
+	row := q.db.QueryRow(ctx, getPlatformAuditAction, arg.IncludeMetadata, arg.ID)
+	var i GetPlatformAuditActionRow
 	err := row.Scan(
 		&i.ID,
 		&i.ActorID,
@@ -27,25 +49,30 @@ func (q *Queries) GetPlatformAuditAction(ctx context.Context, id pgtype.UUID) (B
 		&i.Module,
 		&i.AffectedRecordID,
 		&i.Result,
+		&i.AdministratorName,
+		&i.AffectedRecordName,
+		&i.Changes,
+		&i.IpAddress,
+		&i.Browser,
 	)
 	return i, err
 }
 
-const insertPlatformAuditPageRead = `-- name: InsertPlatformAuditPageRead :exec
+const insertPlatformAuditExport = `-- name: InsertPlatformAuditExport :exec
 INSERT INTO bidora_control_audit.audit_events
 (id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1,$2,'PlatformControlAuditPageRead','platform_audit_page',$1,$3,'SUCCEEDED',$4,'{}'::jsonb,1,$3)
+VALUES($1,$2,'PlatformControlAuditExport','platform_audit_export',$1,$3,'SUCCEEDED',$4,'{}'::jsonb,1,$3)
 `
 
-type InsertPlatformAuditPageReadParams struct {
+type InsertPlatformAuditExportParams struct {
 	ID            pgtype.UUID
 	ActorID       pgtype.UUID
 	At            pgtype.Timestamptz
 	CorrelationID pgtype.UUID
 }
 
-func (q *Queries) InsertPlatformAuditPageRead(ctx context.Context, arg InsertPlatformAuditPageReadParams) error {
-	_, err := q.db.Exec(ctx, insertPlatformAuditPageRead,
+func (q *Queries) InsertPlatformAuditExport(ctx context.Context, arg InsertPlatformAuditExportParams) error {
+	_, err := q.db.Exec(ctx, insertPlatformAuditExport,
 		arg.ID,
 		arg.ActorID,
 		arg.At,
@@ -54,46 +81,95 @@ func (q *Queries) InsertPlatformAuditPageRead(ctx context.Context, arg InsertPla
 	return err
 }
 
+const insertPlatformAuditPageRead = `-- name: InsertPlatformAuditPageRead :exec
+INSERT INTO bidora_control_audit.audit_events
+(id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
+VALUES($1,$2,
+ CASE WHEN $3::boolean THEN 'RestrictedRequestMetadataRead' ELSE 'PlatformControlAuditPageRead' END,
+ CASE WHEN $3::boolean THEN 'platform_regional_policy' ELSE 'platform_audit_page' END,
+ $1,$4,'SUCCEEDED',$5,'{}'::jsonb,1,$4)
+`
+
+type InsertPlatformAuditPageReadParams struct {
+	ID             pgtype.UUID
+	ActorID        pgtype.UUID
+	MetadataAccess bool
+	At             pgtype.Timestamptz
+	CorrelationID  pgtype.UUID
+}
+
+func (q *Queries) InsertPlatformAuditPageRead(ctx context.Context, arg InsertPlatformAuditPageReadParams) error {
+	_, err := q.db.Exec(ctx, insertPlatformAuditPageRead,
+		arg.ID,
+		arg.ActorID,
+		arg.MetadataAccess,
+		arg.At,
+		arg.CorrelationID,
+	)
+	return err
+}
+
 const listPlatformAuditActions = `-- name: ListPlatformAuditActions :many
-SELECT id,actor_id,action,occurred_at,module,affected_record_id,result
-FROM bidora_control_audit.platform_action_times_v1
-WHERE ($1::uuid IS NULL OR actor_id=$1::uuid)
- AND ($2::text IS NULL OR action=$2::text)
- AND ($3::text IS NULL OR module=$3::text)
- AND ($4::text IS NULL OR result=$4::text)
- AND ($5::timestamptz IS NULL OR occurred_at>=$5::timestamptz)
- AND ($6::timestamptz IS NULL OR occurred_at<$6::timestamptz)
- AND ($7::text='' OR position(lower($7::text) in lower(action))>0
-   OR position(lower($7::text) in lower(module))>0
-   OR position(lower($7::text) in lower(coalesce(actor_id::text,'')))>0
-   OR position(lower($7::text) in lower(coalesce(affected_record_id::text,'')))>0)
- AND ($8::timestamptz IS NULL
-   OR ($9::text='DESC' AND (occurred_at,id)<($8::timestamptz,$10::uuid))
-   OR ($9::text='ASC' AND (occurred_at,id)>($8::timestamptz,$10::uuid)))
+SELECT id,actor_id,action,occurred_at,module,affected_record_id,result,administrator_name,affected_record_name,changes::jsonb AS changes,
+ CASE WHEN $1::boolean THEN coalesce(host(ip_address),'') ELSE '' END::text AS ip_address,
+ CASE WHEN $1::boolean THEN coalesce(browser,'') ELSE '' END::text AS browser
+FROM bidora_control_audit.platform_action_details_v1
+WHERE ($2::uuid IS NULL OR actor_id=$2::uuid)
+ AND ($3::text IS NULL OR action=$3::text)
+ AND ($4::text IS NULL OR module=$4::text)
+ AND ($5::text IS NULL OR result=$5::text)
+ AND ($6::timestamptz IS NULL OR occurred_at>=$6::timestamptz)
+ AND ($7::timestamptz IS NULL OR occurred_at<$7::timestamptz)
+ AND ($8::text='' OR position(lower($8::text) in lower(action))>0
+   OR position(lower($8::text) in lower(module))>0
+   OR position(lower($8::text) in lower(administrator_name))>0
+   OR position(lower($8::text) in lower(affected_record_name))>0
+   OR position(lower($8::text) in lower(coalesce(actor_id::text,'')))>0
+   OR position(lower($8::text) in lower(coalesce(affected_record_id::text,'')))>0)
+ AND ($9::timestamptz IS NULL
+   OR ($10::text='DESC' AND (occurred_at,id)<($9::timestamptz,$11::uuid))
+   OR ($10::text='ASC' AND (occurred_at,id)>($9::timestamptz,$11::uuid)))
 ORDER BY
- CASE WHEN $9::text='ASC' THEN occurred_at END ASC,
- CASE WHEN $9::text='ASC' THEN id END ASC,
- CASE WHEN $9::text='DESC' THEN occurred_at END DESC,
- CASE WHEN $9::text='DESC' THEN id END DESC
-LIMIT $11
+ CASE WHEN $10::text='ASC' THEN occurred_at END ASC,
+ CASE WHEN $10::text='ASC' THEN id END ASC,
+ CASE WHEN $10::text='DESC' THEN occurred_at END DESC,
+ CASE WHEN $10::text='DESC' THEN id END DESC
+LIMIT $12
 `
 
 type ListPlatformAuditActionsParams struct {
-	ActorFilter  pgtype.UUID
-	ActionFilter *string
-	ModuleFilter *string
-	ResultFilter *string
-	FromAt       pgtype.Timestamptz
-	BeforeAt     pgtype.Timestamptz
-	SearchTerm   string
-	CursorAt     pgtype.Timestamptz
-	SortOrder    string
-	CursorID     pgtype.UUID
-	PageLimit    int32
+	IncludeMetadata bool
+	ActorFilter     pgtype.UUID
+	ActionFilter    *string
+	ModuleFilter    *string
+	ResultFilter    *string
+	FromAt          pgtype.Timestamptz
+	BeforeAt        pgtype.Timestamptz
+	SearchTerm      string
+	CursorAt        pgtype.Timestamptz
+	SortOrder       string
+	CursorID        pgtype.UUID
+	PageLimit       int32
 }
 
-func (q *Queries) ListPlatformAuditActions(ctx context.Context, arg ListPlatformAuditActionsParams) ([]BidoraControlAuditPlatformActionTimesV1, error) {
+type ListPlatformAuditActionsRow struct {
+	ID                 pgtype.UUID
+	ActorID            pgtype.UUID
+	Action             string
+	OccurredAt         pgtype.Timestamptz
+	Module             string
+	AffectedRecordID   pgtype.UUID
+	Result             string
+	AdministratorName  string
+	AffectedRecordName string
+	Changes            []byte
+	IpAddress          string
+	Browser            string
+}
+
+func (q *Queries) ListPlatformAuditActions(ctx context.Context, arg ListPlatformAuditActionsParams) ([]ListPlatformAuditActionsRow, error) {
 	rows, err := q.db.Query(ctx, listPlatformAuditActions,
+		arg.IncludeMetadata,
 		arg.ActorFilter,
 		arg.ActionFilter,
 		arg.ModuleFilter,
@@ -110,9 +186,9 @@ func (q *Queries) ListPlatformAuditActions(ctx context.Context, arg ListPlatform
 		return nil, err
 	}
 	defer rows.Close()
-	items := []BidoraControlAuditPlatformActionTimesV1{}
+	items := []ListPlatformAuditActionsRow{}
 	for rows.Next() {
-		var i BidoraControlAuditPlatformActionTimesV1
+		var i ListPlatformAuditActionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ActorID,
@@ -121,6 +197,11 @@ func (q *Queries) ListPlatformAuditActions(ctx context.Context, arg ListPlatform
 			&i.Module,
 			&i.AffectedRecordID,
 			&i.Result,
+			&i.AdministratorName,
+			&i.AffectedRecordName,
+			&i.Changes,
+			&i.IpAddress,
+			&i.Browser,
 		); err != nil {
 			return nil, err
 		}

@@ -13,7 +13,7 @@ import (
 
 const appendPlatformSessionPolicyAudit = `-- name: AppendPlatformSessionPolicyAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1::uuid,NULL,$2::uuid,'PlatformSessionPolicyUpdated','platform_session_policy','00000000-0000-4000-8000-000000000038'::uuid,$3::timestamptz,'SUCCEEDED',$4::uuid,jsonb_build_object('version',$5::bigint,'ordinary_sessions_revoked',$6::bigint),1,$3::timestamptz)
+VALUES($1::uuid,NULL,$2::uuid,'PlatformSessionPolicyUpdated','platform_session_policy','00000000-0000-4000-8000-000000000038'::uuid,$3::timestamptz,'SUCCEEDED',$4::uuid,jsonb_build_object('version',$5::bigint,'ordinary_sessions_revoked',$6::bigint,'changes',$7::jsonb),1,$3::timestamptz)
 `
 
 type AppendPlatformSessionPolicyAuditParams struct {
@@ -23,6 +23,7 @@ type AppendPlatformSessionPolicyAuditParams struct {
 	CorrelationID pgtype.UUID
 	Version       int64
 	Revoked       int64
+	Changes       []byte
 }
 
 func (q *Queries) AppendPlatformSessionPolicyAudit(ctx context.Context, arg AppendPlatformSessionPolicyAuditParams) error {
@@ -33,6 +34,7 @@ func (q *Queries) AppendPlatformSessionPolicyAudit(ctx context.Context, arg Appe
 		arg.CorrelationID,
 		arg.Version,
 		arg.Revoked,
+		arg.Changes,
 	)
 	return err
 }

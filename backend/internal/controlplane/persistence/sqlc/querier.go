@@ -6,23 +6,22 @@ package controlplanesql
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	ClaimAIEntitlementAcknowledgement(ctx context.Context, arg ClaimAIEntitlementAcknowledgementParams) (ClaimAIEntitlementAcknowledgementRow, error)
 	DeferAIEntitlementAcknowledgement(ctx context.Context, arg DeferAIEntitlementAcknowledgementParams) (int64, error)
 	GetAIEntitlementDispatchCompatibility(ctx context.Context) (GetAIEntitlementDispatchCompatibilityRow, error)
-	GetPlatformAuditAction(ctx context.Context, id pgtype.UUID) (BidoraControlAuditPlatformActionTimesV1, error)
+	GetPlatformAuditAction(ctx context.Context, arg GetPlatformAuditActionParams) (GetPlatformAuditActionRow, error)
 	HoldAIEntitlementAcknowledgement(ctx context.Context, arg HoldAIEntitlementAcknowledgementParams) (int64, error)
 	InsertControlAudit(ctx context.Context, arg InsertControlAuditParams) error
 	InsertControlInbox(ctx context.Context, arg InsertControlInboxParams) error
 	InsertControlOutbox(ctx context.Context, arg InsertControlOutboxParams) error
+	InsertPlatformAuditExport(ctx context.Context, arg InsertPlatformAuditExportParams) error
 	InsertPlatformAuditPageRead(ctx context.Context, arg InsertPlatformAuditPageReadParams) error
 	InsertRoutedControlAudit(ctx context.Context, arg InsertRoutedControlAuditParams) error
 	InsertRoutedControlOutbox(ctx context.Context, arg InsertRoutedControlOutboxParams) error
-	ListPlatformAuditActions(ctx context.Context, arg ListPlatformAuditActionsParams) ([]BidoraControlAuditPlatformActionTimesV1, error)
+	ListPlatformAuditActions(ctx context.Context, arg ListPlatformAuditActionsParams) ([]ListPlatformAuditActionsRow, error)
 	MarkAIEntitlementAcknowledgementPublished(ctx context.Context, arg MarkAIEntitlementAcknowledgementPublishedParams) (int64, error)
 }
 

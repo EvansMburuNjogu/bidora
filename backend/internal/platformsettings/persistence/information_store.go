@@ -3,6 +3,7 @@ package persistence
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -131,7 +132,15 @@ func (t *informationTx) UpdateInformation(ctx context.Context, in settingsapp.In
 func (t *informationTx) AppendInformationEvidence(ctx context.Context, audit, outbox domain.ID, in settingsapp.InformationSave, version int64, at time.Time, key, request [32]byte) error {
 	timeValue := pgtype.Timestamptz{Time: at, Valid: true}
 	actor := uuid(in.Subject.ActorID)
-	if e := t.q.AppendPlatformInformationAudit(ctx, settingssql.AppendPlatformInformationAuditParams{ID: uuid(audit), ActorID: actor, At: timeValue, CorrelationID: uuid(in.CorrelationID), Version: version}); e != nil {
+	changes := in.Changes
+	if changes == nil {
+		changes = []settingsapp.FieldChange{}
+	}
+	raw, err := json.Marshal(changes)
+	if err != nil {
+		return err
+	}
+	if e := t.q.AppendPlatformInformationAudit(ctx, settingssql.AppendPlatformInformationAuditParams{ID: uuid(audit), ActorID: actor, At: timeValue, CorrelationID: uuid(in.CorrelationID), Version: version, Changes: raw}); e != nil {
 		return e
 	}
 	if e := t.q.AppendPlatformInformationOutbox(ctx, settingssql.AppendPlatformInformationOutboxParams{ID: uuid(outbox), ActorID: actor, Version: version, At: timeValue}); e != nil {

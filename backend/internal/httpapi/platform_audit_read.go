@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -17,6 +19,7 @@ import (
 type PlatformAuditReader interface {
 	List(context.Context, controlapp.PlatformAuditSubject, controlapp.PlatformAuditFilter, int32, *controlapp.PlatformAuditCursor) (controlapp.PlatformAuditPage, error)
 	Detail(context.Context, controlapp.PlatformAuditSubject, controlapp.ID) (controlapp.PlatformAuditAction, error)
+	Export(context.Context, controlapp.PlatformAuditSubject, controlapp.PlatformAuditFilter) (controlapp.PlatformAuditPage, error)
 }
 type PlatformAuditHandler struct{ reader PlatformAuditReader }
 
@@ -30,6 +33,7 @@ func RegisterPlatformAuditRoutes(app *fiber.App, browser *BrowserSessionMiddlewa
 	if app == nil || browser == nil || handler == nil {
 		return errors.New("platform_audit_routes_invalid")
 	}
+	app.Get("/v1/platform/audit/actions/export", browser.Platform, handler.export)
 	app.Get("/v1/platform/audit/actions", browser.Platform, handler.list)
 	app.Get("/v1/platform/audit/actions/:audit_id", browser.Platform, handler.detail)
 	return nil
@@ -137,6 +141,50 @@ func (h *PlatformAuditHandler) list(c fiber.Ctx) error {
 	c.Set("Cache-Control", "private, no-store")
 	return c.Status(200).JSON(fiber.Map{"data": items, "meta": fiber.Map{"trace_id": c.GetRespHeader("X-Request-ID"), "next_cursor": next}})
 }
+func (h *PlatformAuditHandler) export(c fiber.Ctx) error {
+	subject, ok := platformAuditSubject(c)
+	if !ok {
+		return nil
+	}
+	values, err := url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil || len(values) != 2 || len(values["from"]) != 1 || len(values["to"]) != 1 {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	from, fromErr := time.Parse("2006-01-02", values.Get("from"))
+	to, toErr := time.Parse("2006-01-02", values.Get("to"))
+	if fromErr != nil || toErr != nil || from.Format("2006-01-02") != values.Get("from") || to.Format("2006-01-02") != values.Get("to") {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	page, err := h.reader.Export(c.Context(), subject, controlapp.PlatformAuditFilter{Sort: "DESC", From: from, Before: to.AddDate(0, 0, 1)})
+	if err != nil {
+		return platformAuditFailure(c, err)
+	}
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+	if err = writer.Write([]string{"id", "occurred_at_utc", "action", "module", "result", "administrator_id", "affected_record_id"}); err != nil {
+		return platformAuditFailure(c, err)
+	}
+	for _, row := range page.Actions {
+		actor, affected := "", ""
+		if !row.Administrator.IsZero() {
+			actor = uuid.UUID(row.Administrator).String()
+		}
+		if !row.AffectedRecord.IsZero() {
+			affected = uuid.UUID(row.AffectedRecord).String()
+		}
+		if err = writer.Write([]string{uuid.UUID(row.ID).String(), row.OccurredAt.UTC().Format(time.RFC3339Nano), row.Action, row.Module, row.Result, actor, affected}); err != nil {
+			return platformAuditFailure(c, err)
+		}
+	}
+	writer.Flush()
+	if writer.Error() != nil {
+		return platformAuditFailure(c, writer.Error())
+	}
+	c.Set("Cache-Control", "private, no-store")
+	c.Set("Content-Type", "text/csv; charset=utf-8")
+	c.Set("Content-Disposition", `attachment; filename="platform-audit-`+values.Get("from")+`-`+values.Get("to")+`.csv"`)
+	return c.Status(200).Send(buf.Bytes())
+}
 func (h *PlatformAuditHandler) detail(c fiber.Ctx) error {
 	subject, ok := platformAuditSubject(c)
 	if !ok {
@@ -166,7 +214,18 @@ func platformAuditView(row controlapp.PlatformAuditAction) fiber.Map {
 		v := uuid.UUID(row.AffectedRecord).String()
 		affected = &v
 	}
-	return fiber.Map{"id": uuid.UUID(row.ID).String(), "administrator_id": administrator, "action": row.Action, "module": row.Module, "affected_record_id": affected, "result": row.Result, "occurred_at": row.OccurredAt.UTC().Format(time.RFC3339Nano)}
+	changes := row.Changes
+	if changes == nil {
+		changes = []controlapp.PlatformAuditChange{}
+	}
+	return fiber.Map{"administrator_name": optionalAuditText(row.AdministratorName), "affected_record_name": optionalAuditText(row.AffectedRecordName), "ip_address": optionalAuditText(row.IPAddress), "browser": optionalAuditText(row.Browser), "changes": changes, "id": uuid.UUID(row.ID).String(), "administrator_id": administrator, "action": row.Action, "module": row.Module, "affected_record_id": affected, "result": row.Result, "occurred_at": row.OccurredAt.UTC().Format(time.RFC3339Nano)}
+}
+
+func optionalAuditText(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 type platformAuditCursorWire struct {

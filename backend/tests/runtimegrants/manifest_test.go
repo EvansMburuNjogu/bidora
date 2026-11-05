@@ -59,7 +59,7 @@ func TestRuntimeGrantManifestMetadataIsFixed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtimegrants.Version != 1 || control.CompatibilitySet != "control_registry" || control.CompatibilityVersion != 43 || tenant.CompatibilitySet != "tenant_common+tenant_tenderpreneur" || tenant.CompatibilityVersion != 9_000_034 {
+	if runtimegrants.Version != 1 || control.CompatibilitySet != "control_registry" || control.CompatibilityVersion != 50 || tenant.CompatibilitySet != "tenant_common+tenant_tenderpreneur" || tenant.CompatibilityVersion != 9_000_034 {
 		t.Fatal("runtime grant manifest compatibility metadata drifted")
 	}
 	if _, err = runtimegrants.Load("exchange"); err == nil {
@@ -78,7 +78,7 @@ func TestControlRuntimeGrantsPreserveAuditBoundaryAndRegistration(t *testing.T) 
 	}
 	for table, want := range map[string][]runtimegrants.Privilege{
 		"bidora_control_audit.audit_events":             {runtimegrants.Insert},
-		"bidora_control_audit.platform_action_times_v1": {runtimegrants.Select},
+		"bidora_control_audit.platform_action_details_v1": {runtimegrants.Select},
 		"bidora_tenancy.tenants":                        {runtimegrants.Select, runtimegrants.Insert},
 		"tenancy.provisioning_jobs":                     {runtimegrants.Insert},
 	} {

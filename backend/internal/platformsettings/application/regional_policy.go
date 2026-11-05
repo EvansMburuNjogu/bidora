@@ -31,6 +31,7 @@ func (s *RegionalPolicyService) RequestMetadata(ctx context.Context, subject Reg
 }
 
 type RegionalSubject struct {
+	Changes []FieldChange
 	Subject
 	CorrelationID domain.ID
 }
@@ -180,6 +181,14 @@ func (s *RegionalPolicyService) SaveCountry(ctx context.Context, subject Regiona
 			}
 			return e
 		}
+		var previous domain.CountryConfiguration
+		if value.Version > 0 {
+			previous, e = tx.Country(c, value.Code, true)
+			if e != nil {
+				return e
+			}
+		}
+		subject.Changes = selectedFieldChanges(previous, value, "country_code", "currency", "language", "timezone", "locale", "enabled", "is_default")
 		if e = tx.SaveCountry(c, value, subject, at); e != nil {
 			return e
 		}
@@ -262,6 +271,11 @@ func (s *RegionalPolicyService) SavePolicy(ctx context.Context, subject Regional
 			}
 			return e
 		}
+		previous, e := tx.Policy(c, true)
+		if e != nil {
+			return e
+		}
+		subject.Changes = selectedFieldChanges(previous, value, "organization_registration_enabled", "ai_features_enabled", "document_uploads_enabled", "max_document_bytes", "maintenance_enabled", "maintenance_message", "maintenance_starts_at", "maintenance_ends_at", "restricted_metadata_retention_days")
 		if e = tx.SavePolicy(c, value, subject, at); e != nil {
 			return e
 		}

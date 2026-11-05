@@ -26,7 +26,7 @@ SELECT count(*)::bigint FROM platform_settings.google_commands WHERE actor_id=sq
 SELECT status FROM platform_settings.google_tests WHERE version_id=sqlc.arg(version_id) ORDER BY created_at DESC LIMIT 1;
 -- name: AppendGoogleSettingsAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES(sqlc.arg(id),NULL,sqlc.arg(actor_id),sqlc.arg(action),'platform_google_configuration',sqlc.arg(target_id),sqlc.arg(at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('version',sqlc.arg(version)::bigint,'result',sqlc.arg(result)::text),1,sqlc.arg(at));
+VALUES(sqlc.arg(id),NULL,sqlc.arg(actor_id),sqlc.arg(action),'platform_google_configuration',sqlc.arg(target_id),sqlc.arg(at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('version',sqlc.arg(version)::bigint,'result',sqlc.arg(result)::text,'changes',sqlc.arg(changes)::jsonb),1,sqlc.arg(at));
 -- name: AppendGoogleSettingsOutbox :exec
 INSERT INTO bidora_control_eventing.outbox_events(id,tenant_id,actor_id,aggregate_type,aggregate_id,aggregate_version,event_type,schema_version,classification,payload,occurred_at,next_attempt_at,created_at)
 VALUES(sqlc.arg(id),NULL,sqlc.arg(actor_id),'platform_google_configuration',sqlc.arg(target_id),sqlc.arg(version),sqlc.arg(action),1,'INTERNAL',jsonb_build_object('version',sqlc.arg(version)::bigint),sqlc.arg(at),sqlc.arg(at),sqlc.arg(at));

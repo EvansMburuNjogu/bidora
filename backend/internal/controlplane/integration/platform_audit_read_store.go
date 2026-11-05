@@ -1,7 +1,9 @@
 package integration
 
 import (
+	"bidora/backend/internal/identity/browser"
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -70,7 +72,7 @@ func (t *platformAuditTx) ListPlatformAuditActions(ctx context.Context, limit in
 	if !filter.Before.IsZero() {
 		before = pgtype.Timestamptz{Time: filter.Before.UTC(), Valid: true}
 	}
-	rows, err := t.q.ListPlatformAuditActions(ctx, controlsql.ListPlatformAuditActionsParams{ActorFilter: actor, ActionFilter: optionalString(filter.Action), ModuleFilter: optionalString(filter.Module), ResultFilter: optionalString(filter.Result), FromAt: from, BeforeAt: before, SearchTerm: filter.Search, CursorAt: at, CursorID: cursorID, SortOrder: filter.Sort, PageLimit: limit})
+	rows, err := t.q.ListPlatformAuditActions(ctx, controlsql.ListPlatformAuditActionsParams{ActorFilter: actor, ActionFilter: optionalString(filter.Action), ModuleFilter: optionalString(filter.Module), ResultFilter: optionalString(filter.Result), FromAt: from, BeforeAt: before, SearchTerm: filter.Search, CursorAt: at, CursorID: cursorID, SortOrder: filter.Sort, PageLimit: limit, IncludeMetadata: filter.IncludeMetadata})
 	if err != nil {
 		return nil, err
 	}
@@ -84,29 +86,39 @@ func (t *platformAuditTx) ListPlatformAuditActions(ctx context.Context, limit in
 	}
 	return out, nil
 }
-func (t *platformAuditTx) GetPlatformAuditAction(ctx context.Context, id controlapp.ID) (controlapp.PlatformAuditAction, bool, error) {
-	row, err := t.q.GetPlatformAuditAction(ctx, pgtype.UUID{Bytes: id, Valid: true})
+func (t *platformAuditTx) GetPlatformAuditAction(ctx context.Context, id controlapp.ID, metadata bool) (controlapp.PlatformAuditAction, bool, error) {
+	row, err := t.q.GetPlatformAuditAction(ctx, controlsql.GetPlatformAuditActionParams{ID: pgtype.UUID{Bytes: id, Valid: true}, IncludeMetadata: metadata})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return controlapp.PlatformAuditAction{}, false, nil
 	}
 	if err != nil {
 		return controlapp.PlatformAuditAction{}, false, err
 	}
-	item, err := mapPlatformAuditAction(row)
+	item, err := mapPlatformAuditAction(controlsql.ListPlatformAuditActionsRow(row))
 	return item, err == nil, err
 }
-func mapPlatformAuditAction(row controlsql.BidoraControlAuditPlatformActionTimesV1) (controlapp.PlatformAuditAction, error) {
+func mapPlatformAuditAction(row controlsql.ListPlatformAuditActionsRow) (controlapp.PlatformAuditAction, error) {
 	if !row.ID.Valid || row.ID.Bytes == [16]byte{} || !row.OccurredAt.Valid || row.OccurredAt.Time.IsZero() || !controlapp.AllowedPlatformAuditAction(row.Action) || (row.Module != "ADMINISTRATION" && row.Module != "INTEGRATIONS") || (row.Result != "SUCCESSFUL" && row.Result != "FAILED" && row.Result != "PENDING") {
 		return controlapp.PlatformAuditAction{}, errors.New("platform_audit_row_invalid")
 	}
 	if row.ActorID.Valid && row.ActorID.Bytes == [16]byte{} || row.AffectedRecordID.Valid && row.AffectedRecordID.Bytes == [16]byte{} {
 		return controlapp.PlatformAuditAction{}, errors.New("platform_audit_row_invalid")
 	}
-	return controlapp.PlatformAuditAction{ID: controlapp.ID(row.ID.Bytes), Administrator: controlapp.ID(row.ActorID.Bytes), AffectedRecord: controlapp.ID(row.AffectedRecordID.Bytes), Action: row.Action, Module: row.Module, Result: row.Result, OccurredAt: row.OccurredAt.Time.UTC()}, nil
+	changes := []controlapp.PlatformAuditChange{}
+	if len(row.Changes) > 65536 || json.Unmarshal(row.Changes, &changes) != nil || len(changes) > 30 {
+		return controlapp.PlatformAuditAction{}, errors.New("platform_audit_changes_invalid")
+	}
+	return controlapp.PlatformAuditAction{AdministratorName: row.AdministratorName, AffectedRecordName: row.AffectedRecordName, Changes: changes, IPAddress: row.IpAddress, Browser: browser.Name(row.Browser), ID: controlapp.ID(row.ID.Bytes), Administrator: controlapp.ID(row.ActorID.Bytes), AffectedRecord: controlapp.ID(row.AffectedRecordID.Bytes), Action: row.Action, Module: row.Module, Result: row.Result, OccurredAt: row.OccurredAt.Time.UTC()}, nil
+}
+func (t *platformAuditTx) AppendPlatformAuditExport(ctx context.Context, auditID controlapp.ID, subject controlapp.PlatformAuditSubject, at time.Time) error {
+	if auditID.IsZero() || subject.UserID.IsZero() || subject.CorrelationID.IsZero() || at.IsZero() {
+		return errors.New("platform_audit_export_evidence_invalid")
+	}
+	return t.q.InsertPlatformAuditExport(ctx, controlsql.InsertPlatformAuditExportParams{ID: pgtype.UUID{Bytes: auditID, Valid: true}, ActorID: pgtype.UUID{Bytes: subject.UserID, Valid: true}, At: pgtype.Timestamptz{Time: at, Valid: true}, CorrelationID: pgtype.UUID{Bytes: subject.CorrelationID, Valid: true}})
 }
 func (t *platformAuditTx) AppendPlatformAuditRead(ctx context.Context, auditID controlapp.ID, subject controlapp.PlatformAuditSubject, at time.Time) error {
 	if auditID.IsZero() || subject.UserID.IsZero() || subject.CorrelationID.IsZero() || at.IsZero() {
 		return errors.New("platform_audit_read_evidence_invalid")
 	}
-	return t.q.InsertPlatformAuditPageRead(ctx, controlsql.InsertPlatformAuditPageReadParams{ID: pgtype.UUID{Bytes: auditID, Valid: true}, ActorID: pgtype.UUID{Bytes: subject.UserID, Valid: true}, At: pgtype.Timestamptz{Time: at, Valid: true}, CorrelationID: pgtype.UUID{Bytes: subject.CorrelationID, Valid: true}})
+	return t.q.InsertPlatformAuditPageRead(ctx, controlsql.InsertPlatformAuditPageReadParams{MetadataAccess: subject.MetadataAccess, ID: pgtype.UUID{Bytes: auditID, Valid: true}, ActorID: pgtype.UUID{Bytes: subject.UserID, Valid: true}, At: pgtype.Timestamptz{Time: at, Valid: true}, CorrelationID: pgtype.UUID{Bytes: subject.CorrelationID, Valid: true}})
 }

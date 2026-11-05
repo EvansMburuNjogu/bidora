@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -103,7 +104,15 @@ func (t *SessionPolicyTx) AppendSessionPolicyEvidence(ctx context.Context, audit
 	when := pgtype.Timestamptz{Time: at, Valid: true}
 	version := in.Policy.Version + 1
 	actor := uuid(in.Subject.ActorID)
-	if e := t.q.AppendPlatformSessionPolicyAudit(ctx, q.AppendPlatformSessionPolicyAuditParams{ID: uuid(audit), ActorID: actor, At: when, CorrelationID: uuid(in.CorrelationID), Version: version, Revoked: revoked}); e != nil {
+	changes := in.Changes
+	if changes == nil {
+		changes = []app.FieldChange{}
+	}
+	raw, err := json.Marshal(changes)
+	if err != nil {
+		return err
+	}
+	if e := t.q.AppendPlatformSessionPolicyAudit(ctx, q.AppendPlatformSessionPolicyAuditParams{ID: uuid(audit), ActorID: actor, At: when, CorrelationID: uuid(in.CorrelationID), Version: version, Revoked: revoked, Changes: raw}); e != nil {
 		return e
 	}
 	if e := t.q.AppendPlatformSessionPolicyOutbox(ctx, q.AppendPlatformSessionPolicyOutboxParams{ID: uuid(outbox), ActorID: actor, At: when, Version: version}); e != nil {
