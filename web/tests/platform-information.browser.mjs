@@ -46,6 +46,9 @@ for (const [name, viewport] of [["desktop", { width: 1280, height: 900 }], ["mob
     try {
       await page.goto(origin + "/platform/settings/platform");
       await assertValues(page, seed);
+      const inputs = page.getByRole("form", { name: "Platform information" }).locator("input");
+      assert.equal(await inputs.count(), 8);
+      for (const input of await inputs.all()) await expect(input).toHaveAttribute("placeholder", /\S/);
       await expect(page.getByText("Manage countries and localisation", { exact: true })).toHaveCount(0);
       await expect(page.locator("#default_country")).toHaveValue("Kenya");
       await expect(page.locator("#default_currency")).toHaveValue("KES");
