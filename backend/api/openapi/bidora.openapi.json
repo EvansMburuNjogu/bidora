@@ -5381,6 +5381,24 @@
           "PlatformIntegrationVersionCreated",
           "PlatformIntegrationVersionTested",
           "PlatformIntegrationActivationProposed",
+          "PlatformControlAuditExport",
+          "CountryConfigurationUpdated",
+          "OperationalPolicyUpdated",
+          "RestrictedRequestMetadataRead",
+          "PlatformPlansRead",
+          "PlatformPlanDraftCreated",
+          "PlatformPlanPublished",
+          "PlatformSubscriptionRead",
+          "PlatformSubscriptionCancellationScheduled",
+          "PlatformSubscriptionCancellationWithdrawn",
+          "PlatformSubscriptionInventoryRead",
+          "PlatformSupportCasesRead",
+          "PlatformSupportCaseRead",
+          "PlatformSupportCaseCreate",
+          "PlatformSupportCaseAssign",
+          "PlatformSupportCaseReply",
+          "PlatformSupportCaseResolve",
+          "PlatformSupportCaseReopen",
           "PlatformInformationUpdated",
           "PlatformSessionPolicyUpdated",
           "PlatformGoogleConfigurationUpdated",
@@ -5423,6 +5441,14 @@
               "null"
             ]
           },
+          "administrator_name": {
+            "description": "Current identity name, email fallback or honest system/unknown label; not a historical name snapshot.",
+            "maxLength": 254,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "affected_record_id": {
             "description": "Only invitation, change or integration-version UUIDs; null for user-targeted actions",
             "format": "uuid",
@@ -5431,10 +5457,107 @@
               "null"
             ]
           },
+          "affected_record_name": {
+            "maxLength": 254,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "browser": {
+            "description": "Informational browser name derived from untrusted User-Agent; same access and retention as IP.",
+            "maxLength": 40,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changes": {
+            "description": "Explicitly allowlisted recorded changes; empty for historical/unsupported details. Secrets are change markers only, never values.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "after": {
+                  "maxLength": 512,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "before": {
+                  "maxLength": 512,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "field": {
+                  "enum": [
+                    "platform_name",
+                    "contact_phone",
+                    "support_email",
+                    "website",
+                    "enabled",
+                    "allow_signup",
+                    "client_id",
+                    "allowed_domains",
+                    "client_secret",
+                    "role",
+                    "idle_seconds",
+                    "absolute_seconds",
+                    "country_code",
+                    "currency",
+                    "language",
+                    "timezone",
+                    "locale",
+                    "is_default",
+                    "organization_registration_enabled",
+                    "ai_features_enabled",
+                    "document_uploads_enabled",
+                    "max_document_bytes",
+                    "maintenance_enabled",
+                    "maintenance_message",
+                    "maintenance_starts_at",
+                    "maintenance_ends_at",
+                    "restricted_metadata_retention_days",
+                    "template_name",
+                    "template_subject",
+                    "template_body"
+                  ],
+                  "type": "string"
+                },
+                "operation": {
+                  "enum": [
+                    "ADDED",
+                    "DELETED",
+                    "MODIFIED"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "operation",
+                "before",
+                "after"
+              ],
+              "type": "object"
+            },
+            "maxItems": 30,
+            "type": "array"
+          },
           "id": {
             "description": "Audit record reference",
             "format": "uuid",
             "type": "string"
+          },
+          "ip_address": {
+            "description": "Restricted, retention-limited client IP; requires platform.security.event.read in addition to audit-read. Null when missing, expired or not permitted.",
+            "maxLength": 45,
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "module": {
             "enum": [
@@ -11674,7 +11797,7 @@
     },
     "/v1/platform/audit/actions": {
       "get": {
-        "description": "Requires current platform.audit.read and recent TOTP-AAL2 with matching context generation. Reads only the migration-owned security-barrier projection: tenant_id IS NULL and allowlisted Platform action/target-type pairs. Every page rechecks authority and commits a read audit in the same control transaction. Search is literal, case-insensitive over visible action, module and UUID references only; never searches raw summaries. Date range is UTC, inclusive start/exclusive day after to. Cursor ordering is occurred_at plus audit ID; pagination is not a snapshot. Result describes the audit write, except PENDING is a guarded recorded PENDING_APPROVAL state; SUCCESSFUL never implies an approved or executed proposal. Successful sign-in evidence is limited to immutable PLATFORM_ADMIN identity actors: session creation (UserLoggedIn), email-code sign-in (EmailLoginCodeVerified) and protected MFA completion (MFALoginCompleted). These are separate recorded stages, not a single deduplicated login; session and factor target IDs are withheld. No names, email, payloads, raw summaries, tenant-private events, other account types' sign-ins or export.",
+        "description": "Requires current platform.audit.read and recent administrator AAL2 with matching context generation. Reads only the migration-owned security-barrier projection: tenant_id IS NULL and allowlisted Platform action/target-type pairs. Every page rechecks authority and commits a read audit in the same control transaction. Search is literal, case-insensitive over visible action, module, current administrator/record labels and UUID references; never searches raw summaries. Date range is UTC, inclusive start/exclusive day after to. Cursor ordering is occurred_at plus audit ID; pagination is not a snapshot. Result describes the audit write, except PENDING is a guarded recorded PENDING_APPROVAL state; SUCCESSFUL never implies an approved or executed proposal. Successful sign-in evidence is limited to immutable PLATFORM_ADMIN identity actors: session creation (UserLoggedIn), email-code sign-in (EmailLoginCodeVerified) and protected MFA completion (MFALoginCompleted). These are separate recorded stages, not a single deduplicated login; session and factor target IDs are withheld. Names resolve only from permitted control identities, with email fallback. IP/browser require the additional platform.security.event.read capability, respect metadata retention and produce restricted-read audit evidence. Only allowlisted field changes are projected; secrets, raw summaries, tenant-private events and other account types' sign-ins remain excluded.",
         "operationId": "getPlatformAuditActions",
         "parameters": [
           {
@@ -11830,6 +11953,79 @@
           }
         ],
         "summary": "Search allowed Platform control activity",
+        "tags": [
+          "Platform Administration"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-control-audit-actions.json",
+        "x-source-status": "source-status-unspecified"
+      }
+    },
+    "/v1/platform/audit/actions/export": {
+      "get": {
+        "description": "Requires platform.audit.read and platform.audit.export with current Platform context and recent administrator AAL2. Exactly two UTC date filters (from/to, inclusive) are required, at most 31 days and at most 500 matching actions. Authority, restricted control-only projection and distinct export audit evidence share one control transaction. No tenant-private data, raw summaries, partial exports or unverified delivery claims.",
+        "operationId": "getPlatformAuditActionsExport",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Bidora-Platform-Context-Generation",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Audited complete CSV attachment, private no-store"
+          },
+          "400": {
+            "description": "Invalid or oversized window; no partial export"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Export capability or assurance missing"
+          },
+          "409": {
+            "description": "Stale context"
+          },
+          "503": {
+            "description": "Read or audit unavailable; fail closed"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "summary": "Download a complete bounded Platform control audit CSV",
         "tags": [
           "Platform Administration"
         ],
