@@ -2,6 +2,8 @@
   "status": "pre-release-reviewed-slice",
   "algorithm": "sha256",
   "files": {
+    "migrations/control/00053_smtp_without_approval.sql": "65bf3f640088aae67fce21b1c79ff547556ca4a1cdb2076345dcf33d13efdbef",
+    "queries/platformsettings/smtp_direct.sql": "fcf413660898a2dca63de6becd6d4e8cd7a1eaaccc0d6332e5acaa71e712ef7c",
     "migrations/control/00052_dynamic_security_policy.sql": "2d76e65d9805b345a1cbebcd0070cb4519f7ed1d5ec25f0e8b79e39c8e29e386",
     "migrations/control/00051_atomic_request_audit_metadata.sql": "f4d2c18dcb4c243070d7823dae06d8b737b141bd55eb55992710d670433ae5d4",
     "migrations/control/00044_platform_audit_export_projection.sql": "48b66241f54ce79b9d3da54f3edcf8b4ca80d7ebedca80c7bc479a192f7bd628",
@@ -177,7 +179,7 @@
     "queries/opportunity/workspace.sql": "93eb96e7ef3100ac83e0f856ed3d5856c10275302080dcace21536362b795a41",
     "queries/organization/profile_letterhead.sql": "d75841f6bca25a314ce610eda11abe08d8be20c1f5376df4c57f4ff4c732cf75",
     "queries/platformadmin/lifecycle.sql": "e307c47ef1c2df4ab30fb55a55dd48907c2ddad5edaf35c865489318f1339161",
-    "queries/platformsettings/integration.sql": "a9a6b3eda1c2b70d9921566c0f304f76cc35d75a36f95c4d2ac0957e377d9b2c",
+    "queries/platformsettings/integration.sql": "74d2c24e36a6c430a6ff67a1b2b08a4b33f2f6e8e8143c4afa47aacad25c47a1",
     "queries/platformsettings/secrets.sql": "b3221892c0c038e6de67fb8475bba1d4817170818f3696048d38542fbeadca93",
     "queries/tenantevidence/evidence.sql": "c2066fe1d705e2e34a572cd293492de8a0da286f7040d3f0aae426bf64677e4f",
     "schema/option-a-tables.json": "8218bc457147e93399982b8f11c4aad69b1e09645a02a3c7c9dd3a2390edb375",

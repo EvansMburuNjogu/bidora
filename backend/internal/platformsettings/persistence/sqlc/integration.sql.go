@@ -76,7 +76,7 @@ func (q *Queries) AdvanceIntegrationSequence(ctx context.Context, arg AdvanceInt
 
 const applyIntegrationTestResult = `-- name: ApplyIntegrationTestResult :execrows
 UPDATE platform_settings.integration_versions SET state=$1,version=version+1,latest_test_id=$2,updated_at=$3
-WHERE id=$4 AND version=$5 AND state IN('DRAFT','TEST_PASSED','TEST_FAILED','SUPERSEDED')
+WHERE id=$4 AND version=$5 AND (state IN('DRAFT','TEST_PASSED','TEST_FAILED','SUPERSEDED') OR (setting_kind='SMTP' AND state='ACTIVE'))
 `
 
 type ApplyIntegrationTestResultParams struct {

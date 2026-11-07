@@ -142,7 +142,7 @@ func (s *Service) AuthorizeCreate(ctx context.Context, subject Subject, kind dom
 		if e != nil {
 			return e
 		}
-		if !authority.Capabilities[manageCapability(kind)] || !recent(authority, at) {
+		if !authority.Capabilities[manageCapability(kind)] || !recent(authority, at) || kind == domain.SMTP && (!authority.EffectiveOwner || !authority.Capabilities[activateCapability(kind)]) {
 			return ErrForbidden
 		}
 		return nil
@@ -179,7 +179,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (result domain.Ver
 		if e != nil {
 			return e
 		}
-		if !authority.Capabilities[manageCapability(in.Configuration.Kind)] || !recent(authority, at) {
+		if !authority.Capabilities[manageCapability(in.Configuration.Kind)] || !recent(authority, at) || in.Configuration.Kind == domain.SMTP && (!authority.EffectiveOwner || !authority.Capabilities[activateCapability(domain.SMTP)]) {
 			return ErrForbidden
 		}
 		replay, found, e := tx.GetCommand(txCtx, in.Subject.ActorID, "CREATE_VERSION", keyHash)
@@ -235,7 +235,23 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (result domain.Ver
 		if e = tx.InsertVersion(txCtx, result, in.Reason); e != nil {
 			return e
 		}
-		command := Command{ID: ids[0], ActorID: in.Subject.ActorID, KeyHash: keyHash, RequestHash: hash, State: "COMPLETED", ResponseState: string(domain.Draft), TargetID: result.ID, ResponseVersion: 1}
+		if result.Kind == domain.SMTP {
+			publisher, ok := tx.(DirectSMTPPublisher)
+			if !ok {
+				return ErrUnavailable
+			}
+			history, e := s.ids.NewID()
+			if e != nil || history.IsZero() {
+				return ErrUnavailable
+			}
+			if e = publisher.PublishSMTP(txCtx, result, head, in.Subject.ActorID, history, at); e != nil {
+				return e
+			}
+			result.State = domain.Active
+			result.Version++
+			result.ActivatedAt = &at
+		}
+		command := Command{ID: ids[0], ActorID: in.Subject.ActorID, KeyHash: keyHash, RequestHash: hash, State: "COMPLETED", ResponseState: string(result.State), TargetID: result.ID, ResponseVersion: result.Version}
 		if e = tx.CompleteCommand(txCtx, command, "CREATE_VERSION", in.Subject.ActorID, at); e != nil {
 			return e
 		}
@@ -294,7 +310,7 @@ func (s *Service) Test(ctx context.Context, in TestInput) (result TestExecution,
 			replayed = true
 			return nil
 		}
-		if prepared.Version != in.ExpectedVersion || !testable(prepared.State) {
+		if prepared.Version != in.ExpectedVersion || !(testable(prepared.State) || prepared.Kind == domain.SMTP && prepared.State == domain.Active) {
 			return ErrConflict
 		}
 		id, e := s.ids.NewID()
@@ -342,6 +358,9 @@ func (s *Service) Test(ctx context.Context, in TestInput) (result TestExecution,
 			outcomeText = "PASSED"
 		}
 		test := domain.TestResult{ID: ids[0], VersionID: current.ID, TestedBy: in.Subject.ActorID, Outcome: outcomeText, ResultCode: outcome.ResultCode, Reason: in.Reason, ApplicabilityHash: outcome.ApplicabilityHash, OccurredAt: finished}
+		if current.Kind == domain.SMTP && current.State == domain.Active {
+			state = domain.Active
+		}
 		current.State = state
 		current.Version++
 		current.LatestTestID = test.ID
@@ -413,6 +432,9 @@ func (s *Service) Propose(ctx context.Context, in ProposeInput) (result domain.C
 		if version.Version != in.ExpectedVersion {
 			return ErrConflict
 		}
+		if version.Kind == domain.SMTP {
+			return ErrInvalid
+		} // SMTP saves apply directly.
 		test, ok, e := tx.GetTest(txCtx, version.LatestTestID)
 		if e != nil {
 			return e
@@ -485,7 +507,7 @@ func (s *Service) Decide(ctx context.Context, in DecideInput) (result domain.Cha
 		if e != nil {
 			return e
 		}
-		if !found || change.Version != in.ExpectedVersion || change.MakerUserID == in.Subject.ActorID {
+		if !found || change.Kind == domain.SMTP || change.Version != in.ExpectedVersion || change.MakerUserID == in.Subject.ActorID {
 			return ErrConflict
 		}
 		version, found, e := tx.LockVersion(txCtx, change.TargetVersionID)

@@ -83,7 +83,7 @@ VALUES(sqlc.arg(id),sqlc.arg(version_id),sqlc.arg(attempt),sqlc.arg(outcome),sql
 
 -- name: ApplyIntegrationTestResult :execrows
 UPDATE platform_settings.integration_versions SET state=sqlc.arg(state),version=version+1,latest_test_id=sqlc.arg(test_id),updated_at=sqlc.arg(at)
-WHERE id=sqlc.arg(id) AND version=sqlc.arg(expected_version) AND state IN('DRAFT','TEST_PASSED','TEST_FAILED','SUPERSEDED');
+WHERE id=sqlc.arg(id) AND version=sqlc.arg(expected_version) AND (state IN('DRAFT','TEST_PASSED','TEST_FAILED','SUPERSEDED') OR (setting_kind='SMTP' AND state='ACTIVE'));
 
 -- name: GetIntegrationTest :one
 SELECT id,version_id,attempt,outcome,result_code,applicability_hash,tested_by,reason,occurred_at FROM platform_settings.integration_test_attempts WHERE id=sqlc.arg(id);

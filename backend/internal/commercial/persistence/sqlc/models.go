@@ -1142,6 +1142,7 @@ type PlatformSettingsIntegrationActivationHistory struct {
 	Generation        int64
 	ActivatedBy       pgtype.UUID
 	ActivatedAt       pgtype.Timestamptz
+	ActivationMethod  string
 }
 
 type PlatformSettingsIntegrationChange struct {

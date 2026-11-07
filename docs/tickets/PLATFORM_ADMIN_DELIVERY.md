@@ -87,6 +87,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## SMTP direct Owner save and one system-wide source — BID-MVP-03 / BID-MVP-05
+
+- Explicit user decision: remove SMTP approval completely; keep other integration approvals intact. SMTP Create now requires effective Owner, manage/activate permissions and recent verification, saves encrypted immutable configuration and publishes it as the active default in one audited/idempotent transaction. Optional test emails are user-triggered; saving does not send test mail. Active SMTP tests retain ACTIVE state, including failed test outcomes. SMTP approval/proposal commands are disabled and the UI contains only save/cancel, an explicit test-email action and redacted history.
+- Migration 53 records direct/migration activation provenance without fake checker identities, retires obsolete SMTP approvals, and promotes the existing exact successfully tested SMTP configuration when no active default exists. The dry run verified promotion and rolled back to schema 52. All production email flows use the canonical active settings resolver; the cutover must remove obsolete login-only SMTP environment keys and deploy the managed-only runtime. No OpenAI/PesaPal activation or approval changes.
+- Focused checks: direct-save Owner/activation regression, schema/checksum/grant checks, TypeScript/affected lint and required deployment build passed. No full test suite rerun or real email send claimed. Deployment/migration and live shared-source checks pending.
+
 ## Single system-wide SMTP — BID-MVP-03 / BID-MVP-05
 
 - User requirement: Platform Admin SMTP settings are the single source for sign-in, recovery, verification, invitations and notifications; do not introduce feature-specific SMTP credentials or bypass activation checks. Canonical main runtime already uses the shared active SMTP resolver for these flows and rejects obsolete deployment SMTP keys. The live compatibility runtime still has a temporary OTP-only delivery path, not a recovery fallback.

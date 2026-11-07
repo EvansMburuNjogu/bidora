@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	ActivateIntegrationVersion(ctx context.Context, arg ActivateIntegrationVersionParams) (int64, error)
+	ActivateSMTPDirect(ctx context.Context, arg ActivateSMTPDirectParams) (int64, error)
 	AdvanceGoogleHead(ctx context.Context, arg AdvanceGoogleHeadParams) (int64, error)
 	AdvanceIntegrationHead(ctx context.Context, arg AdvanceIntegrationHeadParams) (int64, error)
 	AdvanceIntegrationSequence(ctx context.Context, arg AdvanceIntegrationSequenceParams) (int64, error)
@@ -56,6 +57,7 @@ type Querier interface {
 	GetPlatformSessionPolicyCommand(ctx context.Context, arg GetPlatformSessionPolicyCommandParams) (GetPlatformSessionPolicyCommandRow, error)
 	GetSMTPSecret(ctx context.Context, id pgtype.UUID) (GetSMTPSecretRow, error)
 	GetVerifiedPlatformSettingTestEmail(ctx context.Context, userID pgtype.UUID) (string, error)
+	InsertDirectSMTPHistory(ctx context.Context, arg InsertDirectSMTPHistoryParams) error
 	InsertGoogleCommand(ctx context.Context, arg InsertGoogleCommandParams) error
 	InsertGoogleTest(ctx context.Context, arg InsertGoogleTestParams) error
 	InsertGoogleVersion(ctx context.Context, arg InsertGoogleVersionParams) error
@@ -91,9 +93,11 @@ type Querier interface {
 	ReadRestrictedRequestMetadata(ctx context.Context, arg ReadRestrictedRequestMetadataParams) (ReadRestrictedRequestMetadataRow, error)
 	RejectIntegrationChange(ctx context.Context, arg RejectIntegrationChangeParams) (int64, error)
 	RestoreIntegrationVersionAfterDisposition(ctx context.Context, arg RestoreIntegrationVersionAfterDispositionParams) (int64, error)
+	RetireSMTPApprovalRequests(ctx context.Context, at pgtype.Timestamptz) error
 	SaveCountryConfiguration(ctx context.Context, arg SaveCountryConfigurationParams) (int64, error)
 	SaveOperationalPolicy(ctx context.Context, arg SaveOperationalPolicyParams) (int64, error)
 	SupersedeActiveIntegrationVersion(ctx context.Context, arg SupersedeActiveIntegrationVersionParams) (int64, error)
+	SupersedePendingSMTPVersions(ctx context.Context, at pgtype.Timestamptz) error
 	UpdateCountryConfiguration(ctx context.Context, arg UpdateCountryConfigurationParams) (int64, error)
 	UpdatePlatformInformation(ctx context.Context, arg UpdatePlatformInformationParams) (int64, error)
 	UpdatePlatformSessionPolicy(ctx context.Context, arg UpdatePlatformSessionPolicyParams) (int64, error)
