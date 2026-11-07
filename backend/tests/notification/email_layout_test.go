@@ -23,7 +23,7 @@ func TestEmailLayoutEscapesContentAndUsesTokenFreeActions(t *testing.T) {
 }
 
 func TestEmailUsesExistingBrandLogoAndPalette(t *testing.T) {
-	html := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Origin: "https://sandbox.bidora.africa", Key: "identity.login_code"})
+	html := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Code: "123456", Origin: "https://sandbox.bidora.africa", Key: "identity.login_code"})
 	for _, want := range []string{"https://sandbox.bidora.africa/bidora-aperture-192.png", "#0f766e", "#e4f0ed", "#173b3d", `width="36"`, `height="36"`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("missing brand element %q", want)
@@ -58,7 +58,7 @@ func TestPasswordRecoveryEmailIncludesLinkCodeAndInstructions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, body := range []string{v.Text, v.HTML} {
-		for _, want := range []string{code, "https://sandbox.bidora.africa/reset-password", "confirm your new password", "only be used once", "2030"} {
+		for _, want := range []string{code, "https://sandbox.bidora.africa/reset-password", "confirm your new password", "one-time", "2030"} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("recovery email missing %q", want)
 			}

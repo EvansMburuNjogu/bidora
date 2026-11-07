@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { clientNetwork } from "@/lib/server/client-network";
 
@@ -72,6 +73,7 @@ export async function proxyGoogleLinkStart(request: Request): Promise<Response> 
   const network = clientNetwork(request);
   if (!network.ok) return safeFailure(503);
   const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", Origin: browser, "X-CSRF-Token": csrf });
+  forwardAuditContext(request, headers);
   if (network.address) headers.set("X-Forwarded-For", network.address);
   const cookie = request.headers.get("cookie");
   if (cookie) headers.set("Cookie", cookie);
@@ -110,6 +112,7 @@ export async function proxyGoogleLinkCallback(request: Request): Promise<Respons
     return new Response(null, { status: 303, headers: responseHeaders });
   }
   const headers = new Headers({ Accept: "application/json" });
+  forwardAuditContext(request, headers);
   const cookie = request.headers.get("cookie");
   if (cookie) headers.set("Cookie", cookie);
   let upstream: Response;

@@ -299,6 +299,20 @@ func (r RenderedTemplate) ContentForFingerprint() []byte {
 	return encoded
 }
 
+// Only untouched seed copy is shortened. Administrator-written copy remains
+// authoritative; no saved template or version is silently changed.
+var minimalSeedCopy = map[string]struct{ legacy, plain, intro string }{
+	"identity.email_verification":  {"Use this verification token: {{token}}. Expires: {{expires_at}}.", "Verification code: {{token}}\nExpires {{expires_at}}.", "Enter this code to verify your email."},
+	"identity.password_recovery":   {"Use this password recovery token: {{token}}. Expires: {{expires_at}}.", "Recovery code: {{token}}\nExpires {{expires_at}}.", ""},
+	"identity.login_code":          {"Your sign-in code is {{code}}. Expires: {{expires_at}}.", "Sign-in code: {{code}}\nExpires {{expires_at}}.", "Enter this code to sign in."},
+	"tenant.invitation":            {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Enter this code to accept."},
+	"platform.invitation.issued":   {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Enter this code to accept."},
+	"platform.invitation.reminder": {"Your {{role}} administrator invitation is awaiting acceptance. Expires: {{expires_at}}.", "Your {{role}} invitation is awaiting acceptance. Expires {{expires_at}}.", ""},
+	"platform.session_revocation":  {"Your administrator sessions were revoked at {{occurred_at}}. Sign in again and complete TOTP. Contact an authorised Platform Owner if unexpected.", "Your sessions were signed out at {{occurred_at}}. Sign in again.", ""},
+	"platform.identity_state":      {"Your administrator access was {{action}} at {{occurred_at}}. Contact an authorised Platform Owner if unexpected.", "Administrator access {{action}} at {{occurred_at}}.", ""},
+	"platform.role_change":         {"Your {{role}} administrator role was {{action}} at {{occurred_at}}. Contact an authorised Platform Owner if unexpected.", "Your {{role}} role was {{action}} at {{occurred_at}}.", ""},
+}
+
 func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, error) {
 	if !ValidTemplate(t) {
 		return RenderedTemplate{}, ErrTemplateInvalid
@@ -325,15 +339,33 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 	if e != nil || len(subject) > 512 || strings.ContainsAny(subject, "\r\n\x00") {
 		return RenderedTemplate{}, ErrTemplateInvalid
 	}
-	body, e := render(t.Body)
+	copy := minimalSeedCopy[t.Key]
+	plain := t.Body
+	seed := copy.legacy != "" && t.Body == copy.legacy
+	if seed {
+		plain = copy.plain
+	}
+	body, e := render(plain)
 	if e != nil {
 		return RenderedTemplate{}, e
 	}
-	if t.Key == "identity.password_recovery" {
-		body += "\n\nOpen the Reset password link, then enter the recovery code above, your new password, and confirm your new password. This code can only be used once. If you did not request a password reset, ignore this email."
+	displayBody := body
+	if seed && copy.intro != "" {
+		displayBody, e = render(copy.intro)
+		if e != nil {
+			return RenderedTemplate{}, e
+		}
 	}
-	body += "\n\nIf you did not expect this notification, contact your authorised support channel. Never share passwords or sign-in codes."
-	displayBody := strings.TrimSuffix(body, "\n\nIf you did not expect this notification, contact your authorised support channel. Never share passwords or sign-in codes.")
+	if t.Key == "identity.password_recovery" {
+		instructions := "Enter this one-time code, then set and confirm your new password."
+		body += "\n\n" + instructions
+		if seed {
+			displayBody = instructions
+		} else {
+			displayBody += "\n\n" + instructions
+		}
+	}
+	body += "\n\n" + emailhtml.SafetyNote(t.Key)
 	if action := emailhtml.QuickAction(values["web_origin"], t.Key); action.URL != "" {
 		body += "\n\n" + action.Label + ": " + action.URL
 	}
@@ -342,9 +374,9 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		code = values["token"]
 	}
 	if code != "" {
-		displayBody = strings.ReplaceAll(displayBody, code, "(shown below)")
+		displayBody = strings.ReplaceAll(displayBody, code, "the code below")
 	}
-	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key}), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
+	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key, SupportEmail: values["support_email"]}), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
 }
 func (s *TemplateService) Render(ctx context.Context, key string, values map[string]string) (out RenderedTemplate, err error) {
 	if s == nil || ctx == nil || !SupportedTemplate(key) {

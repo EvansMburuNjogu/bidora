@@ -48,6 +48,7 @@ func NewIdentityAccountApp(state *health.State, routes IdentityAccountRoutes) (*
 	// Configuration payloads have their own 16 KiB bound; existing identity
 	// binders retain their strict per-operation 4 KiB limits.
 	app := newBase(32 * 1024)
+	app.Use("/v1", routes.Browser.CaptureAuditContext)
 	ready := func(c fiber.Ctx) error {
 		if !state.Ready() {
 			return fail(c, 503, "SERVICE_NOT_READY", "The service is not ready to accept requests.", true)

@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
 import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
@@ -33,6 +34,7 @@ async function proxyMutation(request: Request, path: string, method: "DELETE" | 
   if (!csrf || !/^[A-Za-z0-9_-]{43}$/.test(csrf)) return failure(403);
 
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-CSRF-Token": csrf });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
   if (idempotency) headers.set("Idempotency-Key", idempotency);

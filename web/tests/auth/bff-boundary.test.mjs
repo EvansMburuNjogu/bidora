@@ -14,6 +14,7 @@ let next;
 let apiOrigin;
 let webOrigin;
 let forwarded = [];
+let loginAuditContext = null;
 let googleRedirect = "valid";
 let logs = "";
 const platformRequests = [];
@@ -145,6 +146,7 @@ test.before(async () => {
   webOrigin = `http://127.0.0.1:${webPort}`;
   backend = http.createServer((request, response) => {
     forwarded.push(request.headers["x-forwarded-for"] ?? null);
+    if (request.url === "/v1/auth/login-code/verify") loginAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"] };
     if (request.url === "/v1/auth/google/start") {
       response.writeHead(303, { Location: googleRedirect === "valid" ? "https://accounts.google.com/o/oauth2/v2/auth?client_id=synthetic&state=opaque" : "https://attacker.invalid/oauth?state=opaque" });
       response.end();
@@ -221,6 +223,27 @@ test("authentication BFF forwards exactly one validated address and safe upstrea
   assertSafeError(await response.json());
   assert.deepEqual(forwarded, ["192.0.2.10"]);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
+});
+
+test("email font is public cross-origin without widening API CORS", async () => {
+  const response = await fetch(webOrigin + "/fonts/manrope-latin.woff2", { headers: { Origin: "https://mail.example.test" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), "*");
+  assert.match(response.headers.get("content-type") ?? "", /font\/woff2/);
+  assert.equal(Buffer.from(await response.arrayBuffer()).subarray(0, 4).toString(), "wOF2");
+  assert.equal((await fetch(webOrigin + "/api/auth/not-an-operation")).headers.get("access-control-allow-origin"), null);
+});
+
+test("email-code completion forwards ingress IP and browser and rejects missing context", async () => {
+  forwarded = []; loginAuditContext = null;
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 Firefox/123", "X-Forwarded-For": "198.51.100.99" };
+  const url = webOrigin + "/api/auth/login-code";
+  const body = JSON.stringify({ code: "123456", method: "EMAIL_OTP" });
+  assert.equal((await fetch(url, { method: "POST", headers, body })).status, 503);
+  assert.equal(loginAuditContext, null); assert.deepEqual(forwarded, []);
+  assert.equal((await fetch(url, { method: "POST", headers: { ...headers, "X-Bidora-Client-IP": "192.0.2.20" }, body })).status, 401);
+  assert.deepEqual(loginAuditContext, { ip: "192.0.2.20", browser: headers["User-Agent"] });
+  assert.deepEqual(forwarded, ["192.0.2.20"]);
 });
 
 test("authentication BFF maps an unexpectedly unmounted known route to unavailable", async () => {

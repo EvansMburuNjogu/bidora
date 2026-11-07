@@ -119,6 +119,11 @@ func (p *Pool) withinTransaction(ctx context.Context, mode pgx.TxAccessMode, iso
 			_ = tx.Rollback(rollbackCtx)
 		}
 	}()
+	if mode == pgx.ReadWrite {
+		if err = applyRequestAudit(ctx, tx); err != nil {
+			return err
+		}
+	}
 	if err = fn(ctx, tx); err != nil {
 		return err
 	}

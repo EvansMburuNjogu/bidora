@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { clientNetwork } from "@/lib/server/client-network";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
@@ -94,7 +95,8 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
 
   const contract = operations[operation];
   const headers = new Headers({ Accept: "application/json", Origin: browser });
-  const networkOperations = new Set<ProxyOperation>(["login", "login-code-resend", "register", "password-recovery", "password-change"]);
+  forwardAuditContext(request, headers);
+  const networkOperations = new Set<ProxyOperation>(["login", "login-code", "login-code-resend", "register", "password-recovery", "password-change"]);
   if (networkOperations.has(operation)) {
     const network = clientNetwork(request);
     if (!network.ok) return safeFailure(503);
@@ -205,6 +207,7 @@ export async function proxyGoogleCallback(request: Request): Promise<Response> {
   }
 
   const headers = new Headers({ Accept: "application/json" });
+  forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
 

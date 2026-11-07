@@ -17,7 +17,11 @@ const nextConfig: NextConfig = {
   distDir: testDistDir || ".next",
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The public email font may be loaded by mail clients on other origins.
+      { source: "/fonts/manrope-latin.woff2", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }] },
+    ];
   },
   cacheComponents: true,
   partialPrefetching: true,

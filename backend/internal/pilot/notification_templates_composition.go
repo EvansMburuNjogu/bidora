@@ -2,8 +2,6 @@ package pilot
 
 import (
 	"context"
-	"html"
-	"strings"
 	"time"
 
 	"bidora/backend/internal/identity/deliverysmtp"
@@ -39,18 +37,16 @@ func (r configuredTemplateRenderer) Render(ctx context.Context, key string, valu
 	}
 	copyValues["platform_name"] = info.PlatformName
 	copyValues["web_origin"] = r.origin
+	if info.SupportEmail != nil {
+		copyValues["support_email"] = *info.SupportEmail
+	}
 	rendered, e := r.templates.Render(ctx, key, copyValues)
 	if e != nil {
 		return rendered, e
 	}
-	contact := info.PlatformName
-	for _, v := range []*string{info.SupportEmail, info.Website, &info.ContactPhone} {
-		if v != nil && *v != "" {
-			contact += " · " + *v
-		}
+	if info.SupportEmail != nil && *info.SupportEmail != "" {
+		rendered.Text += "\nSupport: " + *info.SupportEmail + "\n"
 	}
-	rendered.Text += "\n" + contact + "\n"
-	rendered.HTML = strings.Replace(rendered.HTML, "</body>", "<p>"+html.EscapeString(contact)+"</p></body>", 1)
 	return rendered, nil
 }
 
