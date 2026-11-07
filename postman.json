@@ -3052,6 +3052,79 @@
           }
         },
         {
+          "description": "`postPlatformNotificationsAttemptsSearch` — source: `api/openapi/drafts/platform-notification-history.json`",
+          "name": "Filter communications by exact recipient email without including personal data in URLs",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"recipient\": \"user@example.test\"\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "cursor",
+                  "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "category",
+                  "value": "{{category}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "{{status}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "from",
+                  "value": "{{from}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "to",
+                  "value": "{{to}}"
+                }
+              ],
+              "raw": "{{base_url}}/v1/platform/notifications/attempts/search"
+            }
+          }
+        },
+        {
           "description": "`getPlatformNotificationsAttempts` — source: `api/openapi/drafts/platform-notification-history.json`",
           "name": "Filter system communications with protected recipients and secret-redacted message previews",
           "request": {

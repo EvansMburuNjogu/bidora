@@ -33,12 +33,28 @@ func RegisterPlatformNotificationHistoryRoutes(app *fiber.App, browser *BrowserS
 		return errors.New("platform_notification_history_routes_invalid")
 	}
 	app.Get("/v1/platform/notifications/attempts", browser.Platform, handler.list)
+	app.Post("/v1/platform/notifications/attempts/search", browser.Platform, handler.search)
 	return nil
 }
 func (h *PlatformNotificationHistoryHandler) list(c fiber.Ctx) error {
 	if len(c.Body()) != 0 {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
+	return h.listWithRecipient(c, "")
+}
+func (h *PlatformNotificationHistoryHandler) search(c fiber.Ctx) error {
+	var body struct {
+		Recipient string `json:"recipient"`
+	}
+	if err := bindWorkflowJSON(c, &body, 512, true); err != nil {
+		return err
+	}
+	if !requireWorkflowFields(c.Body(), []string{"recipient"}) || body.Recipient == "" {
+		return fail(c, 400, "INVALID_REQUEST", "Enter a recipient email address.", false)
+	}
+	return h.listWithRecipient(c, body.Recipient)
+}
+func (h *PlatformNotificationHistoryHandler) listWithRecipient(c fiber.Ctx, recipient string) error {
 	principal, ok := SessionPrincipalFrom(c)
 	if !ok {
 		return fail(c, 401, "SESSION_INVALID", "Authentication is required.", false)
@@ -72,7 +88,7 @@ func (h *PlatformNotificationHistoryHandler) list(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	filters := notificationapp.HistoryFilters{Category: values.Get("category"), Status: values.Get("status")}
+	filters := notificationapp.HistoryFilters{Recipient: recipient, Category: values.Get("category"), Status: values.Get("status")}
 	for _, key := range []string{"from", "to"} {
 		if raw := values.Get(key); raw != "" {
 			parsed, e := time.Parse("2006-01-02", raw)

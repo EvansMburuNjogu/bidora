@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlatformSelect } from "@/components/platform/platform-select";
+import { isAcceptedEmail } from "@/lib/auth-validation";
 import { useSession } from "@/components/session/session-provider";
 
 type Attempt = { recipient: string | null; subject: string | null; message: string | null; category: string; attempt_number: number; disposition: string | null; failure_code: string | null; started_at: string; finished_at: string | null };
 type Page = { data: Attempt[]; meta: { trace_id: string; next_cursor: string | null } };
 type View = { kind: "loading" | "denied" | "error" } | { kind: "ready"; page: Page };
-type Filters = { category: string; status: string; from: string; to: string };
-const emptyFilters: Filters = { category: "", status: "", from: "", to: "" };
+type Filters = { recipient: string; category: string; status: string; from: string; to: string };
+const emptyFilters: Filters = { recipient: "", category: "", status: "", from: "", to: "" };
 const categories = ["LOGIN_CODE", "PASSWORD_RECOVERY", "EMAIL_VERIFICATION", "TENANT_INVITATION", "PLATFORM_INVITATION", "PLATFORM_SESSION_REVOCATION", "PLATFORM_IDENTITY_STATE_CHANGE", "PLATFORM_ROLE_CHANGE", "PLATFORM_TEMPLATE_TEST"];
 const outcomes = { NOT_ATTEMPTED: "Not attempted", PENDING: "Awaiting result", SMTP_ACCEPTED: "SMTP accepted", FAILED: "Failed", AMBIGUOUS: "Outcome unknown" };
 const categoryPattern = /^[A-Z][A-Z0-9_]{0,79}$/;
@@ -36,7 +37,7 @@ function parsePage(value: unknown): Page | null {
 }
 function outcome(row: Attempt) { return row.attempt_number === 0 ? outcomes.NOT_ATTEMPTED : row.disposition === null ? outcomes.PENDING : outcomes[row.disposition as keyof typeof outcomes] ?? row.disposition; }
 export function PlatformCommunicationsHistory() {
-  const { resolution, refresh } = useSession();
+  const { resolution, refresh, csrfToken } = useSession();
   const generation = resolution.platform_context_generation;
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -45,32 +46,36 @@ export function PlatformCommunicationsHistory() {
   const [view, setView] = useState<View>({ kind: "loading" });
   const sequence = useRef(0);
   const cursor = cursors[cursors.length - 1];
-  const filterQuery = new URLSearchParams(Object.entries(applied).filter(([, value]) => value !== "")).toString();
+  const filterQuery = new URLSearchParams(Object.entries(applied).filter(([key, value]) => key !== "recipient" && value !== "")).toString();
+  const recipient = applied.recipient;
   const load = useCallback(async () => {
     const current = ++sequence.current;
     if (generation === null) { setView({ kind: "denied" }); return; }
     setView({ kind: "loading" });
     try {
       const query = new URLSearchParams(filterQuery); query.set("limit", "25"); if (cursor) query.set("cursor", cursor);
-      const response = await fetch(`/api/platform/communications/attempts?${query}`, { credentials: "include", cache: "no-store", headers: { Accept: "application/json", "X-Bidora-Platform-Context-Generation": String(generation) } });
+      const response = await fetch(`/api/platform/communications/attempts?${query}`, { method: recipient ? "POST" : "GET", body: recipient ? JSON.stringify({recipient}) : undefined, credentials: "include", cache: "no-store", headers: { Accept: "application/json", "X-Bidora-Platform-Context-Generation": String(generation), ...(recipient ? {"Content-Type":"application/json","X-CSRF-Token":csrfToken} : {}) } });
       if (current !== sequence.current) return;
       if (response.status === 401 || response.status === 409) { setView({ kind: "denied" }); refresh(); return; }
       if (response.status === 403) { setView({ kind: "denied" }); return; }
       const page = response.ok ? parsePage(await response.json()) : null;
       if (current === sequence.current) setView(page ? { kind: "ready", page } : { kind: "error" });
     } catch { if (current === sequence.current) setView({ kind: "error" }); }
-  }, [generation, cursor, refresh, filterQuery]);
+  }, [generation, cursor, refresh, filterQuery, recipient, csrfToken]);
   useEffect(() => { const requestSequence = sequence; const timer = window.setTimeout(() => void load(), 0); return () => { window.clearTimeout(timer); requestSequence.current++; }; }, [load]);
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const recipient = filters.recipient.trim();
+    if (recipient && !isAcceptedEmail(recipient)) { setFilterError("Enter a complete recipient email address."); return; }
     if (filters.from && filters.to && filters.from > filters.to) { setFilterError("From date must be on or before To date."); return; }
-    setFilterError(""); setCursors([null]); setApplied({ ...filters });
+    setFilterError(""); setCursors([null]); setApplied({ ...filters, recipient });
   }
   function clearFilters() { setFilterError(""); setFilters({ ...emptyFilters }); setApplied({ ...emptyFilters }); setCursors([null]); }
   return <main className="app-page min-w-0 space-y-5">
     <div className="app-page-header"><h1 className="type-title">Communications</h1><p className="text-sm text-muted-foreground">Recipients, message previews and recorded send outcomes. Secret codes and links are redacted. SMTP acceptance does not confirm inbox delivery.</p></div>
     <form onSubmit={apply} aria-label="Communication filters" className="space-y-3 rounded-lg border bg-card p-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2"><Label htmlFor="communication-recipient">Recipient email</Label><Input id="communication-recipient" type="email" maxLength={254} autoComplete="off" placeholder="Exact email address" value={filters.recipient} onChange={event => setFilters(old => ({...old, recipient:event.target.value}))} /></div>
         <div className="grid gap-2"><Label htmlFor="communication-category">Category</Label><PlatformSelect id="communication-category" value={filters.category} onChange={event => setFilters(old => ({ ...old, category: event.target.value }))}><option value="">All categories</option>{categories.map(value => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</PlatformSelect></div>
         <div className="grid gap-2"><Label htmlFor="communication-status">Outcome</Label><PlatformSelect id="communication-status" value={filters.status} onChange={event => setFilters(old => ({ ...old, status: event.target.value }))}><option value="">All outcomes</option>{Object.entries(outcomes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</PlatformSelect></div>
         <div className="grid gap-2"><Label htmlFor="communication-from">From date (UTC)</Label><Input id="communication-from" type="date" value={filters.from} onChange={event => setFilters(old => ({ ...old, from: event.target.value }))} /></div>

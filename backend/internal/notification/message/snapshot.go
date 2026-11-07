@@ -106,12 +106,21 @@ func (c *Cipher) Open(id domain.ID, v Encrypted) (Content, error) {
 	}
 	return out, nil
 }
-func (c *Cipher) MatchesRecipient(value string, fingerprint []byte) bool {
+func (c *Cipher) RecipientFingerprint(value string) []byte {
 	if c == nil || value == "" {
-		return false
+		return nil
 	}
 	mac := hmac.New(sha256.New, c.fingerprintKey)
 	mac.Write([]byte("bidora-notification-v1\x00recipient\x00"))
 	mac.Write([]byte(strings.ToLower(value)))
-	return hmac.Equal(mac.Sum(nil), fingerprint)
+	return mac.Sum(nil)
+}
+func (c *Cipher) KeyVersion() int32 {
+	if c == nil {
+		return 0
+	}
+	return c.version
+}
+func (c *Cipher) MatchesRecipient(value string, fingerprint []byte) bool {
+	return len(fingerprint) == sha256.Size && hmac.Equal(c.RecipientFingerprint(value), fingerprint)
 }

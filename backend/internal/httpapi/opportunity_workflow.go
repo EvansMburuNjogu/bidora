@@ -194,11 +194,17 @@ func workflowCommon(c fiber.Ctx, resourceParam string) (workflowCommonInput, boo
 }
 func bindWorkflow(c fiber.Ctx, target any) error { return bindWorkflowLimit(c, target, 4096) }
 func bindWorkflowLimit(c fiber.Ctx, target any, limit int) error {
+	return bindWorkflowJSON(c, target, limit, false)
+}
+
+// bindWorkflowJSON keeps strict bounded JSON validation when a read-only search
+// explicitly supports separately validated query filters.
+func bindWorkflowJSON(c fiber.Ctx, target any, limit int, allowQuery bool) error {
 	c.Set("Cache-Control", "private, no-store")
 	if limit < 1 || len(c.Body()) > limit {
 		return fail(c, 413, "REQUEST_TOO_LARGE", "The request is too large.", false)
 	}
-	if len(c.Request().URI().QueryString()) != 0 {
+	if !allowQuery && len(c.Request().URI().QueryString()) != 0 {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	contentType, ok := singleHeader(c, "Content-Type")

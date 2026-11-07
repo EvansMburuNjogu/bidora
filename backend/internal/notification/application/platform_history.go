@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/notification/domain"
 	platformapp "bidora/backend/internal/platformadmin/application"
 )
@@ -24,13 +25,18 @@ type HistorySubject struct {
 	ContextGeneration                int64
 }
 type HistoryFilters struct {
-	Category, Status string
-	From, To         *time.Time
+	Category, Status, Recipient string
+	From, To                    *time.Time
 }
 
 var historyCategoryPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,79}$`)
 
 func (f HistoryFilters) Valid() bool {
+	if f.Recipient != "" {
+		if _, err := email.Parse(f.Recipient); err != nil {
+			return false
+		}
+	}
 	if f.Category != "" && !historyCategoryPattern.MatchString(f.Category) {
 		return false
 	}

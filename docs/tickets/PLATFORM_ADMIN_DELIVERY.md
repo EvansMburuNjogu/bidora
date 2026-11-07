@@ -87,6 +87,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Communications recipient filter — BID-MVP-03 / BID-MVP-05
+
+- Added optional Recipient email exact-match filter, case-insensitive under the existing mailbox policy; provider aliases are not rewritten. Recipient search is POST with a bounded strict JSON body, never a mailbox in URLs. Existing category/outcome/UTC date/cursor filters combine with recipient; applying/clearing resets pagination and subsequent pages retain the mailbox in the protected body.
+- Search requires approved Origin, session-bound CSRF, current Platform permission/context and recent administrator verification. PostgreSQL matches the keyed original recipient fingerprint and key version before ordering/limit; plaintext addresses are not stored in filter columns, included in audit summaries, or decrypted/scanned for search. No schema, environment or SMTP changes.
+- Focused Go/contract/type/lint/build checks, real runtime-role hash filtering proof, and intercepted browser cases for private body, CSRF, pagination/filter reset/clear passed. Backend HTTP tests reject missing CSRF, foreign Origin, invalid/duplicate/unknown body fields and mailbox GET queries. Deployment pending; no real message sent.
+
 ## Communications recipients, message previews and filters — BID-MVP-03 / BID-MVP-05
 
 - Communications displays Recipient, Subject/expandable plain-text message preview, category, send outcome and timestamps. Category/outcome/inclusive UTC date filters execute in PostgreSQL before cursor pagination; applying/clearing filters returns to page one. Empty, denied and unavailable/expired historical details are explicit. SMTP acceptance is never labelled inbox delivery.

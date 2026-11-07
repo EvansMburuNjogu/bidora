@@ -28,7 +28,7 @@
     "queries/platformsettings/session_policy.sql": "14f01c418cc75d839e44fa4c79e3b64c6a5a6336d15127aaf50191076c1e52ab",
     "queries/platformsettings/information.sql": "c822fa18cf313ed7e81a44a8fc61e0a3498f2aa695c44221999d5c9b09d4f47d",
     "queries/controlplane/platform_audit_read.sql": "d7484386fa1107ec350c53e73c4f29acfdf9efc217a7d18757110b3ff9c73191",
-    "queries/notification/platform_history.sql": "0ad23b0a10de1cb19621f2c3a38c38e1d1b598e8c76ba9f402f36d420d8e77ec",
+    "queries/notification/platform_history.sql": "daa5812b4f446c0abe5b59984ffbbdb3cdd72508ced09b0df18515d3c4ee6d56",
     "migrations/control/00001_tenant_registry.sql": "b92357c4fb2d24427df693ca5bbc9048138c82007d57537998d91679b9c5a0e0",
     "migrations/control/00002_audit_outbox.sql": "163765203db99fb12e882f82c097432943feee0085bc3739d76ffc746e65cf42",
     "migrations/control/00003_password_identities.sql": "4f8bc8c65fcf1483c327b1913afe10db66651ace92afa4a1979f9f26dda39976",

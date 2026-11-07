@@ -13,6 +13,8 @@ LEFT JOIN notification.message_snapshots m ON m.notification_id=n.id AND m.expir
 LEFT JOIN identity.users u ON u.id=n.recipient_user_id
 WHERE (sqlc.narg(cursor_at)::timestamptz IS NULL OR
  (COALESCE(a.started_at,n.created_at),COALESCE(a.id,n.id))<(sqlc.narg(cursor_at)::timestamptz,sqlc.narg(cursor_id)::uuid))
+ AND (sqlc.narg(recipient_fingerprint)::bytea IS NULL OR
+  (n.recipient_fingerprint=sqlc.narg(recipient_fingerprint)::bytea AND n.fingerprint_key_version=sqlc.arg(recipient_key_version)::integer))
  AND (sqlc.arg(category)::text='' OR n.category=sqlc.arg(category)::text)
  AND (sqlc.arg(status)::text='' OR
   (sqlc.arg(status)::text='NOT_ATTEMPTED' AND a.id IS NULL) OR

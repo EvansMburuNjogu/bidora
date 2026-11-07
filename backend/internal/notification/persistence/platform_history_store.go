@@ -68,7 +68,10 @@ func (t *platformHistoryTx) ListPlatformAttempts(ctx context.Context, limit int3
 	if err := t.q.PurgeExpiredNotificationMessages(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := t.q.ListPlatformNotificationAttempts(ctx, notificationsql.ListPlatformNotificationAttemptsParams{CursorAt: at, CursorID: cursorID, PageLimit: limit, Category: filters.Category, Status: filters.Status, DateFrom: optionalTimestamp(filters.From), DateTo: optionalTimestamp(filters.To)})
+	if filters.Recipient != "" && t.messages == nil {
+		return nil, app.ErrHistoryUnavailable
+	}
+	rows, err := t.q.ListPlatformNotificationAttempts(ctx, notificationsql.ListPlatformNotificationAttemptsParams{CursorAt: at, CursorID: cursorID, PageLimit: limit, Category: filters.Category, Status: filters.Status, DateFrom: optionalTimestamp(filters.From), DateTo: optionalTimestamp(filters.To), RecipientFingerprint: t.messages.RecipientFingerprint(filters.Recipient), RecipientKeyVersion: t.messages.KeyVersion()})
 	if err != nil {
 		return nil, err
 	}

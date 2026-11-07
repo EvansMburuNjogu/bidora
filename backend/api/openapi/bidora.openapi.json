@@ -14993,6 +14993,275 @@
         "x-source-status": "source-status-unspecified"
       }
     },
+    "/v1/platform/notifications/attempts/search": {
+      "post": {
+        "description": "Requires the same current Platform authority and audited read as GET, plus exact approved Origin and session-bound CSRF. Recipient mailbox is supplied only in a strict bounded JSON body. Case-insensitive exact matching uses the original keyed recipient fingerprint and current fingerprint key version before pagination; aliases are not rewritten. Existing category/status/date/cursor query filters are supported. No partial mailbox search.",
+        "operationId": "postPlatformNotificationsAttemptsSearch",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Bidora-Platform-Context-Generation",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "maxLength": 384,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "NOT_ATTEMPTED",
+                "PENDING",
+                "SMTP_ACCEPTED",
+                "FAILED",
+                "AMBIGUOUS"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive UTC date.",
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "recipient": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "recipient"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "attempt_number": {
+                            "description": "Zero means prepared with no delivery attempt; otherwise the delivery attempt number.",
+                            "maximum": 100,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "category": {
+                            "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
+                            "type": "string"
+                          },
+                          "disposition": {
+                            "enum": [
+                              "SMTP_ACCEPTED",
+                              "FAILED",
+                              "AMBIGUOUS",
+                              null
+                            ],
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "failure_code": {
+                            "enum": [
+                              "CONNECTIVITY_FAILED",
+                              "AUTHENTICATION_FAILED",
+                              "TLS_FAILED",
+                              "PROVIDER_REJECTED",
+                              "TIMEOUT",
+                              "PROCESS_INTERRUPTED",
+                              "PROVIDER_OUTCOME_UNKNOWN",
+                              "INTERNAL_ERROR",
+                              null
+                            ],
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "finished_at": {
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "message": {
+                            "description": "Plain-text preview with secret tokens, codes and URLs removed; never raw HTML.",
+                            "maxLength": 6100,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "recipient": {
+                            "maxLength": 254,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "started_at": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "subject": {
+                            "maxLength": 600,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "recipient",
+                          "subject",
+                          "message",
+                          "category",
+                          "attempt_number",
+                          "disposition",
+                          "failure_code",
+                          "started_at",
+                          "finished_at"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "meta": {
+                      "properties": {
+                        "next_cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "trace_id",
+                        "next_cursor"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Audited page of communication records; unavailable or expired details are null"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Not authorised or assurance unavailable"
+          },
+          "409": {
+            "description": "Stale context"
+          },
+          "503": {
+            "description": "Read or audit unavailable; fail closed"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "summary": "Filter communications by exact recipient email without including personal data in URLs",
+        "tags": [
+          "Platform Administration"
+        ],
+        "x-normalized-cross-cutting": true,
+        "x-source-contract": "api/openapi/drafts/platform-notification-history.json",
+        "x-source-status": "source-status-unspecified"
+      }
+    },
     "/v1/platform/operational-policy": {
       "get": {
         "description": "Exact current context, read capability and recent TOTP. No secret or tenant-private data. Maintenance/retention policy read capability required.",

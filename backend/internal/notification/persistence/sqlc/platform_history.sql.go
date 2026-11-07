@@ -51,24 +51,28 @@ LEFT JOIN notification.message_snapshots m ON m.notification_id=n.id AND m.expir
 LEFT JOIN identity.users u ON u.id=n.recipient_user_id
 WHERE ($1::timestamptz IS NULL OR
  (COALESCE(a.started_at,n.created_at),COALESCE(a.id,n.id))<($1::timestamptz,$2::uuid))
- AND ($3::text='' OR n.category=$3::text)
- AND ($4::text='' OR
-  ($4::text='NOT_ATTEMPTED' AND a.id IS NULL) OR
-  ($4::text='PENDING' AND a.id IS NOT NULL AND r.id IS NULL) OR
-  r.disposition=$4::text)
- AND ($5::timestamptz IS NULL OR COALESCE(a.started_at,n.created_at)>=$5::timestamptz)
- AND ($6::timestamptz IS NULL OR COALESCE(a.started_at,n.created_at)<$6::timestamptz)
-ORDER BY COALESCE(a.started_at,n.created_at) DESC,COALESCE(a.id,n.id) DESC LIMIT $7
+ AND ($3::bytea IS NULL OR
+  (n.recipient_fingerprint=$3::bytea AND n.fingerprint_key_version=$4::integer))
+ AND ($5::text='' OR n.category=$5::text)
+ AND ($6::text='' OR
+  ($6::text='NOT_ATTEMPTED' AND a.id IS NULL) OR
+  ($6::text='PENDING' AND a.id IS NOT NULL AND r.id IS NULL) OR
+  r.disposition=$6::text)
+ AND ($7::timestamptz IS NULL OR COALESCE(a.started_at,n.created_at)>=$7::timestamptz)
+ AND ($8::timestamptz IS NULL OR COALESCE(a.started_at,n.created_at)<$8::timestamptz)
+ORDER BY COALESCE(a.started_at,n.created_at) DESC,COALESCE(a.id,n.id) DESC LIMIT $9
 `
 
 type ListPlatformNotificationAttemptsParams struct {
-	CursorAt  pgtype.Timestamptz
-	CursorID  pgtype.UUID
-	Category  string
-	Status    string
-	DateFrom  pgtype.Timestamptz
-	DateTo    pgtype.Timestamptz
-	PageLimit int32
+	CursorAt             pgtype.Timestamptz
+	CursorID             pgtype.UUID
+	RecipientFingerprint []byte
+	RecipientKeyVersion  int32
+	Category             string
+	Status               string
+	DateFrom             pgtype.Timestamptz
+	DateTo               pgtype.Timestamptz
+	PageLimit            int32
 }
 
 type ListPlatformNotificationAttemptsRow struct {
@@ -93,6 +97,8 @@ func (q *Queries) ListPlatformNotificationAttempts(ctx context.Context, arg List
 	rows, err := q.db.Query(ctx, listPlatformNotificationAttempts,
 		arg.CursorAt,
 		arg.CursorID,
+		arg.RecipientFingerprint,
+		arg.RecipientKeyVersion,
 		arg.Category,
 		arg.Status,
 		arg.DateFrom,
