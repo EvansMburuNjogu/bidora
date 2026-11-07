@@ -52,29 +52,47 @@ export function SMTPConfiguration() {
   const [touched, setTouched] = useState<Partial<Record<keyof Draft, boolean>>>({});
   const [serverErrors, setServerErrors] = useState<Partial<Record<keyof Draft, string>>>({});
   const submitting = useRef(false);
-  const dirtyRef = useRef(false);
+  const dirtyFields = useRef(new Set<keyof Draft>());
+  const loadedGeneration = useRef(generation);
   const sequence = useRef(0);
   const headers = useCallback((mutation = false) => ({ Accept: "application/json", "X-Bidora-Platform-Context-Generation": String(generation ?? ""), ...(mutation ? { "Content-Type": "application/json", "X-CSRF-Token": csrfToken } : {}) }), [csrfToken, generation]);
   const load = useCallback(async () => {
     const current = ++sequence.current;
+    if (loadedGeneration.current !== generation) {
+      loadedGeneration.current = generation;
+      dirtyFields.current.clear();
+      setDraft({ ...emptyDraft }); setBaseline({ ...emptyDraft });
+      setSubmitted(false); setTouched({}); setServerErrors({});
+    }
     if (!generation) { setStatus({ kind: "error", message: "SMTP access could not be confirmed." }); return; }
     setStatus({ kind: "loading" }); setHistory(null); setHistoryError(false); setSelected(null);
-    try {
-      const [activeResponse, versionsResponse] = await Promise.all([
-        fetch("/api/platform/smtp", { credentials: "include", cache: "no-store", headers: headers() }),
-        fetch("/api/platform/smtp/versions", { credentials: "include", cache: "no-store", headers: headers() }),
-      ]);
+    const options = { credentials: "include" as const, cache: "no-store" as const, headers: headers() };
+    // History must never delay or prevent the current SMTP form from loading.
+    void fetch("/api/platform/smtp/versions", options).then(async (response) => {
+      const versions = response.ok ? parseSMTPVersions(await response.json()) : null;
       if (current !== sequence.current) return;
-      if ([401, 409].includes(activeResponse.status) || [401, 409].includes(versionsResponse.status)) { refresh(); return; }
-      if (activeResponse.status === 403 || versionsResponse.status === 403) { setStatus({ kind: "error", message: "SMTP settings require current integration access and recent email verification." }); return; }
-      const versions = versionsResponse.ok ? parseSMTPVersions(await versionsResponse.json()) : null;
-      const active = activeResponse.ok ? parseSMTPVersion(await activeResponse.json()) : null;
-      if (!versions || activeResponse.status !== 404 && !active) { setStatus({ kind: "error", message: "SMTP settings are temporarily unavailable." }); return; }
-      const loaded = fromVersion(active ?? versions.versions[0] ?? null);
+      if (response.status === 401 || response.status === 409) refresh();
+      setHistory(versions); setHistoryError(!versions);
+    }).catch(() => { if (current === sequence.current) setHistoryError(true); });
+    try {
+      const response = await fetch("/api/platform/smtp", options);
+      const active = response.ok ? parseSMTPVersion(await response.json()) : null;
+      if (current !== sequence.current) return;
+      if (response.status === 401 || response.status === 409) {
+        setStatus({ kind: "error", message: "SMTP access could not be confirmed." }); refresh(); return;
+      }
+      if (response.status === 403) { setStatus({ kind: "error", message: "SMTP settings require current integration access and recent email verification." }); return; }
+      if (response.status !== 404 && !active || active && active.state !== "ACTIVE") {
+        setStatus({ kind: "error", message: "SMTP settings are temporarily unavailable." }); return;
+      }
+      const loaded = fromVersion(active);
       setBaseline(loaded);
-      if (!dirtyRef.current) setDraft(loaded);
+      // Browser credential autofill or one edited field must not suppress all
+      // the saved server/sender values. Preserve only fields actually edited.
+      setDraft((previous) => Object.fromEntries(
+        (Object.keys(loaded) as Array<keyof Draft>).map((key) => [key, dirtyFields.current.has(key) ? previous[key] : loaded[key]]),
+      ) as Draft);
       setSelected(active);
-      setHistory(versions);
       setStatus(active ? { kind: "ready", value: active } : { kind: "unconfigured" });
     } catch { if (current === sequence.current) setStatus({ kind: "error", message: "SMTP settings are temporarily unavailable." }); }
   }, [generation, headers, refresh]);
@@ -101,8 +119,8 @@ export function SMTPConfiguration() {
   }
   const errors = { ...draftErrors(draft), ...serverErrors };
   const changed = (Object.keys(emptyDraft) as Array<keyof Draft>).some((key) => draft[key] !== baseline[key]);
-  function editDraft(key: keyof Draft, value: string) { dirtyRef.current = true; setDraft((previous) => ({ ...previous, [key]: value })); setServerErrors({}); }
-  function cancelDraft() { dirtyRef.current = false; setDraft({ ...baseline }); setSubmitted(false); setTouched({}); setServerErrors({}); }
+  function editDraft(key: keyof Draft, value: string) { if (value === baseline[key]) dirtyFields.current.delete(key); else dirtyFields.current.add(key); setDraft((previous) => ({ ...previous, [key]: value })); setServerErrors({}); }
+  function cancelDraft() { dirtyFields.current.clear(); setDraft({ ...baseline }); setSubmitted(false); setTouched({}); setServerErrors({}); }
   const fieldError = (key: keyof Draft) => (submitted || touched[key]) ? errors[key] : undefined;
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,7 +141,7 @@ export function SMTPConfiguration() {
       if (!value || value.state !== "ACTIVE") { toast.error(unconfirmedSubmissionError, { id: "smtp-configuration" }); return; }
       setStatus({kind:"ready",value});
       const saved = fromVersion(value);
-      setBaseline(saved); setDraft(saved); dirtyRef.current = false; setSubmitted(false); setTouched({});
+      setBaseline(saved); setDraft(saved); dirtyFields.current.clear(); setSubmitted(false); setTouched({});
       updateVersion(value); toast.success("SMTP saved. All system emails use these settings.", { id: "smtp-configuration" });
     } catch { if (request === sequence.current) toast.error(networkSubmissionError, { id: "smtp-configuration" }); }
     finally { submitting.current = false; if (request === sequence.current) setBusy(false); }
@@ -147,14 +165,14 @@ export function SMTPConfiguration() {
   return <main className="app-page">
     <div className="app-page-header"><h1 className="type-title">Email (SMTP)</h1><p className="type-lead text-muted-foreground">Manage the default SMTP for sign-in, recovery, verification, invitations, and notifications.</p></div>
     <form onSubmit={(event) => void create(event)} noValidate className="max-w-4xl space-y-6" aria-label="SMTP configuration">
-      <fieldset disabled={busy} className="space-y-6">
+      <fieldset disabled={busy || status.kind === "loading" || status.kind === "error" || !canSave} aria-busy={status.kind === "loading"} className="space-y-6">
       <section aria-labelledby="email-server-heading" className="space-y-4"><h2 id="email-server-heading" className="text-base font-semibold">Email Server</h2><div className="grid gap-4 sm:grid-cols-2">
         <Field label="Server" name="host" value={draft.host} onChange={(event) => editDraft("host", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, host: true }))} maxLength={253} autoCapitalize="none" spellCheck={false} placeholder="smtp.example.com" error={fieldError("host")} />
         <Field label="Port" name="port" type="number" value={draft.port} onChange={(event) => editDraft("port", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, port: true }))} min={1} max={65535} step={1} error={fieldError("port")} />
         <Field label="Username" name="username" value={draft.username} onChange={(event) => editDraft("username", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, username: true }))} autoComplete="username" maxLength={256} error={fieldError("username")} />
         <Field label="Password" name="password" type="password" value={draft.password} onChange={(event) => editDraft("password", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, password: true }))} autoComplete="new-password" maxLength={1024} placeholder="Enter new password" error={fieldError("password")} />
         <div className="grid gap-2"><Label htmlFor="smtp-encryption">Connection security</Label><PlatformSelect id="smtp-encryption" value="STARTTLS" disabled><option value="STARTTLS">STARTTLS (required)</option></PlatformSelect></div>
-      </div><p className="text-xs text-muted-foreground">Your password is never displayed. Enter a new password when saving.</p></section>
+      </div><p className="text-xs text-muted-foreground">Saved server and sender details load automatically. Credentials stay protected; re-enter the SMTP username and password when saving.</p></section>
       <section aria-labelledby="smtp-sender-heading" className="space-y-4 border-t pt-5"><h2 id="smtp-sender-heading" className="text-base font-semibold">Sender Information</h2><div className="grid gap-4 sm:grid-cols-2">
         <Field label="Sender Name" name="sender_name" value={draft.senderName} onChange={(event) => editDraft("senderName", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, senderName: true }))} maxLength={200} error={fieldError("senderName")} />
         <Field label="Sender Email" name="sender_address" type="email" value={draft.senderAddress} onChange={(event) => editDraft("senderAddress", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, senderAddress: true }))} maxLength={254} autoCapitalize="none" spellCheck={false} placeholder="no-reply@example.com" error={fieldError("senderAddress")} />
@@ -165,6 +183,7 @@ export function SMTPConfiguration() {
       <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-5">{changed ? <span role="status" className="mr-auto text-sm text-muted-foreground">Unsaved changes</span> : selected && <span className="mr-auto text-xs text-muted-foreground">Tests use the selected saved settings.</span>}<Button type="button" variant="outline" onClick={cancelDraft} disabled={busy || !changed}>Cancel</Button><Button type="button" variant="outline" disabled={busy || changed || status.kind !== "ready" || !canTest} aria-busy={busy} onClick={() => void command()}>{busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : <PlugIcon aria-hidden="true" />}Send Test Email</Button><Button type="submit" disabled={busy || !canSave || !generation || !csrfToken || status.kind === "loading" || status.kind === "error"} aria-busy={busy}>{busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : <SaveIcon aria-hidden="true" />}{busy ? "Working…" : "Save Changes"}</Button></div>
     </form>
     <section aria-label="SMTP connection status" className="mt-6 max-w-4xl border-t pt-4 text-sm"><span className="font-medium">Connection status: </span><span className="text-muted-foreground">{status.kind === "loading" ? "Checking…" : status.kind === "error" ? "Could not load" : status.kind === "unconfigured" ? "No SMTP saved" : "Default SMTP active"}</span>{status.kind === "error" && <Button type="button" variant="link" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button>}{status.kind === "ready" && <p className="mt-1 text-xs text-muted-foreground">{status.value.configuration.sender_address} · {status.value.configuration.host}:{status.value.configuration.port} · {status.value.activated_at ? utc(status.value.activated_at) : "activation time unavailable"}</p>}</section>
+    {historyError && !history && <p role="alert" className="mt-4 text-sm text-muted-foreground">Previous settings could not be loaded. The current SMTP settings are shown above when available.</p>}
     {history ? <details className="mt-5" aria-label="SMTP configuration history"><summary className="cursor-pointer text-sm font-medium">Previous settings ({history.versions.length}{history.next_cursor ? "+" : ""})</summary><section aria-label="SMTP version history" className="mt-3 space-y-3">{history.versions.length === 0 ? <p className="text-sm text-muted-foreground">No previous settings.</p> : <ul className="space-y-2">{history.versions.map((row) => <li key={row.id} className="rounded-lg border bg-card p-3 text-sm"><div className="flex flex-wrap justify-between gap-2"><p>{versionStates[row.state]} · {row.test_status === "NOT_TESTED" ? "Not tested" : row.test_status === "PASSED" ? "Connection test passed" : "Connection test failed"}</p><span>{utc(row.created_at)}</span></div><p className="mt-1 break-all text-muted-foreground">{row.configuration.host}:{row.configuration.port} · {row.configuration.sender_address}</p>{row.test_code ? <p>{row.test_status === "PASSED" ? "Connection test completed." : "Connection test did not pass. Check the settings before testing again."}</p> : null}</li>)}</ul>}{historyError ? <p role="alert" className="text-sm text-destructive">Could not load more settings.</p> : null}{history.next_cursor ? <Button type="button" variant="outline" disabled={busy} onClick={() => void more(history.next_cursor!)}>Load more</Button> : null}</section></details> : null}
   </main>;
 }
