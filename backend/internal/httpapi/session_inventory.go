@@ -46,8 +46,13 @@ func (h *SessionInventoryHandler) Get(c fiber.Ctx) error {
 	for i, row := range result.Sessions {
 		items[i] = fiber.Map{"session_id": uuid.UUID(row.SessionID).String(), "rotated_from_session_id": optionalIdentityUUID(row.RotatedFromSessionID), "current": row.Current, "created_at": row.CreatedAt.Format(time.RFC3339Nano), "last_seen_at": row.LastSeenAt.Format(time.RFC3339Nano), "idle_expires_at": row.IdleExpiresAt.Format(time.RFC3339Nano), "absolute_expires_at": row.AbsoluteExpiresAt.Format(time.RFC3339Nano)}
 	}
+	// Empty collections must remain JSON arrays for strict session clients.
+	blockers := result.Blockers
+	if blockers == nil {
+		blockers = []string{}
+	}
 	c.Set("Cache-Control", "private, no-store")
-	return c.JSON(fiber.Map{"data": fiber.Map{"active_session_count": result.ActiveSessionCount, "other_session_count": result.OtherSessionCount, "sessions": items, "current_session_logout_available": result.CurrentSessionLogoutAvailable, "other_session_revocation_available": result.OtherSessionRevocationAvailable, "revoke_all_available": result.RevokeAllAvailable, "revocation_policy_configured": result.RevocationPolicyConfigured, "device_metadata_collected": false, "blockers": result.Blockers, "observed_at": result.ObservedAt.Format(time.RFC3339Nano)}, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
+	return c.JSON(fiber.Map{"data": fiber.Map{"active_session_count": result.ActiveSessionCount, "other_session_count": result.OtherSessionCount, "sessions": items, "current_session_logout_available": result.CurrentSessionLogoutAvailable, "other_session_revocation_available": result.OtherSessionRevocationAvailable, "revoke_all_available": result.RevokeAllAvailable, "revocation_policy_configured": result.RevocationPolicyConfigured, "device_metadata_collected": false, "blockers": blockers, "observed_at": result.ObservedAt.Format(time.RFC3339Nano)}, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
 }
 func optionalIdentityUUID(id identityapp.ID) any {
 	if id.IsZero() {
