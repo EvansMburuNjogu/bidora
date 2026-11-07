@@ -116,7 +116,7 @@ func (q *Queries) GetDeliveryAttemptResult(ctx context.Context, attemptID pgtype
 const getNotification = `-- name: GetNotification :one
 SELECT id,tenant_id,actor_id,recipient_user_id,category,template_key,template_version,source_type,source_id,
  recipient_fingerprint,content_fingerprint,fingerprint_key_version,idempotency_key_hash,correlation_id,created_at
-FROM notification.notifications WHERE id=$1 FOR UPDATE
+FROM notification.notifications WHERE id=$1
 `
 
 func (q *Queries) GetNotification(ctx context.Context, id pgtype.UUID) (NotificationNotification, error) {
@@ -345,4 +345,14 @@ func (q *Queries) IsActiveSMTPVersion(ctx context.Context, versionID pgtype.UUID
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const lockNotificationForDelivery = `-- name: LockNotificationForDelivery :exec
+SELECT pg_advisory_xact_lock(hashtextextended('bidora:notification:' || $1::uuid::text, 0))
+`
+
+// Serialize starts/results without UPDATE privileges on append-only evidence.
+func (q *Queries) LockNotificationForDelivery(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, lockNotificationForDelivery, id)
+	return err
 }

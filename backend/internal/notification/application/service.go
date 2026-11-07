@@ -123,15 +123,25 @@ func (s *Service) Prepare(ctx context.Context, in PrepareInput) (result domain.N
 	return result, nil
 }
 
-func (s *Service) StartAttempt(ctx context.Context, in StartAttemptInput) (result domain.Attempt, err error) {
+func (s *Service) StartAttempt(ctx context.Context, in StartAttemptInput) (domain.Attempt, error) {
+	attempt, _, err := s.startAttempt(ctx, in)
+	return attempt, err
+}
+
+// StartAttemptForDelivery distinguishes fresh sends from historical evidence.
+func (s *Service) StartAttemptForDelivery(ctx context.Context, in StartAttemptInput) (domain.Attempt, bool, error) {
+	return s.startAttempt(ctx, in)
+}
+
+func (s *Service) startAttempt(ctx context.Context, in StartAttemptInput) (result domain.Attempt, fresh bool, err error) {
 	at := s.clock.Now().UTC()
 	candidate := domain.Attempt{NotificationID: in.NotificationID, SMTPVersionID: in.SMTPVersionID, CorrelationID: in.CorrelationID, Number: in.Number, StartedAt: at}
 	if ctx == nil || candidate.NotificationID.IsZero() || candidate.SMTPVersionID.IsZero() || candidate.CorrelationID.IsZero() || candidate.Number < 1 || candidate.Number > 100 {
-		return result, ErrInvalid
+		return result, false, ErrInvalid
 	}
 	ids, err := s.newIDs(3)
 	if err != nil {
-		return result, err
+		return result, false, err
 	}
 	candidate.ID = ids[0]
 	err = s.uow.WithinNotification(ctx, func(txCtx context.Context, tx Tx) error {
@@ -173,13 +183,14 @@ func (s *Service) StartAttempt(ctx context.Context, in StartAttemptInput) (resul
 		e = tx.AppendEvidence(txCtx, Evidence{AuditID: ids[1], OutboxID: ids[2], TenantID: n.TenantID, ActorID: n.ActorID, CorrelationID: in.CorrelationID, NotificationID: n.ID, AttemptID: candidate.ID, Action: "NotificationDeliveryStarted", EventType: "notification.delivery.started.v1", Category: n.Category, AggregateVersion: int64(in.Number) * 2, TemplateVersion: n.TemplateVersion, AttemptNumber: in.Number, OccurredAt: at})
 		if e == nil {
 			result = candidate
+			fresh = true
 		}
 		return e
 	})
 	if err != nil {
-		return domain.Attempt{}, mapError(err)
+		return domain.Attempt{}, false, mapError(err)
 	}
-	return result, nil
+	return result, fresh, nil
 }
 
 func (s *Service) FinishAttempt(ctx context.Context, in FinishAttemptInput) (result domain.Result, err error) {

@@ -643,7 +643,21 @@
           "description": "`postAuthPasswordRecoveryReset` — source: `api/openapi/drafts/password-recovery.json`",
           "name": "Consume a single-use recovery token and reset an existing password credential",
           "request": {
-            "header": [],
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"token\": \"{{recovery_token}}\",\n  \"new_password\": \"{{new_password}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "method": "POST",
             "url": {
               "host": [

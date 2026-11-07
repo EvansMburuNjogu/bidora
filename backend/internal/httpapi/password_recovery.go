@@ -87,14 +87,23 @@ func (h *PasswordRecoveryHandler) Reset(c fiber.Ctx) error {
 		return fail(c, 403, "BROWSER_REQUEST_FORBIDDEN", "The browser request was rejected.", false)
 	}
 	var body struct {
-		Token       string `json:"token"`
-		NewPassword string `json:"new_password"`
+		UserID      *string `json:"user_id"`
+		Token       string  `json:"token"`
+		NewPassword string  `json:"new_password"`
 	}
 	if err := decodeRecoveryJSON(c, &body); err != nil {
 		return err
 	}
 	if c.Response().StatusCode() >= 400 {
 		return nil
+	}
+	var userID identityapp.ID
+	if body.UserID != nil {
+		var valid bool
+		userID, valid = parseIdentityID(*body.UserID)
+		if !valid {
+			return fail(c, 400, "PASSWORD_RECOVERY_RESET_INVALID", "The recovery request is invalid.", false)
+		}
 	}
 	password := []byte(body.NewPassword)
 	defer func() {
@@ -106,7 +115,7 @@ func (h *PasswordRecoveryHandler) Reset(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	if err := h.reset.Reset(c.Context(), identityapp.PasswordRecoveryResetInput{Token: body.Token, NewPassword: password, CorrelationID: correlation}); err != nil {
+	if err := h.reset.Reset(c.Context(), identityapp.PasswordRecoveryResetInput{UserID: userID, Token: body.Token, NewPassword: password, CorrelationID: correlation}); err != nil {
 		return passwordRecoveryFailure(c, err)
 	}
 	return c.SendStatus(204)

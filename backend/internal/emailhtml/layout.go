@@ -11,6 +11,7 @@ import (
 
 type Content struct {
 	Brand, Title, Body, Code, Expiry, Origin, Key, SupportEmail string
+	RecoveryUserID                                              string
 }
 
 type Action struct{ Label, URL string }
@@ -58,7 +59,7 @@ func Render(c Content) string {
 		LogoURL string
 		FontURL string
 		Safety  string
-	}{c, strings.Split(c.Body, "\n"), QuickAction(c.Origin, c.Key), logoURL, fontURL, SafetyNote(c.Key)}
+	}{c, strings.Split(c.Body, "\n"), contentAction(c), logoURL, fontURL, SafetyNote(c.Key)}
 	var out bytes.Buffer
 	if err := layout.Execute(&out, data); err != nil {
 		return ""

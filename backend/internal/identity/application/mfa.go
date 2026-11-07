@@ -141,6 +141,17 @@ type EmailLoginDeliveryEvidence interface {
 type EmailLoginCodeDelivery interface {
 	DeliverLoginCode(context.Context, email.Address, string, time.Time) error
 }
+type EmailLoginDeliveryRequest struct {
+	UserID, TransactionID ID
+	Recipient             email.Address
+	Code                  string
+	ExpiresAt             time.Time
+}
+
+type EvidencedEmailLoginDelivery interface {
+	DeliverLoginCodeWithEvidence(context.Context, EmailLoginDeliveryRequest) error
+}
+
 type PlatformEmailLoginPolicy interface {
 	PlatformEmailLoginRequired(context.Context, ID, int64) (bool, error)
 }
@@ -513,7 +524,12 @@ func (s *MFAService) beginEmailLogin(ctx context.Context, user ID, epoch int64, 
 	if delivery == nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", nil)
 	}
-	if err = delivery.DeliverLoginCode(ctx, recipient, code, expiresAt); err != nil {
+	if recorded, ok := delivery.(EvidencedEmailLoginDelivery); ok {
+		err = recorded.DeliverLoginCodeWithEvidence(ctx, EmailLoginDeliveryRequest{UserID: user, TransactionID: transactionID, Recipient: recipient, Code: code, ExpiresAt: expiresAt})
+	} else {
+		err = delivery.DeliverLoginCode(ctx, recipient, code, expiresAt)
+	}
+	if err != nil {
 		return MFALoginGateResult{}, safe("mfa_unavailable", err)
 	}
 	if recorder, ok := s.store.(EmailLoginDeliveryEvidence); ok {

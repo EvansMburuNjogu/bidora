@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"errors"
+	"time"
 
 	app "bidora/backend/internal/notification/application"
 	"bidora/backend/internal/notification/domain"
@@ -13,7 +14,7 @@ import (
 
 type EvidenceService interface {
 	Prepare(context.Context, app.PrepareInput) (domain.Notification, error)
-	StartAttempt(context.Context, app.StartAttemptInput) (domain.Attempt, error)
+	StartAttemptForDelivery(context.Context, app.StartAttemptInput) (domain.Attempt, bool, error)
 	FinishAttempt(context.Context, app.FinishAttemptInput) (domain.Result, error)
 }
 
@@ -67,9 +68,12 @@ func (r *Recorder) Send(ctx context.Context, request Request, send func(context.
 	if err != nil {
 		return err
 	}
-	attempt, err := r.service.StartAttempt(ctx, app.StartAttemptInput{NotificationID: notification.ID, SMTPVersionID: request.SMTPVersionID, CorrelationID: request.CorrelationID, Number: request.AttemptNumber})
+	attempt, fresh, err := r.service.StartAttemptForDelivery(ctx, app.StartAttemptInput{NotificationID: notification.ID, SMTPVersionID: request.SMTPVersionID, CorrelationID: request.CorrelationID, Number: request.AttemptNumber})
 	if err != nil {
 		return err
+	}
+	if !fresh {
+		return app.ErrConflict // Replayed evidence never authorizes another SMTP send.
 	}
 	sendErr := send(ctx)
 	finish := app.FinishAttemptInput{AttemptID: attempt.ID, CorrelationID: request.CorrelationID, Disposition: domain.SMTPAccepted}
@@ -77,7 +81,11 @@ func (r *Recorder) Send(ctx context.Context, request Request, send func(context.
 		finish.Disposition = domain.Ambiguous
 		finish.FailureCode = "PROVIDER_OUTCOME_UNKNOWN"
 	}
-	_, evidenceErr := r.service.FinishAttempt(ctx, finish)
+	// Preserve the known handoff outcome even if the browser disconnects during
+	// SMTP. Keep audit context, but bound this independent evidence commit.
+	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	_, evidenceErr := r.service.FinishAttempt(finishCtx, finish)
 	if evidenceErr != nil {
 		return errors.Join(sendErr, evidenceErr)
 	}

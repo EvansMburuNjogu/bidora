@@ -13,7 +13,11 @@ VALUES(sqlc.arg(id),sqlc.narg(tenant_id),sqlc.narg(actor_id),sqlc.narg(recipient
 -- name: GetNotification :one
 SELECT id,tenant_id,actor_id,recipient_user_id,category,template_key,template_version,source_type,source_id,
  recipient_fingerprint,content_fingerprint,fingerprint_key_version,idempotency_key_hash,correlation_id,created_at
-FROM notification.notifications WHERE id=sqlc.arg(id) FOR UPDATE;
+FROM notification.notifications WHERE id=sqlc.arg(id);
+
+-- name: LockNotificationForDelivery :exec
+-- Serialize starts/results without UPDATE privileges on append-only evidence.
+SELECT pg_advisory_xact_lock(hashtextextended('bidora:notification:' || sqlc.arg(id)::uuid::text, 0));
 
 -- name: GetDeliveryAttemptProgress :one
 SELECT count(a.id)::integer AS attempt_count,

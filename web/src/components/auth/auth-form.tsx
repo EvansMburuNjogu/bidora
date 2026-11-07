@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRightIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,15 @@ const config: Record<Mode, { submit: string }> = {
   "login-code": { submit: "Verify & Continue" },
 };
 
-export function AuthForm({ mode }: { mode: Mode }) {
+export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?: string }) {
+  const recoveryTokenInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (mode !== "password-reset" || !recoveryUserId) return;
+    const code = new URLSearchParams(window.location.hash.slice(1)).get("code") ?? "";
+    if (isEmailCode(code) && recoveryTokenInput.current) recoveryTokenInput.current.value = code;
+    // Never retain the credential in browser history or send it to the server.
+    if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+  }, [mode, recoveryUserId]);
   const router = useRouter();
   const passwordPolicy = usePasswordPolicy(mode === "register" || mode === "password-reset");
   const { hint, setHint } = useLoginChallenge();
@@ -126,7 +134,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           response = await submitAuth("password-recovery", { email });
           break;
         case "password-reset":
-          response = await submitAuth("password-reset", { token, new_password: password });
+          response = await submitAuth("password-reset", { token, new_password: password, ...(recoveryUserId ? { user_id: recoveryUserId } : {}) });
           break;
         case "verify-email":
           response = await submitAuth("verify-email", { token });
@@ -325,6 +333,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               <FieldLabel htmlFor={`${mode}-token`}>{mode === "password-reset" ? "Recovery code" : "Verification code"}</FieldLabel>
               <Input
                 id={`${mode}-token`}
+                ref={recoveryTokenInput}
                 name="token"
                 type="text"
                 autoComplete="one-time-code"
@@ -336,7 +345,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 aria-invalid={fieldError?.field === "token" || undefined}
                 onChange={() => fieldError?.field === "token" && setFieldError(null)}
               />
-              <FieldDescription>Copy and paste the full code exactly as it appears in the email.</FieldDescription>
+              <FieldDescription>{recoveryUserId ? "Your recovery code is filled in from the email link." : "Copy and paste the full code exactly as it appears in the email."}</FieldDescription>
               {fieldError?.field === "token" && <FieldError>{fieldError.message}</FieldError>}
             </Field>
           )}

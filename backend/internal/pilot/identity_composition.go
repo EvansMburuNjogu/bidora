@@ -45,26 +45,27 @@ import (
 )
 
 type identityComposition struct {
-	google           *settingsapp.GoogleService
-	googleTransport  *googleoidc.Transport
-	templates        *notificationapp.TemplateService
-	templateRenderer notificationapp.TemplateRenderer
-	hasher           *password.Hasher
-	deriver          *attempt.Deriver
-	protection       *browser.Protection
-	ipResolver       *browser.ClientIPResolver
-	passwordReader   *identitypersistence.PasswordReader
-	authenticator    *identityapp.Authenticator
-	rehasher         *identitypersistence.PasswordRehasher
-	loginCommitter   *identitypersistence.LoginCommitter
-	mfaStore         *identitypersistence.MFAStore
-	mfaService       *identityapp.MFAService
-	login            *httpapi.LoginHandler
-	registration     *httpapi.RegistrationHandler
-	verification     *httpapi.EmailVerificationHandler
-	resend           *httpapi.EmailVerificationResendHandler
-	recovery         *httpapi.PasswordRecoveryHandler
-	delivery         smtpDelivery
+	google                   *settingsapp.GoogleService
+	googleTransport          *googleoidc.Transport
+	templates                *notificationapp.TemplateService
+	templateRenderer         notificationapp.TemplateRenderer
+	hasher                   *password.Hasher
+	deriver                  *attempt.Deriver
+	protection               *browser.Protection
+	ipResolver               *browser.ClientIPResolver
+	passwordReader           *identitypersistence.PasswordReader
+	authenticator            *identityapp.Authenticator
+	rehasher                 *identitypersistence.PasswordRehasher
+	loginCommitter           *identitypersistence.LoginCommitter
+	mfaStore                 *identitypersistence.MFAStore
+	mfaService               *identityapp.MFAService
+	login                    *httpapi.LoginHandler
+	registration             *httpapi.RegistrationHandler
+	verification             *httpapi.EmailVerificationHandler
+	resend                   *httpapi.EmailVerificationResendHandler
+	recovery                 *httpapi.PasswordRecoveryHandler
+	delivery                 smtpDelivery
+	tenantInvitationDelivery authzapp.InvitationDelivery
 }
 type smtpDelivery interface {
 	identityapp.EmailLoginAvailability
@@ -174,7 +175,11 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 		}
 		return result, nil
 	}
+	if len(config.NotificationFingerprintKey) != 32 || config.NotificationFingerprintKeyVersion < 1 {
+		return nil, errors.New("notification_evidence_configuration_required")
+	}
 	delivery = &configuredSMTPDelivery{base: delivery, renderer: result.templateRenderer}
+	var loginDelivery identityapp.EmailLoginCodeDelivery = delivery
 	var verificationDelivery identityapp.EmailVerificationDelivery = delivery
 	var recoveryDelivery identityapp.PasswordRecoveryDelivery = delivery
 	if len(config.NotificationFingerprintKey) != 0 {
@@ -189,13 +194,18 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 		if err = recorded.EnableTemplates(result.templateRenderer); err != nil {
 			return nil, err
 		}
-		verificationDelivery, recoveryDelivery = recorded, recorded
+		verificationDelivery, recoveryDelivery, loginDelivery = recorded, recorded, recorded
+		tenantRecorded, _, tenantErr := BuildInvitationNotificationDelivery(control, vault, config.NotificationFingerprintKey, config.NotificationFingerprintKeyVersion)
+		if tenantErr != nil {
+			return nil, tenantErr
+		}
+		result.tenantInvitationDelivery = tenantRecorded
 	}
-	if err = mfaService.EnableEmailLogin(delivery, config.EmailLoginHMACSecret); err != nil {
+	if err = mfaService.EnableEmailLogin(loginDelivery, config.EmailLoginHMACSecret); err != nil {
 		return nil, errors.New("pilot_runtime_invalid")
 	}
 	mfaStore.EnablePlatformEmailLogin()
-	if err = mfaService.EnablePlatformEmailLogin(mfaStore, delivery); err != nil {
+	if err = mfaService.EnablePlatformEmailLogin(mfaStore, loginDelivery); err != nil {
 		return nil, err
 	}
 	resendLimits, err := loginresendredis.New(redisClient, config.RedisPrefix)

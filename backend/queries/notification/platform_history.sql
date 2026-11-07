@@ -1,14 +1,14 @@
 -- name: ListPlatformNotificationAttempts :many
-SELECT a.id, n.category, a.attempt_number, a.started_at,
+SELECT COALESCE(a.id,n.id)::uuid AS id, n.category, COALESCE(a.attempt_number,0)::integer AS attempt_number,
+ COALESCE(a.started_at,n.created_at)::timestamptz AS started_at,
  r.id AS result_id, r.correlation_id AS result_correlation_id, r.disposition, r.failure_code, r.finished_at
-FROM notification.delivery_attempts a
-JOIN notification.notifications n ON n.id=a.notification_id
+FROM notification.notifications n
+LEFT JOIN notification.delivery_attempts a ON a.notification_id=n.id
 LEFT JOIN notification.delivery_attempt_results r ON r.attempt_id=a.id
-WHERE n.tenant_id IS NULL
- AND n.category IN ('PLATFORM_INVITATION','PLATFORM_SESSION_REVOCATION','PLATFORM_IDENTITY_STATE_CHANGE','PLATFORM_ROLE_CHANGE','PLATFORM_TEMPLATE_TEST')
- AND n.source_type=n.category
- AND (sqlc.narg(cursor_at)::timestamptz IS NULL OR (a.started_at,a.id)<(sqlc.narg(cursor_at)::timestamptz,sqlc.narg(cursor_id)::uuid))
-ORDER BY a.started_at DESC,a.id DESC
+-- Platform-authorized metadata only: no message body, token or recipient data.
+WHERE (sqlc.narg(cursor_at)::timestamptz IS NULL OR
+ (COALESCE(a.started_at,n.created_at),COALESCE(a.id,n.id))<(sqlc.narg(cursor_at)::timestamptz,sqlc.narg(cursor_id)::uuid))
+ORDER BY COALESCE(a.started_at,n.created_at) DESC,COALESCE(a.id,n.id) DESC
 LIMIT sqlc.arg(page_limit);
 
 -- name: InsertPlatformNotificationHistoryReadAudit :exec

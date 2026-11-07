@@ -35,10 +35,13 @@ try {
  assert.equal(await page.getByRole("heading",{name:"Check your email",exact:true}).count(),1);
  assert.equal(await page.locator('input[type="password"]').count(),0);
  assert.equal(await page.locator('input[name="token"]').count(),0);
- await page.locator('a[href="/reset-password"]').click();
- await page.waitForURL("**/reset-password");
+ assert.equal(await page.getByRole("link",{name:"Enter recovery code",exact:true}).count(),0);
  const token = "a".repeat(42) + "A";
- await page.getByLabel("Recovery code",{exact:true}).fill(token);
+ const userId = "019c0000-0000-4000-8000-000000000041";
+ await page.goto(origin+"/recovery_email/"+userId+"#code="+token);
+ await page.getByLabel("Recovery code",{exact:true}).waitFor();
+ await page.waitForFunction(expected => document.querySelector('input[name="token"]')?.value === expected, token);
+ assert.equal(new URL(page.url()).hash, "");
  await page.getByLabel("New password",{exact:true}).fill("A new secure passphrase");
  await page.getByLabel("Confirm new password",{exact:true}).fill("A different passphrase");
  await page.getByRole("button",{name:"Reset password",exact:true}).click();
@@ -47,10 +50,10 @@ try {
  await page.getByLabel("Confirm new password",{exact:true}).fill("A new secure passphrase");
  await page.getByRole("button",{name:"Reset password",exact:true}).click();
  await page.getByText(/The recovery code or password requirements are invalid/).waitFor();
- assert.deepEqual(resets,[{token,new_password:"A new secure passphrase"}]);
+ assert.deepEqual(resets,[{token,new_password:"A new secure passphrase",user_id:userId}]);
  resetStatus=204;
  await page.getByRole("button",{name:"Reset password",exact:true}).click();
  await page.waitForURL("**/login");
  assert.equal(resets.length,2);
- console.log("PASS: recovery rate limits, reset navigation, password confirmation, invalid code and reset success (intercepted APIs only)");
+ console.log("PASS: recovery rate limits, secure link autofill/fragment removal, password confirmation, invalid code and reset success (intercepted APIs only)");
 } finally { await browser.close(); }

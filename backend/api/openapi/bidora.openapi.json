@@ -10134,9 +10134,39 @@
     },
     "/v1/auth/password-recovery/reset": {
       "post": {
-        "description": "Successful reset advances credential/auth epoch and revokes all sessions without issuing a replacement session.",
+        "description": "The recovery email links to /recovery_email/{user_id} with the single-use token in the URL fragment. The browser submits it in this JSON body, never in server URLs. When supplied, user_id must match the token owner. Successful reset advances credential/auth epoch and revokes all sessions without issuing a replacement session.",
         "operationId": "postAuthPasswordRecoveryReset",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "new_password": {
+                    "description": "Must satisfy current password policy.",
+                    "type": "string"
+                  },
+                  "token": {
+                    "maxLength": 43,
+                    "minLength": 43,
+                    "type": "string"
+                  },
+                  "user_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token",
+                  "new_password"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "description": "Password reset; all sessions revoked"
@@ -14758,18 +14788,13 @@
                         "additionalProperties": false,
                         "properties": {
                           "attempt_number": {
+                            "description": "Zero means prepared with no delivery attempt; otherwise the delivery attempt number.",
                             "maximum": 100,
-                            "minimum": 1,
+                            "minimum": 0,
                             "type": "integer"
                           },
                           "category": {
-                            "enum": [
-                              "PLATFORM_INVITATION",
-                              "PLATFORM_SESSION_REVOCATION",
-                              "PLATFORM_IDENTITY_STATE_CHANGE",
-                              "PLATFORM_ROLE_CHANGE",
-                              "PLATFORM_TEMPLATE_TEST"
-                            ],
+                            "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
                             "type": "string"
                           },
                           "disposition": {

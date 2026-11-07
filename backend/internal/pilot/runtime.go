@@ -311,12 +311,11 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	var invitationDirectoryHandler *httpapi.InvitationDirectoryHandler
 	var invitationCancellationHandler *httpapi.InvitationCancellationHandler
 	if identity.delivery != nil {
-		delivery := identity.delivery
 		invitationIssuer, buildErr := authzpersistence.NewInvitationIssuer(deps.Control)
 		if buildErr != nil {
 			return fail(buildErr)
 		}
-		invitationIssue, buildErr := authzapp.NewInvitationIssueService(invitationIssuer, invitationDeliveryAdapter{smtp: delivery}, authzapp.SecureInvitationTokenGenerator{}, authorizationIDs{}, systemClock{})
+		invitationIssue, buildErr := authzapp.NewInvitationIssueService(invitationIssuer, identity.tenantInvitationDelivery, authzapp.SecureInvitationTokenGenerator{}, authorizationIDs{}, systemClock{})
 		if buildErr != nil {
 			return fail(buildErr)
 		}

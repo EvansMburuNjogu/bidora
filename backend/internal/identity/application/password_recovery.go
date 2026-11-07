@@ -158,12 +158,14 @@ func (s *PublicPasswordRecoveryService) Request(ctx context.Context, in PublicPa
 }
 
 type PasswordRecoveryResetInput struct {
+	UserID        ID // Optional legacy compatibility; token remains mandatory authority.
 	Token         string
 	NewPassword   []byte
 	CorrelationID ID
 }
 type PasswordRecoveryResetCommit struct {
 	AuditID, CorrelationID ID
+	UserID                 ID
 	TokenHash              [32]byte
 	PasswordPHC            string
 	ResetAt                time.Time
@@ -197,7 +199,7 @@ func (s *PasswordRecoveryResetService) Reset(ctx context.Context, in PasswordRec
 	if err != nil {
 		return safe("password_recovery_reset_unavailable", err)
 	}
-	err = s.committer.CommitPasswordRecoveryReset(ctx, PasswordRecoveryResetCommit{AuditID: auditID, CorrelationID: in.CorrelationID, TokenHash: hash, PasswordPHC: phc, ResetAt: s.clock.Now().UTC()})
+	err = s.committer.CommitPasswordRecoveryReset(ctx, PasswordRecoveryResetCommit{AuditID: auditID, CorrelationID: in.CorrelationID, UserID: in.UserID, TokenHash: hash, PasswordPHC: phc, ResetAt: s.clock.Now().UTC()})
 	if errors.Is(err, ErrPasswordRecoveryInvalid) {
 		return safe("password_recovery_reset_invalid", nil)
 	}

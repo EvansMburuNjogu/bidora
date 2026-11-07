@@ -15,13 +15,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-type recoveryHTTPFake struct{ requestCalls, resetCalls int }
+type recoveryHTTPFake struct {
+	requestCalls, resetCalls int
+	lastReset                identityapp.PasswordRecoveryResetInput
+}
 
 func (f *recoveryHTTPFake) Request(context.Context, identityapp.PublicPasswordRecoveryInput) error {
 	f.requestCalls++
 	return nil
 }
-func (f *recoveryHTTPFake) Reset(context.Context, identityapp.PasswordRecoveryResetInput) error {
+func (f *recoveryHTTPFake) Reset(_ context.Context, in identityapp.PasswordRecoveryResetInput) error {
+	f.lastReset = in
 	f.resetCalls++
 	return nil
 }

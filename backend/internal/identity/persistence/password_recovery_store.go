@@ -58,6 +58,9 @@ func (s *PasswordRecoveryStore) CommitPasswordRecoveryReset(ctx context.Context,
 		} else if err != nil {
 			return err
 		}
+		if !c.UserID.IsZero() && c.UserID != identityapp.ID(row.UserID.Bytes) {
+			return identityapp.ErrPasswordRecoveryInvalid
+		}
 		affected, err := q.ResetPasswordCredential(txCtx, identitysql.ResetPasswordCredentialParams{PasswordPhc: c.PasswordPHC, At: identityTime(c.ResetAt), UserID: row.UserID, ExpectedCredentialVersion: row.CredentialVersion})
 		if err != nil || affected != 1 {
 			return identityapp.ErrPasswordRecoveryInvalid

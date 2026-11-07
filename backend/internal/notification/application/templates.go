@@ -357,7 +357,7 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		}
 	}
 	if t.Key == "identity.password_recovery" {
-		instructions := "Enter this one-time code, then set and confirm your new password."
+		instructions := "Open the secure one-time recovery link below, then set and confirm your new password."
 		body += "\n\n" + instructions
 		if seed {
 			displayBody = instructions
@@ -366,7 +366,11 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		}
 	}
 	body += "\n\n" + emailhtml.SafetyNote(t.Key)
-	if action := emailhtml.QuickAction(values["web_origin"], t.Key); action.URL != "" {
+	action := emailhtml.QuickAction(values["web_origin"], t.Key)
+	if t.Key == "identity.password_recovery" && values["user_id"] != "" {
+		action = emailhtml.RecoveryAction(values["web_origin"], values["user_id"], values["token"])
+	}
+	if action.URL != "" {
 		body += "\n\n" + action.Label + ": " + action.URL
 	}
 	code := values["code"]
@@ -376,7 +380,7 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 	if code != "" {
 		displayBody = strings.ReplaceAll(displayBody, code, "the code below")
 	}
-	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key, SupportEmail: values["support_email"]}), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
+	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key, SupportEmail: values["support_email"], RecoveryUserID: values["user_id"]}), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
 }
 func (s *TemplateService) Render(ctx context.Context, key string, values map[string]string) (out RenderedTemplate, err error) {
 	if s == nil || ctx == nil || !SupportedTemplate(key) {

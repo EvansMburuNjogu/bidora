@@ -54,6 +54,11 @@ func (t *tx) GetNotificationByIdempotencyHash(ctx context.Context, hash [32]byte
 	return notification(row), true, nil
 }
 func (t *tx) GetNotification(ctx context.Context, id domain.ID) (domain.Notification, bool, error) {
+	// Use a separate statement so READ COMMITTED observes the previous holder's
+	// committed attempt/result after waiting. Row locks require UPDATE rights.
+	if err := t.q.LockNotificationForDelivery(ctx, uuid(id)); err != nil {
+		return domain.Notification{}, false, err
+	}
 	row, err := t.q.GetNotification(ctx, uuid(id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Notification{}, false, nil

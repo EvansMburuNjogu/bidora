@@ -4,7 +4,7 @@ export interface AuthPayloads {
   login: { email: string; password: string };
   register: RegistrationRequest;
   "password-recovery": { email: string };
-  "password-reset": { token: string; new_password: string };
+  "password-reset": { token: string; new_password: string; user_id?: string };
   "verify-email": { token: string };
   "verification-resend": { email: string };
   "login-code": { code: string; method: "EMAIL_OTP" };

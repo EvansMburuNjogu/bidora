@@ -34,7 +34,10 @@ type Querier interface {
 	IsActiveSMTPVersion(ctx context.Context, versionID pgtype.UUID) (bool, error)
 	ListNotificationTemplateVersions(ctx context.Context, templateKey string) ([]ListNotificationTemplateVersionsRow, error)
 	ListNotificationTemplates(ctx context.Context) ([]NotificationTemplate, error)
+	// Platform-authorized metadata only: no message body, token or recipient data.
 	ListPlatformNotificationAttempts(ctx context.Context, arg ListPlatformNotificationAttemptsParams) ([]ListPlatformNotificationAttemptsRow, error)
+	// Serialize starts/results without UPDATE privileges on append-only evidence.
+	LockNotificationForDelivery(ctx context.Context, id pgtype.UUID) error
 	LockNotificationTemplate(ctx context.Context, templateKey string) (NotificationTemplate, error)
 	UpdateNotificationTemplate(ctx context.Context, arg UpdateNotificationTemplateParams) (int64, error)
 }

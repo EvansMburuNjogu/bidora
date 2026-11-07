@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"time"
 
 	app "bidora/backend/internal/notification/application"
@@ -57,7 +58,7 @@ func (t *platformHistoryTx) ListPlatformAttempts(ctx context.Context, limit int3
 	}
 	out := make([]app.AttemptHistoryRow, 0, len(rows))
 	for _, row := range rows {
-		if !row.ID.Valid || row.AttemptNumber < 1 || row.AttemptNumber > 100 || !row.StartedAt.Valid || row.StartedAt.Time.IsZero() || !platformNotificationCategory(row.Category) {
+		if !row.ID.Valid || row.AttemptNumber < 0 || row.AttemptNumber > 100 || !row.StartedAt.Valid || row.StartedAt.Time.IsZero() || !platformNotificationCategory(row.Category) {
 			return nil, errors.New("platform_notification_history_row_invalid")
 		}
 		item := app.AttemptHistoryRow{ID: id(row.ID), Category: row.Category, AttemptNumber: row.AttemptNumber, StartedAt: row.StartedAt.Time.UTC()}
@@ -83,13 +84,10 @@ func (t *platformHistoryTx) ListPlatformAttempts(ctx context.Context, limit int3
 	}
 	return out, nil
 }
-func platformNotificationCategory(v string) bool {
-	switch v {
-	case "PLATFORM_INVITATION", "PLATFORM_SESSION_REVOCATION", "PLATFORM_IDENTITY_STATE_CHANGE", "PLATFORM_ROLE_CHANGE", "PLATFORM_TEMPLATE_TEST":
-		return true
-	}
-	return false
-}
+
+var notificationCategoryPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,79}$`)
+
+func platformNotificationCategory(v string) bool { return notificationCategoryPattern.MatchString(v) }
 func (t *platformHistoryTx) AppendHistoryReadAudit(ctx context.Context, auditID domain.ID, subject app.HistorySubject, at time.Time, count int, more bool) error {
 	if auditID.IsZero() || subject.UserID.IsZero() || subject.CorrelationID.IsZero() || at.IsZero() || count < 0 || count > 100 {
 		return errors.New("platform_notification_history_audit_invalid")
