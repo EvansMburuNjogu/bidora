@@ -2,6 +2,7 @@
   "status": "pre-release-reviewed-slice",
   "algorithm": "sha256",
   "files": {
+    "migrations/control/00053_smtp_without_approval.sql": "65bf3f640088aae67fce21b1c79ff547556ca4a1cdb2076345dcf33d13efdbef",
     "migrations/control/00052_dynamic_security_policy.sql": "2d76e65d9805b345a1cbebcd0070cb4519f7ed1d5ec25f0e8b79e39c8e29e386",
     "migrations/control/00051_atomic_request_audit_metadata.sql": "f4d2c18dcb4c243070d7823dae06d8b737b141bd55eb55992710d670433ae5d4",
     "migrations/control/00044_platform_audit_export_projection.sql": "48b66241f54ce79b9d3da54f3edcf8b4ca80d7ebedca80c7bc479a192f7bd628",
