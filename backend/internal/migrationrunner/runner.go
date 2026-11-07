@@ -39,7 +39,7 @@ var plans = map[string]Plan{
 	},
 	"control": {
 		Name:      "control",
-		Target:    50,
+		Target:    51,
 		TableName: "bidora_migrations.goose_control_version",
 		Directory: "control",
 		LockKey:   0x434f4e54,

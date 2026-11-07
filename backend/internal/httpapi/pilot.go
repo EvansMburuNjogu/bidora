@@ -81,6 +81,7 @@ func NewPilot(state *health.State, routes PilotRoutes) (*fiber.App, error) {
 		return nil, errors.New("pilot_http_routes_invalid")
 	}
 	app := newBase(opportunitytransport.CaptureBodyLimit)
+	app.Use("/v1", routes.Browser.CaptureAuditContext)
 	ready := func(c fiber.Ctx) error {
 		if !state.Ready() {
 			return fail(c, 503, "SERVICE_NOT_READY", "The service is not ready to accept requests.", true)

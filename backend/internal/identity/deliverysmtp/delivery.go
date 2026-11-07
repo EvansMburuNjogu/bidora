@@ -92,11 +92,20 @@ func (d *Delivery) prepareStyled(recipient email.Address, title, key, code strin
 	if !ok {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	body := strings.ReplaceAll(text, code, "(shown below)")
+	body := strings.ReplaceAll(text, code, "the code below")
+	switch key {
+	case "identity.email_verification":
+		body = "Enter this code to verify your email."
+	case "identity.password_recovery":
+		body = "Enter this one-time code, then set and confirm your new password."
+	case "tenant.invitation":
+		body, _, _ = strings.Cut(text, "\r\n\r\n")
+		body = strings.TrimSuffix(strings.TrimSpace(body), ":")
+	}
 	if action := emailhtml.QuickAction(d.config.ActionOrigin, key); action.URL != "" {
 		text += "\n" + action.Label + ": " + action.URL
 	}
-	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: title, Body: body, Code: code, Expiry: expiry.UTC().Format(time.RFC3339), Origin: d.config.ActionOrigin, Key: key})
+	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: title, Body: body, Code: code, Expiry: expiry.UTC().Format(time.RFC3339), Origin: d.config.ActionOrigin, Key: key, SupportEmail: d.config.ReplyTo.Display()})
 	message, err := renderedMessage(d.config.Sender, recipient, title, text, html)
 	return Prepared{recipient: recipient, message: message}, err
 }
@@ -132,12 +141,12 @@ func (d *Delivery) DeliverLoginCode(ctx context.Context, recipient email.Address
 		return errors.New("email_delivery_invalid")
 	}
 	expiry := expiresAt.UTC().Format("2 Jan 2006, 15:04 UTC")
-	text := "Use this six-digit code to finish signing in to Bidora:\n\n" + code + "\n\nExpires " + expiry + ". Use it once and never share it.\nIf you did not attempt to sign in, ignore this message."
+	text := "Sign-in code: " + code + "\n\nExpires " + expiry + ".\n" + emailhtml.SafetyNote("identity.login_code")
 	action := emailhtml.QuickAction(d.config.ActionOrigin, "identity.login_code")
 	if action.URL != "" {
 		text += "\n\n" + action.Label + ": " + action.URL
 	}
-	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: "Verify your sign-in", Body: "Enter this code to continue signing in. It works once.", Code: code, Expiry: expiry, Origin: d.config.ActionOrigin, Key: "identity.login_code"})
+	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: "Verify your sign-in", Body: "Enter this code to sign in.", Code: code, Expiry: expiry, Origin: d.config.ActionOrigin, Key: "identity.login_code", SupportEmail: d.config.ReplyTo.Display()})
 	message, err := renderedMessage(d.config.Sender, recipient, "Your Bidora sign-in code", text, html)
 	if err != nil {
 		return err
@@ -334,7 +343,7 @@ func validTenantRole(role string) bool {
 }
 func invitationMessage(sender, recipient email.Address, role, rawToken string, expiresAt time.Time) string {
 	createdAt := expiresAt.Add(-72 * time.Hour)
-	return "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: You are invited to a Bidora workspace\r\nDate: " + createdAt.Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\nUse this invitation token to join the Bidora workspace with the fixed role " + role + ":\r\n\r\n" + rawToken + "\r\n\r\nThis invitation expires at " + expiresAt.Format(time.RFC3339) + ".\r\nIf you did not expect this invitation, ignore this message.\r\n"
+	return "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: You are invited to a Bidora workspace\r\nDate: " + createdAt.Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\nYou are invited as " + strings.ReplaceAll(strings.ToLower(role), "_", " ") + ". Enter this code to join:\r\n\r\n" + rawToken + "\r\n\r\nThis invitation expires at " + expiresAt.Format(time.RFC3339) + ".\r\nIf you did not expect this invitation, ignore this message.\r\n"
 }
 func validLoginCode(code string) bool {
 	if len(code) != 6 {
@@ -357,7 +366,7 @@ func passwordRecoveryMessage(sender, recipient email.Address, token verification
 }
 func verificationMessage(sender, recipient email.Address, token verification.Token, expiresAt time.Time) string {
 	createdAt := expiresAt.Add(-verification.Lifetime)
-	return "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: Verify your Bidora email address\r\nDate: " + createdAt.Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\nUse this verification token to verify your Bidora email address:\r\n\r\n" + token.RevealForDelivery() + "\r\n\r\nThis token expires at " + expiresAt.Format(time.RFC3339) + ".\r\nIf you did not request this, ignore this message.\r\n"
+	return "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: Verify your Bidora email address\r\nDate: " + createdAt.Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\nEnter this code to verify your email:\r\n\r\n" + token.RevealForDelivery() + "\r\n\r\nThis token expires at " + expiresAt.Format(time.RFC3339) + ".\r\nIf you did not request this, ignore this message.\r\n"
 }
 
 func renderedMessage(sender, recipient email.Address, subject, textBody, htmlBody string) (string, error) {

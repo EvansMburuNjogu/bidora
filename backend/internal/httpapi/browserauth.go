@@ -19,6 +19,7 @@ type SessionToucher interface {
 }
 type BrowserClock interface{ Now() time.Time }
 type BrowserSessionMiddleware struct {
+	auditIPs         LoginClientIPResolver
 	operationalGate  func(context.Context, string) error
 	metadataObserver func(fiber.Ctx, identityapp.SessionPrincipal)
 	validator        SessionValidator
