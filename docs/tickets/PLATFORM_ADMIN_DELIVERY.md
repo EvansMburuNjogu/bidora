@@ -90,7 +90,7 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 ## SMTP saved-form prefill — BID-MVP-03 / BID-MVP-05
 
 - On page load, fetch the active default directly and fill Server, Port, Sender Name and Sender Email without waiting for version history. Slow/failed history is non-blocking; it no longer leaves the current form blank. Browser autofill or an individual edited field cannot suppress all saved values. Disable editing until the active fetch resolves and reset drafts on Platform context changes; preserve individual unsaved edits on same-context refresh. Password/credential material remains protected by the existing redacted API; the form explicitly explains credential re-entry when saving.
-- Implementation and focused TypeScript/ESLint/production build passed. Intercepted browser proof covers saved input values, slow and failed history, blank password, no automatic writes and Cancel restoring saved fields. Web-only rollout pending; no backend/schema/environment changes required.
+- Implementation and focused TypeScript/ESLint/production build passed. Intercepted browser proof covers saved input values, slow and failed history, blank password, no automatic writes and Cancel restoring saved fields. Web-only release `8a1a167` deployed healthy; `/platform/settings/smtp` returns 200 and anonymous SMTP API read remains 401. Backend `22cab94`, schema and environment are unchanged. No SMTP settings or email sends were changed during verification; authenticated autofill was verified with intercepted browser APIs, not an extracted Owner session.
 
 ## Recovery delivery, secure links and all notification records — BID-MVP-03 / BID-MVP-05
 
