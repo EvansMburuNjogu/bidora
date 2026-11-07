@@ -1,7 +1,7 @@
 export const smtpUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export type SMTPVersion = { id: string; setting_kind: "SMTP"; sequence: number; version: number; state: "DRAFT" | "TEST_PASSED" | "TEST_FAILED" | "PENDING_APPROVAL" | "ACTIVE" | "SUPERSEDED" | "REJECTED";
   test_status: "NOT_TESTED" | "PASSED" | "FAILED"; test_code: string | null; created_at: string; tested_at: string | null; activated_at: string | null; superseded_at: string | null;
-  configuration: { setting_kind: "SMTP"; host: string; port: number; credential_reference_configured: true; trust_roots_reference_configured: true; starttls_required: true; sender_name: string; sender_address: string; reply_to_address: string | null; connect_timeout_seconds: number; command_timeout_seconds: number; delivery_timeout_seconds: number; max_concurrency: number } };
+  configuration: { username?: string | null; setting_kind: "SMTP"; host: string; port: number; credential_reference_configured: true; trust_roots_reference_configured: true; starttls_required: true; sender_name: string; sender_address: string; reply_to_address: string | null; connect_timeout_seconds: number; command_timeout_seconds: number; delivery_timeout_seconds: number; max_concurrency: number } };
 export type SMTPChange = { id: string; setting_kind: "SMTP"; target_version_id: string; action: "ACTIVATE" | "ROLLBACK"; state: "PENDING_APPROVAL" | "APPROVED_EXECUTED" | "REJECTED" | "EXPIRED";
   version: number; maker_user_id: string; checker_user_id: string | null; created_at: string; expires_at: string; decided_at: string | null };
 export type SMTPVersionPage = { versions: SMTPVersion[]; next_cursor: string | null };
@@ -23,9 +23,10 @@ function envelope(v: unknown): { data: unknown; cursor: string | null } | null {
 function version(raw: unknown): SMTPVersion | null {
   const v = record(raw), c = record(v?.configuration);
   if (!v || !c || !exact(v, ["id", "setting_kind", "sequence", "state", "version", "configuration", "test_status", "test_code", "created_at", "tested_at", "activated_at", "superseded_at"]) ||
-      !exact(c, ["setting_kind", "host", "port", "credential_reference_configured", "trust_roots_reference_configured", "starttls_required", "sender_name", "sender_address", "reply_to_address", "connect_timeout_seconds", "command_timeout_seconds", "delivery_timeout_seconds", "max_concurrency"]) ||
+      !exact(c, ["setting_kind", "host", "port", "credential_reference_configured", "trust_roots_reference_configured", "starttls_required", "sender_name", "sender_address", "reply_to_address", "connect_timeout_seconds", "command_timeout_seconds", "delivery_timeout_seconds", "max_concurrency", ...(Object.hasOwn(c, "username") ? ["username"] : [])]) ||
       !id(v.id) || v.setting_kind !== "SMTP" || !positive(v.sequence) || !positive(v.version) || !["DRAFT", "TEST_PASSED", "TEST_FAILED", "PENDING_APPROVAL", "ACTIVE", "SUPERSEDED", "REJECTED"].includes(String(v.state)) ||
       !["NOT_TESTED", "PASSED", "FAILED"].includes(String(v.test_status)) || !(v.test_code === null || bounded(v.test_code, 80)) || !instant(v.created_at) || !maybeInstant(v.tested_at) || !maybeInstant(v.activated_at) || !maybeInstant(v.superseded_at) ||
+      c.username !== undefined && c.username !== null && !bounded(c.username, 256) ||
       c.setting_kind !== "SMTP" || !bounded(c.host, 253) || !positive(c.port) || Number(c.port) > 65535 || c.credential_reference_configured !== true || c.trust_roots_reference_configured !== true || c.starttls_required !== true || !bounded(c.sender_name, 200) || !bounded(c.sender_address, 254) || !(c.reply_to_address === null || bounded(c.reply_to_address, 254)) ||
       !["connect_timeout_seconds", "command_timeout_seconds", "delivery_timeout_seconds", "max_concurrency"].every((key) => positive(c[key]))) return null;
   return v as SMTPVersion;

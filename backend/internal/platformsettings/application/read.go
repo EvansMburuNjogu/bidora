@@ -9,6 +9,7 @@ import (
 )
 
 type RedactedSMTP struct {
+	Username                                                                                   *string // Active authorized form only; never a password or secret reference.
 	Host, SenderName, SenderAddress                                                            string
 	ReplyToAddress                                                                             *string
 	Port, ConnectTimeoutSeconds, CommandTimeoutSeconds, DeliveryTimeoutSeconds, MaxConcurrency int32
@@ -62,9 +63,14 @@ type ReadTx interface {
 type ReadUnitOfWork interface {
 	WithinSettingsRead(context.Context, func(context.Context, ReadTx) error) error
 }
+type SMTPUsernameReader interface {
+	SMTPUsername(context.Context, domain.ID) (string, error)
+}
+
 type ReadService struct {
-	uow   ReadUnitOfWork
-	clock Clock
+	smtpUsernames SMTPUsernameReader
+	uow           ReadUnitOfWork
+	clock         Clock
 }
 
 func NewReadService(uow ReadUnitOfWork, clock Clock) (*ReadService, error) {
@@ -73,6 +79,8 @@ func NewReadService(uow ReadUnitOfWork, clock Clock) (*ReadService, error) {
 	}
 	return &ReadService{uow: uow, clock: clock}, nil
 }
+
+func (s *ReadService) EnableSMTPUsernames(reader SMTPUsernameReader) { s.smtpUsernames = reader }
 func (s *ReadService) Active(ctx context.Context, subject Subject, kind domain.Kind) (result RedactedVersion, err error) {
 	if !validRead(ctx, s, subject, kind) {
 		return result, ErrInvalid
@@ -87,6 +95,13 @@ func (s *ReadService) Active(ctx context.Context, subject Subject, kind domain.K
 	})
 	if err != nil {
 		return RedactedVersion{}, mapError(err)
+	}
+	if result.SMTP != nil && s.smtpUsernames != nil {
+		username, readErr := s.smtpUsernames.SMTPUsername(ctx, result.ID)
+		if readErr != nil {
+			return RedactedVersion{}, ErrUnavailable
+		}
+		result.SMTP.Username = &username
 	}
 	return result, nil
 }

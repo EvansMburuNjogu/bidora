@@ -158,7 +158,7 @@ func platformSettingFailure(c fiber.Ctx, err error) error {
 func platformSettingVersionJSON(v settingsapp.RedactedVersion) any {
 	configuration := any(nil)
 	if v.SMTP != nil {
-		configuration = map[string]any{"setting_kind": "SMTP", "host": v.SMTP.Host, "port": v.SMTP.Port, "credential_reference_configured": true, "trust_roots_reference_configured": true, "starttls_required": true, "sender_name": v.SMTP.SenderName, "sender_address": v.SMTP.SenderAddress, "reply_to_address": v.SMTP.ReplyToAddress, "connect_timeout_seconds": v.SMTP.ConnectTimeoutSeconds, "command_timeout_seconds": v.SMTP.CommandTimeoutSeconds, "delivery_timeout_seconds": v.SMTP.DeliveryTimeoutSeconds, "max_concurrency": v.SMTP.MaxConcurrency}
+		configuration = map[string]any{"setting_kind": "SMTP", "username": v.SMTP.Username, "host": v.SMTP.Host, "port": v.SMTP.Port, "credential_reference_configured": true, "trust_roots_reference_configured": true, "starttls_required": true, "sender_name": v.SMTP.SenderName, "sender_address": v.SMTP.SenderAddress, "reply_to_address": v.SMTP.ReplyToAddress, "connect_timeout_seconds": v.SMTP.ConnectTimeoutSeconds, "command_timeout_seconds": v.SMTP.CommandTimeoutSeconds, "delivery_timeout_seconds": v.SMTP.DeliveryTimeoutSeconds, "max_concurrency": v.SMTP.MaxConcurrency}
 	}
 	if v.OpenAI != nil {
 		configuration = map[string]any{"setting_kind": "OPENAI", "enabled": v.OpenAI.Enabled, "endpoint": domain.OpenAIEndpoint, "model": v.OpenAI.Model, "api_key_reference_configured": true, "trust_roots_reference_configured": true, "store": false, "timeout_seconds": v.OpenAI.TimeoutSeconds, "max_concurrency": v.OpenAI.MaxConcurrency}

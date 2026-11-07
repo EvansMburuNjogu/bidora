@@ -12,6 +12,8 @@ type smtpDirectFixture struct {
 	app.Tx
 	authority app.Authority
 	published int
+	active    domain.Version
+	inserted  domain.Version
 	command   app.Command
 	evidence  app.Evidence
 }
@@ -26,9 +28,15 @@ func (f *smtpDirectFixture) GetCommand(context.Context, domain.ID, string, [32]b
 	return app.Command{}, false, nil
 }
 func (f *smtpDirectFixture) LockHead(context.Context, domain.Kind) (app.Head, error) {
-	return app.Head{Kind: domain.SMTP, NextSequence: 1}, nil
+	return app.Head{Kind: domain.SMTP, NextSequence: 1, ActiveVersionID: f.active.ID}, nil
 }
-func (f *smtpDirectFixture) InsertVersion(context.Context, domain.Version, string) error { return nil }
+func (f *smtpDirectFixture) InsertVersion(_ context.Context, v domain.Version, _ string) error {
+	f.inserted = v
+	return nil
+}
+func (f *smtpDirectFixture) LockVersion(context.Context, domain.ID) (domain.Version, bool, error) {
+	return f.active, !f.active.ID.IsZero(), nil
+}
 func (f *smtpDirectFixture) PublishSMTP(_ context.Context, v domain.Version, h app.Head, actor, history domain.ID, _ time.Time) error {
 	if v.Kind != domain.SMTP || actor.IsZero() || history.IsZero() {
 		panic("invalid publication")

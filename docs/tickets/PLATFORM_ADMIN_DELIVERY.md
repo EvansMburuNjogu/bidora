@@ -87,6 +87,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Saved SMTP username and password retention — BID-MVP-03 / BID-MVP-05
+
+- The active SMTP form read now resolves the saved username from the encrypted vault only after current Platform read permission and recent verification; historical versions remain username-redacted. Passwords, encrypted payloads and secret references never enter API responses. Both runtime compositions enable this projection for the exact returned version ID.
+- The form fills Username and displays a saved-password placeholder without putting a fake password into the value. Blank-password saves keep the exact active credential/trust references in the existing atomic Owner save transaction. Version ID/version guard, copied configuration and replay fingerprint prevent stale or cross-version reuse. Changing username requires a new password at the HTTP boundary; changing destination/port also requires new credentials in the application transaction. New credential entry retains existing encrypted atomic storage. Existing approved/default SMTP source, approvals for other integrations and mandatory security stay unchanged.
+- Focused affected Go tests/build, OpenAPI/auth contracts, TypeScript/ESLint, production build and intercepted browser checks for load/retain/replace/reload passed. No real SMTP settings changed or email sent during these checks. Deployment pending; no schema/environment changes required.
+
 ## SMTP saved-form prefill — BID-MVP-03 / BID-MVP-05
 
 - On page load, fetch the active default directly and fill Server, Port, Sender Name and Sender Email without waiting for version history. Slow/failed history is non-blocking; it no longer leaves the current form blank. Browser autofill or an individual edited field cannot suppress all saved values. Disable editing until the active fetch resolves and reset drafts on Platform context changes; preserve individual unsaved edits on same-context refresh. Password/credential material remains protected by the existing redacted API; the form explicitly explains credential re-entry when saving.

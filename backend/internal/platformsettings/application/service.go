@@ -43,6 +43,9 @@ type TestOutcome struct {
 	ApplicabilityHash [32]byte
 }
 type CreateInput struct {
+	ReuseSMTPSecrets                 bool
+	ExpectedSMTPVersionID            domain.ID
+	ExpectedSMTPVersion              int64
 	ReusePesaPalCredentials          bool
 	Secrets                          []SealedIntegrationSecret
 	ReuseOpenAIKey, ReuseOpenAIRoots bool
@@ -157,6 +160,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (result domain.Ver
 	if ctx == nil || !validSubject(in.Subject) || !in.Configuration.Valid() || !text(in.Reason, 1000) || !key(in.IdempotencyKey) || in.CorrelationID.IsZero() {
 		return result, ErrInvalid
 	}
+	if in.Configuration.SMTP != nil {
+		copy := *in.Configuration.SMTP
+		in.Configuration.SMTP = &copy
+	}
+	if in.ReuseSMTPSecrets && (in.Configuration.SMTP == nil || in.ExpectedSMTPVersionID.IsZero() || in.ExpectedSMTPVersion < 1) {
+		return result, ErrInvalid
+	}
 	if in.Configuration.PesaPal != nil {
 		copy := *in.Configuration.PesaPal
 		in.Configuration.PesaPal = &copy
@@ -167,6 +177,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (result domain.Ver
 	}
 	at := s.clock.Now().UTC()
 	hash := fingerprint("create", in.Configuration, in.Reason)
+	if in.ReuseSMTPSecrets {
+		hash = fingerprint("create-smtp-retain-v1", in.Configuration, in.Reason, in.ExpectedSMTPVersionID, in.ExpectedSMTPVersion)
+	}
 	if in.ReuseOpenAIKey || in.ReuseOpenAIRoots {
 		hash = fingerprint("create-openai-retain-v1", in.Configuration, in.Reason, in.ReuseOpenAIKey, in.ReuseOpenAIRoots)
 	}
@@ -192,6 +205,23 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (result domain.Ver
 		head, e := tx.LockHead(txCtx, in.Configuration.Kind)
 		if e != nil {
 			return e
+		}
+		if in.ReuseSMTPSecrets {
+			if head.ActiveVersionID != in.ExpectedSMTPVersionID {
+				return ErrConflict
+			}
+			active, found, e := tx.LockVersion(txCtx, head.ActiveVersionID)
+			if e != nil {
+				return e
+			}
+			if !found || active.State != domain.Active || active.Version != in.ExpectedSMTPVersion || active.Configuration.SMTP == nil {
+				return ErrConflict
+			}
+			if in.Configuration.SMTP.Host != active.Configuration.SMTP.Host || in.Configuration.SMTP.Port != active.Configuration.SMTP.Port {
+				return ErrInvalid
+			}
+			in.Configuration.SMTP.CredentialSecretRef = active.Configuration.SMTP.CredentialSecretRef
+			in.Configuration.SMTP.TrustRootsSecretRef = active.Configuration.SMTP.TrustRootsSecretRef
 		}
 		if in.Configuration.Kind == domain.OpenAI && (in.ReuseOpenAIKey || in.ReuseOpenAIRoots) {
 			active, found, e := tx.LockVersion(txCtx, head.ActiveVersionID)

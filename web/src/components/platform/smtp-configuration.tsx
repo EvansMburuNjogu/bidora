@@ -16,14 +16,14 @@ import { networkSubmissionError, submissionErrorMessage, submissionFieldErrors, 
 type Status = { kind: "loading" } | { kind: "unconfigured" } | { kind: "error"; message: string } | { kind: "ready"; value: SMTPVersion };
 type Draft = { host: string; port: string; username: string; password: string; senderName: string; senderAddress: string; reason: string };
 const emptyDraft: Draft = { host: "", port: "587", username: "", password: "", senderName: "", senderAddress: "", reason: "Configure Platform SMTP delivery" };
-const fromVersion = (version: SMTPVersion | null): Draft => version ? { ...emptyDraft, host: version.configuration.host, port: String(version.configuration.port), senderName: version.configuration.sender_name, senderAddress: version.configuration.sender_address } : { ...emptyDraft };
-function draftErrors(draft: Draft): Partial<Record<keyof Draft, string>> {
+const fromVersion = (version: SMTPVersion | null): Draft => version ? { ...emptyDraft, host: version.configuration.host, username: version.configuration.username ?? "", port: String(version.configuration.port), senderName: version.configuration.sender_name, senderAddress: version.configuration.sender_address } : { ...emptyDraft };
+function draftErrors(draft: Draft, canKeepPassword: boolean): Partial<Record<keyof Draft, string>> {
   const errors: Partial<Record<keyof Draft, string>> = {};
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/.test(draft.host)) errors.host = "Enter a valid SMTP server name.";
   const port = Number(draft.port);
   if (!/^\d+$/.test(draft.port) || !Number.isInteger(port) || port < 1 || port > 65535) errors.port = "Enter a port from 1 to 65535.";
   if (!draft.username || draft.username.length > 256) errors.username = "Enter a username (maximum 256 characters).";
-  if (!draft.password || draft.password.length > 1024) errors.password = "Enter a new password to save this version.";
+  if ((!draft.password && !canKeepPassword) || draft.password.length > 1024) errors.password = "Enter a password. Changing the server, port or username also requires a new password.";
   if (!draft.senderName.trim() || draft.senderName.length > 200) errors.senderName = "Enter a sender name.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.senderAddress) || draft.senderAddress.length > 254) errors.senderAddress = "Enter a valid sender email.";
 
@@ -117,7 +117,9 @@ export function SMTPConfiguration() {
     setSelected(value);
     setHistory((previous) => previous && { ...previous, versions: [value, ...previous.versions.filter((row) => row.id !== value.id)].sort((a, b) => b.sequence - a.sequence) });
   }
-  const errors = { ...draftErrors(draft), ...serverErrors };
+  const hasSavedPassword = status.kind === "ready" && baseline.username.length > 0;
+  const canKeepPassword = hasSavedPassword && draft.username === baseline.username && draft.host === baseline.host && draft.port === baseline.port;
+  const errors = { ...draftErrors(draft, canKeepPassword), ...serverErrors };
   const changed = (Object.keys(emptyDraft) as Array<keyof Draft>).some((key) => draft[key] !== baseline[key]);
   function editDraft(key: keyof Draft, value: string) { if (value === baseline[key]) dirtyFields.current.delete(key); else dirtyFields.current.add(key); setDraft((previous) => ({ ...previous, [key]: value })); setServerErrors({}); }
   function cancelDraft() { dirtyFields.current.clear(); setDraft({ ...baseline }); setSubmitted(false); setTouched({}); setServerErrors({}); }
@@ -131,7 +133,7 @@ export function SMTPConfiguration() {
     submitting.current = true; setBusy(true);
     try {
       const response = await fetch("/api/platform/smtp", { method: "POST", credentials: "include", headers: headers(true), body: JSON.stringify({
-        setting_kind: "SMTP", host: draft.host, port: Number(draft.port), username: draft.username, password: draft.password, sender_name: draft.senderName, sender_address: draft.senderAddress, reply_to_address: status.kind === "ready" ? status.value.configuration.reply_to_address : null,
+        setting_kind: "SMTP", ...(canKeepPassword && !draft.password && status.kind === "ready" ? { retain_credentials: true, expected_active_version_id: status.value.id, expected_active_version: status.value.version } : {}), host: draft.host, port: Number(draft.port), username: draft.username, password: draft.password, sender_name: draft.senderName, sender_address: draft.senderAddress, reply_to_address: status.kind === "ready" ? status.value.configuration.reply_to_address : null,
         connect_timeout_seconds: status.kind === "ready" ? status.value.configuration.connect_timeout_seconds : 10, command_timeout_seconds: status.kind === "ready" ? status.value.configuration.command_timeout_seconds : 15, delivery_timeout_seconds: status.kind === "ready" ? status.value.configuration.delivery_timeout_seconds : 30, max_concurrency: status.kind === "ready" ? status.value.configuration.max_concurrency : 4, reason: draft.reason,
       }) });
       if (request !== sequence.current) return;
@@ -155,6 +157,7 @@ export function SMTPConfiguration() {
       if (response.status === 401) { refresh(); return; }
       if (!response.ok) { toast.error(submissionErrorMessage(response.status), { id: "smtp-configuration" }); return; }
       const value = parseSMTPVersion(await response.json());
+      if (value && value.configuration.username == null) value.configuration.username = version.configuration.username;
       if (!value || value.state !== "ACTIVE") { toast.error(unconfirmedSubmissionError, { id: "smtp-configuration" }); return; }
       updateVersion(value);setStatus({kind:"ready",value});
       if (value.test_status === "PASSED") toast.success("Test email accepted by the SMTP server.", { id: "smtp-configuration" });
@@ -170,9 +173,9 @@ export function SMTPConfiguration() {
         <Field label="Server" name="host" value={draft.host} onChange={(event) => editDraft("host", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, host: true }))} maxLength={253} autoCapitalize="none" spellCheck={false} placeholder="smtp.example.com" error={fieldError("host")} />
         <Field label="Port" name="port" type="number" value={draft.port} onChange={(event) => editDraft("port", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, port: true }))} min={1} max={65535} step={1} error={fieldError("port")} />
         <Field label="Username" name="username" value={draft.username} onChange={(event) => editDraft("username", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, username: true }))} autoComplete="username" maxLength={256} error={fieldError("username")} />
-        <Field label="Password" name="password" type="password" value={draft.password} onChange={(event) => editDraft("password", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, password: true }))} autoComplete="new-password" maxLength={1024} placeholder="Enter new password" error={fieldError("password")} />
+        <Field label="Password" name="password" type="password" value={draft.password} onChange={(event) => editDraft("password", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, password: true }))} autoComplete="new-password" maxLength={1024} required={!canKeepPassword} placeholder={hasSavedPassword ? "•••••••• (saved)" : "Enter password"} error={fieldError("password")} />
         <div className="grid gap-2"><Label htmlFor="smtp-encryption">Connection security</Label><PlatformSelect id="smtp-encryption" value="STARTTLS" disabled><option value="STARTTLS">STARTTLS (required)</option></PlatformSelect></div>
-      </div><p className="text-xs text-muted-foreground">Saved server and sender details load automatically. Credentials stay protected; re-enter the SMTP username and password when saving.</p></section>
+      </div><p className="text-xs text-muted-foreground">{hasSavedPassword ? "Password saved securely. Leave it blank to keep the current password, or enter a new one to replace it. Changing the server, port or username requires a new password." : "Enter your SMTP username and password. Passwords are stored securely and never displayed."}</p></section>
       <section aria-labelledby="smtp-sender-heading" className="space-y-4 border-t pt-5"><h2 id="smtp-sender-heading" className="text-base font-semibold">Sender Information</h2><div className="grid gap-4 sm:grid-cols-2">
         <Field label="Sender Name" name="sender_name" value={draft.senderName} onChange={(event) => editDraft("senderName", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, senderName: true }))} maxLength={200} error={fieldError("senderName")} />
         <Field label="Sender Email" name="sender_address" type="email" value={draft.senderAddress} onChange={(event) => editDraft("senderAddress", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, senderAddress: true }))} maxLength={254} autoCapitalize="none" spellCheck={false} placeholder="no-reply@example.com" error={fieldError("senderAddress")} />

@@ -512,6 +512,7 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 		if vaultErr != nil {
 			return fail(vaultErr)
 		}
+		platformSettingsReader.EnableSMTPUsernames(vault)
 		platformSettingsWriteHandler, err = BuildPlatformSMTPWriteHandler(control, vault, config.PesaPal)
 		if err != nil {
 			return fail(err)

@@ -203,7 +203,9 @@ export async function proxyPlatformIntegration(request: Request, operation: "act
     }
     const defaults = payload.use_default_trust === true;
     delete payload.use_default_trust;
-    if (!payload.trust_roots_pem && (kind === "SMTP" || kind === "OPENAI" && defaults)) {
+    if (kind === "SMTP" && payload.retain_credentials === true) {
+      payload.trust_roots_pem = ""; // Exact stored credentials/trust are reused atomically by the backend.
+    } else if (!payload.trust_roots_pem && (kind === "SMTP" || kind === "OPENAI" && defaults)) {
       try { payload.trust_roots_pem = await integrationTrustRoots(kind === "OPENAI" ? 12_000 : 24_576); } catch { return failure(503); }
     }
     body = JSON.stringify(payload);

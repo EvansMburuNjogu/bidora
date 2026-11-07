@@ -6222,6 +6222,14 @@
             "minimum": 1,
             "type": "integer"
           },
+          "expected_active_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "expected_active_version_id": {
+            "format": "uuid",
+            "type": "string"
+          },
           "host": {
             "maxLength": 253,
             "minLength": 1,
@@ -6233,8 +6241,9 @@
             "type": "integer"
           },
           "password": {
+            "description": "Required for first configuration or credential replacement; empty only with retain_credentials.",
             "maxLength": 1024,
-            "minLength": 1,
+            "minLength": 0,
             "type": "string",
             "writeOnly": true
           },
@@ -6257,6 +6266,10 @@
               "null"
             ]
           },
+          "retain_credentials": {
+            "description": "Keep the exact expected active SMTP credentials and trust configuration. Requires an empty password and unchanged username.",
+            "type": "boolean"
+          },
           "sender_address": {
             "format": "email",
             "maxLength": 254,
@@ -6271,8 +6284,9 @@
             "const": "SMTP"
           },
           "trust_roots_pem": {
+            "description": "Required on replacement; ignored when exact stored SMTP credentials/trust are retained.",
             "maxLength": 24576,
-            "minLength": 1,
+            "minLength": 0,
             "type": "string",
             "writeOnly": true
           },
@@ -6779,6 +6793,13 @@
           },
           "trust_roots_reference_configured": {
             "const": true
+          },
+          "username": {
+            "description": "Login name populated only for the current authorized SMTP form; never returns the password.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

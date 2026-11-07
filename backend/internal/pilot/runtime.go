@@ -511,6 +511,7 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 		if vaultErr != nil {
 			return fail(vaultErr)
 		}
+		platformSettingsReader.EnableSMTPUsernames(vault)
 		platformSettingsWriteHandler, err = BuildPlatformSMTPWriteHandler(deps.Control, vault, config.PesaPal)
 		if err != nil {
 			return fail(err)

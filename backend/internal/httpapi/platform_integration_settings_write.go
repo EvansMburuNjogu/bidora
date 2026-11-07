@@ -64,20 +64,23 @@ func RegisterPlatformIntegrationSettingsWriteRoutes(app *fiber.App, middleware *
 }
 
 type createSMTPVersionRequest struct {
-	SettingKind            string  `json:"setting_kind"`
-	Host                   string  `json:"host"`
-	Port                   int32   `json:"port"`
-	Username               string  `json:"username"`
-	Password               string  `json:"password"`
-	TrustRootsPEM          string  `json:"trust_roots_pem"`
-	SenderName             string  `json:"sender_name"`
-	SenderAddress          string  `json:"sender_address"`
-	ReplyToAddress         *string `json:"reply_to_address"`
-	ConnectTimeoutSeconds  int32   `json:"connect_timeout_seconds"`
-	CommandTimeoutSeconds  int32   `json:"command_timeout_seconds"`
-	DeliveryTimeoutSeconds int32   `json:"delivery_timeout_seconds"`
-	MaxConcurrency         int32   `json:"max_concurrency"`
-	Reason                 string  `json:"reason"`
+	RetainCredentials       bool    `json:"retain_credentials"`
+	ExpectedActiveVersionID string  `json:"expected_active_version_id"`
+	ExpectedActiveVersion   int64   `json:"expected_active_version"`
+	SettingKind             string  `json:"setting_kind"`
+	Host                    string  `json:"host"`
+	Port                    int32   `json:"port"`
+	Username                string  `json:"username"`
+	Password                string  `json:"password"`
+	TrustRootsPEM           string  `json:"trust_roots_pem"`
+	SenderName              string  `json:"sender_name"`
+	SenderAddress           string  `json:"sender_address"`
+	ReplyToAddress          *string `json:"reply_to_address"`
+	ConnectTimeoutSeconds   int32   `json:"connect_timeout_seconds"`
+	CommandTimeoutSeconds   int32   `json:"command_timeout_seconds"`
+	DeliveryTimeoutSeconds  int32   `json:"delivery_timeout_seconds"`
+	MaxConcurrency          int32   `json:"max_concurrency"`
+	Reason                  string  `json:"reason"`
 }
 type settingReasonRequest struct {
 	ConfirmBillableTest bool   `json:"confirm_billable_test,omitempty"`
@@ -112,7 +115,7 @@ func (h *PlatformIntegrationSettingsWriteHandler) create(c fiber.Ctx) error {
 	if err := bindWorkflowLimit(c, &body, 32*1024); err != nil {
 		return err
 	}
-	if !requireWorkflowFields(c.Body(), []string{"setting_kind", "host", "port", "username", "password", "trust_roots_pem", "sender_name", "sender_address", "reply_to_address", "connect_timeout_seconds", "command_timeout_seconds", "delivery_timeout_seconds", "max_concurrency", "reason"}) || body.SettingKind != string(domain.SMTP) || h.secrets == nil {
+	if !requireWorkflowFields(c.Body(), []string{"setting_kind", "host", "port", "username", "password", "trust_roots_pem", "sender_name", "sender_address", "reply_to_address", "connect_timeout_seconds", "command_timeout_seconds", "delivery_timeout_seconds", "max_concurrency", "reason"}, "retain_credentials", "expected_active_version_id", "expected_active_version") || body.SettingKind != string(domain.SMTP) || h.secrets == nil {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	if _, _, validationErr := domain.NewConfiguration(domain.SMTP, &domain.SMTPConfiguration{Host: body.Host, Port: body.Port, CredentialSecretRef: "pending", TrustRootsSecretRef: "pending", SenderName: body.SenderName, SenderAddress: body.SenderAddress, ReplyToAddress: body.ReplyToAddress, ConnectTimeoutSeconds: body.ConnectTimeoutSeconds, CommandTimeoutSeconds: body.CommandTimeoutSeconds, DeliveryTimeoutSeconds: body.DeliveryTimeoutSeconds, MaxConcurrency: body.MaxConcurrency}, nil); validationErr != nil {
@@ -121,10 +124,32 @@ func (h *PlatformIntegrationSettingsWriteHandler) create(c fiber.Ctx) error {
 	if authorizeErr := h.writer.AuthorizeCreate(c.Context(), common.subject, domain.SMTP); authorizeErr != nil {
 		return platformSettingFailure(c, authorizeErr)
 	}
+	var expectedID domain.ID
+	if body.RetainCredentials {
+		parsedID, idErr := uuid.Parse(body.ExpectedActiveVersionID)
+		expectedID = domain.ID(parsedID)
+		if idErr != nil || expectedID.IsZero() || body.ExpectedActiveVersion < 1 || body.Password != "" {
+			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+		}
+		reader, ok := h.secrets.(settingsapp.SMTPUsernameReader)
+		if !ok {
+			return platformSettingFailure(c, settingsapp.ErrUnavailable)
+		}
+		username, e := reader.SMTPUsername(c.Context(), expectedID)
+		if e != nil {
+			return platformSettingFailure(c, settingsapp.ErrUnavailable)
+		}
+		if username != body.Username {
+			return fail(c, 400, "INVALID_REQUEST", "Enter a new password when changing the SMTP username.", false)
+		}
+	}
+	responseUsername := body.Username
 	var credentialRef, rootsRef string
 	var secrets []settingsapp.SealedIntegrationSecret
 	var secretErr error
-	if preparer, ok := h.secrets.(interface {
+	if body.RetainCredentials {
+		credentialRef, rootsRef = "retained", "retained"
+	} else if preparer, ok := h.secrets.(interface {
 		PrepareSMTPSecrets(domain.ID, string, string, string, string) (string, string, []settingsapp.SealedIntegrationSecret, error)
 	}); ok {
 		credentialRef, rootsRef, secrets, secretErr = preparer.PrepareSMTPSecrets(common.subject.ActorID, common.idempotency, body.Username, body.Password, body.TrustRootsPEM)
@@ -134,8 +159,6 @@ func (h *PlatformIntegrationSettingsWriteHandler) create(c fiber.Ctx) error {
 	body.Username = ""
 	body.Password = ""
 	body.TrustRootsPEM = ""
-	body.Password = ""
-	body.TrustRootsPEM = ""
 	if secretErr != nil {
 		return fail(c, 503, "PLATFORM_SETTINGS_UNAVAILABLE", "Platform settings are temporarily unavailable.", true)
 	}
@@ -143,11 +166,11 @@ func (h *PlatformIntegrationSettingsWriteHandler) create(c fiber.Ctx) error {
 	if err != nil {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	result, err := h.writer.Create(c.Context(), settingsapp.CreateInput{Subject: common.subject, Configuration: configuration, Secrets: secrets, Reason: body.Reason, IdempotencyKey: common.idempotency, CorrelationID: common.correlation})
+	result, err := h.writer.Create(c.Context(), settingsapp.CreateInput{ReuseSMTPSecrets: body.RetainCredentials, ExpectedSMTPVersionID: expectedID, ExpectedSMTPVersion: body.ExpectedActiveVersion, Subject: common.subject, Configuration: configuration, Secrets: secrets, Reason: body.Reason, IdempotencyKey: common.idempotency, CorrelationID: common.correlation})
 	if err != nil {
 		return platformSettingFailure(c, err)
 	}
-	return platformJSON(c, 201, commandVersionJSON(result, "NOT_TESTED", ""), nil)
+	return platformJSON(c, 201, commandVersionJSON(result, "NOT_TESTED", "", responseUsername), nil)
 }
 
 func (h *PlatformIntegrationSettingsWriteHandler) test(c fiber.Ctx) error {
@@ -301,11 +324,14 @@ func settingPathID(c fiber.Ctx, name string) (domain.ID, bool) {
 	parsed, err := uuid.Parse(c.Params(name))
 	return domain.ID(parsed), err == nil && parsed != uuid.Nil
 }
-func commandVersionJSON(v domain.Version, testStatus, testCode string) any {
+func commandVersionJSON(v domain.Version, testStatus, testCode string, username ...string) any {
 	redacted := settingsapp.RedactedVersion{ID: v.ID, LatestTestID: v.LatestTestID, Kind: v.Kind, Sequence: v.Sequence, State: v.State, Version: v.Version, TestStatus: testStatus, TestCode: testCode, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt, ActivatedAt: v.ActivatedAt, SupersededAt: v.SupersededAt}
 	if v.Kind == domain.SMTP && v.Configuration.SMTP != nil {
 		c := v.Configuration.SMTP
 		redacted.SMTP = &settingsapp.RedactedSMTP{Host: c.Host, Port: c.Port, SenderName: c.SenderName, SenderAddress: c.SenderAddress, ReplyToAddress: c.ReplyToAddress, ConnectTimeoutSeconds: c.ConnectTimeoutSeconds, CommandTimeoutSeconds: c.CommandTimeoutSeconds, DeliveryTimeoutSeconds: c.DeliveryTimeoutSeconds, MaxConcurrency: c.MaxConcurrency}
+	}
+	if redacted.SMTP != nil && len(username) == 1 {
+		redacted.SMTP.Username = &username[0]
 	}
 	if v.Kind == domain.OpenAI && v.Configuration.OpenAI != nil {
 		c := v.Configuration.OpenAI

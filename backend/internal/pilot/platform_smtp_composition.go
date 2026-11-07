@@ -27,6 +27,9 @@ func BuildPlatformSMTPWriteHandler(pool *postgres.Pool, resolver smtptest.Secret
 	if err != nil {
 		return nil, err
 	}
+	if usernames, ok := resolver.(settingsapp.SMTPUsernameReader); ok {
+		reader.EnableSMTPUsernames(usernames)
+	}
 	secretWriter, ok := resolver.(httpapi.PlatformSMTPSecretWriter)
 	if !ok {
 		return nil, settingsapp.ErrUnavailable

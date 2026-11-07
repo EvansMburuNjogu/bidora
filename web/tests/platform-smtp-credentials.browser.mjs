@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { chromium, expect } from "@playwright/test";
+const origin=process.env.BIDORA_WEB_URL??"http://127.0.0.1:3036";
+if(!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin))throw Error("Use a loopback origin.");
+const id="11111111-1111-4111-8111-111111111111",at="2026-01-01T12:00:00Z",envelope=data=>({data,meta:{trace_id:id}});
+let active={id,setting_kind:"SMTP",sequence:1,version:2,state:"ACTIVE",test_status:"PASSED",test_code:"SMTP_STARTTLS_VERIFIED",created_at:at,tested_at:at,activated_at:at,superseded_at:null,configuration:{setting_kind:"SMTP",username:"saved-login",host:"smtp.example.test",port:587,credential_reference_configured:true,trust_roots_reference_configured:true,starttls_required:true,sender_name:"Saved sender",sender_address:"saved@example.test",reply_to_address:null,connect_timeout_seconds:10,command_timeout_seconds:15,delivery_timeout_seconds:30,max_concurrency:4}};
+const capabilities=["platform.admin.read","platform.integration.read","platform.integration.smtp.manage","platform.integration.smtp.activate","platform.integration.smtp.test"];
+const browser=await chromium.launch({headless:true});
+try{
+ const page=await browser.newPage();const writes=[];
+ await page.route("**/api/**",async route=>{
+  const request=route.request(),p=new URL(request.url()).pathname;let data,status=200;
+  if(request.method()==="POST"&&p==="/api/platform/smtp"){
+   const body=request.postDataJSON();writes.push(body);
+   active={...active,id:"22222222-2222-4222-8222-222222222222",sequence:2,version:2,configuration:{...active.configuration,username:body.username,host:body.host,sender_name:body.sender_name}};
+   data=envelope(active);status=201;
+  }else if(request.method()!=="GET")return route.fulfill({status:503});
+  else if(p==="/api/session/bootstrap")data=envelope({csrf_token:"A".repeat(43)});
+  else if(p==="/api/session/me")data=envelope({account_type:"PLATFORM_ADMIN",portal:{key:"PLATFORM_ADMIN",path:"/platform"},platform_context_generation:1,capabilities,session:{assurance_level:"AAL2",idle_expires_at:new Date(Date.now()+600000).toISOString(),absolute_expires_at:new Date(Date.now()+3600000).toISOString()},required_actions:[]});
+  else if(p==="/api/session/availability")data=envelope({maintenance_active:false,maintenance_message:""});
+  else if(p==="/api/platform/smtp")data=envelope(active);
+  else if(p==="/api/platform/smtp/versions")data=envelope([active]);
+  else return route.fulfill({status:503,contentType:"application/json",body:"{}"});
+  return route.fulfill({status,contentType:"application/json",body:JSON.stringify(data)});
+ });
+ await page.goto(origin+"/platform/settings/smtp");
+ await expect(page.getByLabel("Username",{exact:true})).toHaveValue("saved-login");
+ const password=page.getByLabel("Password",{exact:true});
+ await expect(password).toHaveValue("");
+ await expect(password).toHaveAttribute("placeholder","•••••••• (saved)");
+ await expect(page.getByText(/Password saved securely/)).toBeVisible();
+ await page.getByLabel("Sender Name",{exact:true}).fill("Updated sender");
+ await page.getByRole("button",{name:"Save Changes",exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(1);
+ assert.equal(writes[0].retain_credentials,true);assert.equal(writes[0].password,"");assert.equal(writes[0].username,"saved-login");
+ assert.equal(writes[0].expected_active_version_id,id);assert.equal(writes[0].expected_active_version,2);
+ await expect(page.getByLabel("Username",{exact:true})).toHaveValue("saved-login");
+ await expect(password).toHaveValue("");
+ await page.getByLabel("Username",{exact:true}).fill("changed-login");
+ await page.getByRole("button",{name:"Save Changes",exact:true}).click();
+ await expect(page.getByText("Enter a password. Changing the server, port or username also requires a new password.",{exact:true})).toBeVisible();
+ assert.equal(writes.length,1);
+ await password.fill("synthetic-replacement-password");
+ await page.getByRole("button",{name:"Save Changes",exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(2);
+ assert.equal(Object.hasOwn(writes[1],"retain_credentials"),false);
+ assert.equal(writes[1].password,"synthetic-replacement-password");
+ await expect(password).toHaveValue("");
+ await page.reload();
+ await expect(page.getByLabel("Username",{exact:true})).toHaveValue("changed-login");
+ console.log("PASS: saved username visible, password masked without value/exposure, blank-password retention with exact version, credential changes require replacement, reload readback");
+}finally{await browser.close();}
