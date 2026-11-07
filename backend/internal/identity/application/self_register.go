@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"errors"
 	"fmt"
@@ -70,7 +71,7 @@ func (s *SelfRegistrationService) Register(ctx context.Context, input SelfRegist
 		return SelfRegistrationResult{}, safe("registration_unavailable", nil)
 	}
 	address, err := email.Parse(input.Email)
-	if err != nil || !ValidPersonalName(input.FirstName) || !ValidPersonalName(input.LastName) || s.passwords.ValidateNew(input.Password) != nil {
+	if err != nil || !ValidPersonalName(input.FirstName) || !ValidPersonalName(input.LastName) || !securitypolicy.PasswordAllowed(ctx, input.Password) || s.passwords.ValidateNew(input.Password) != nil {
 		return SelfRegistrationResult{}, safe("registration_invalid", nil)
 	}
 	phc, err := s.passwords.Hash(input.Password)

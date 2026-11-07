@@ -13,6 +13,7 @@ import (
 	"bidora/backend/internal/httpapi"
 	app "bidora/backend/internal/identity/application"
 	"bidora/backend/internal/identity/browser"
+	"bidora/backend/internal/identity/securitypolicy"
 	"bidora/backend/internal/identity/session"
 	"bidora/backend/internal/postgres"
 	"github.com/gofiber/fiber/v3"
@@ -28,11 +29,13 @@ type auditMFAUseCase struct {
 	mfaHTTPFake
 	metadata postgres.RequestAudit
 	captured bool
+	minimum  int32
 }
 
 func (f *auditMFAUseCase) CompleteLogin(ctx context.Context, _, _, _ string, _ app.ID) (app.LoginResult, error) {
 	f.completeCalls++
 	f.metadata, f.captured = postgres.RequestAuditFrom(ctx)
+	f.minimum = securitypolicy.From(ctx).MinimumPasswordBytes
 	pair, err := session.GeneratePair()
 	return app.LoginResult{Session: pair.Session, CSRF: pair.CSRF, AbsoluteExpiresAt: time.Now().Add(time.Hour)}, err
 }
@@ -42,6 +45,17 @@ func TestLoginCodeCompletionReceivesAuditContextBeforeSessionExists(t *testing.T
 	handler, _ := httpapi.NewMFAHandler(useCase, protection)
 	middleware := &httpapi.BrowserSessionMiddleware{}
 	if err := middleware.ConfigureRequestAudit(auditIPResolver{}); err != nil {
+		t.Fatal(err)
+	}
+	failPolicy := false
+	if err := middleware.ConfigureSecurityPolicy(func(context.Context) (securitypolicy.Policy, error) {
+		p := securitypolicy.Default()
+		p.MinimumPasswordBytes = 20
+		if failPolicy {
+			return p, errors.New("policy unavailable")
+		}
+		return p, nil
+	}); err != nil {
 		t.Fatal(err)
 	}
 	server := fiber.New()
@@ -69,7 +83,7 @@ func TestLoginCodeCompletionReceivesAuditContextBeforeSessionExists(t *testing.T
 		if agent == "" {
 			want = "Unknown browser"
 		}
-		if response.StatusCode != 204 || !useCase.captured || useCase.metadata.IP.String() != "192.0.2.20" || useCase.metadata.Browser != want {
+		if response.StatusCode != 204 || useCase.minimum != 20 || !useCase.captured || useCase.metadata.IP.String() != "192.0.2.20" || useCase.metadata.Browser != want {
 			t.Fatal("sign-in completion omitted request context", response.StatusCode)
 		}
 	}
@@ -82,5 +96,11 @@ func TestLoginCodeCompletionReceivesAuditContextBeforeSessionExists(t *testing.T
 	response, err := server.Test(httptest.NewRequest(http.MethodPost, httpapi.MFAChallengePath, strings.NewReader(`{}`)))
 	if err != nil || response.StatusCode != 503 || useCase.completeCalls != 3 {
 		t.Fatal("missing trusted network information did not fail closed", err)
+	}
+	_ = middleware.ConfigureRequestAudit(auditIPResolver{})
+	failPolicy = true
+	response, err = server.Test(httptest.NewRequest(http.MethodPost, httpapi.MFAChallengePath, strings.NewReader(`{}`)))
+	if err != nil || response.StatusCode != 503 || useCase.completeCalls != 3 {
+		t.Fatal("unavailable security policy allowed sign-in", err)
 	}
 }

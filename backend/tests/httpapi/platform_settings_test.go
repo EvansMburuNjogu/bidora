@@ -114,7 +114,7 @@ func TestPlatformSettingsHTTPBindsIdentityAndRejectsAmbiguousWrites(t *testing.T
 	if status := send("/v1/platform/security/session-policy", "PUT", `{"idle_seconds":300,"idle_seconds":600,"absolute_seconds":3600}`, true, true); status != 400 || policy.saves != 0 {
 		t.Fatal("ambiguous policy accepted", status)
 	}
-	if status := send("/v1/platform/security/session-policy", "PUT", `{"idle_seconds":300,"absolute_seconds":3600}`, true, true); status != 200 || policy.saves != 1 {
+	if status := send("/v1/platform/security/session-policy", "PUT", `{"idle_seconds":300,"absolute_seconds":3600,"security":{"failed_login_attempts":3,"failure_window_seconds":600,"lockout_seconds":600,"minimum_password_bytes":16,"password_reset_seconds":600,"allow_multiple_sessions":false,"admin_idle_seconds":900,"admin_absolute_seconds":3600}}`, true, true); status != 200 || policy.saves != 1 {
 		t.Fatal("valid policy not bound", status)
 	}
 }

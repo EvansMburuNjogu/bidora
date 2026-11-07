@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"bidora/backend/internal/identity/browser"
+	"bidora/backend/internal/identity/securitypolicy"
 	"bidora/backend/internal/postgres"
 	"github.com/gofiber/fiber/v3"
 )
@@ -26,7 +27,7 @@ func (m *BrowserSessionMiddleware) CaptureAuditContext(c fiber.Ctx) error {
 		return c.Next()
 	} // Uncomposed test applications.
 	path := strings.ToLower(c.Path()) // Fiber routes are case-insensitive by default.
-	if !strings.HasPrefix(path, "/v1/auth/") && !strings.HasPrefix(path, "/v1/platform/") {
+	if !strings.HasPrefix(path, "/v1/auth/") && !strings.HasPrefix(path, "/v1/platform/") && !strings.HasPrefix(path, "/v1/account/") && !strings.HasPrefix(path, "/v1/session/") {
 		return c.Next()
 	}
 	remote := c.RemoteAddr()
@@ -48,6 +49,16 @@ func (m *BrowserSessionMiddleware) CaptureAuditContext(c fiber.Ctx) error {
 	ctx, err := postgres.WithRequestAudit(c.Context(), ip, name)
 	if err != nil {
 		return fail(c, 503, "AUDIT_CONTEXT_UNAVAILABLE", "Request information is unavailable. Please try again.", true)
+	}
+	if m.securityPolicy != nil {
+		p, e := m.securityPolicy(ctx)
+		if e != nil {
+			return fail(c, 503, "SECURITY_POLICY_UNAVAILABLE", "Security settings are temporarily unavailable.", true)
+		}
+		ctx, e = securitypolicy.With(ctx, p)
+		if e != nil {
+			return fail(c, 503, "SECURITY_POLICY_UNAVAILABLE", "Security settings are temporarily unavailable.", true)
+		}
 	}
 	c.SetContext(ctx)
 	return c.Next()

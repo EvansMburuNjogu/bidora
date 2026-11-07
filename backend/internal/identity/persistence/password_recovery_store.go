@@ -3,6 +3,7 @@ package persistence
 import (
 	identityapp "bidora/backend/internal/identity/application"
 	identitysql "bidora/backend/internal/identity/persistence/sqlc"
+	"bidora/backend/internal/identity/securitypolicy"
 	"bidora/backend/internal/postgres"
 	"context"
 	"errors"
@@ -33,13 +34,14 @@ func (s *PasswordRecoveryStore) IssuePasswordRecovery(ctx context.Context, c ide
 		if err = q.InvalidateActivePasswordRecoveryChallenges(txCtx, identitysql.InvalidateActivePasswordRecoveryChallengesParams{At: identityTime(c.CreatedAt), UserID: candidate.ID}); err != nil {
 			return err
 		}
-		if err = q.InsertPasswordRecoveryChallenge(txCtx, identitysql.InsertPasswordRecoveryChallengeParams{ID: identityID(c.ChallengeID), UserID: candidate.ID, TokenHash: c.TokenHash[:], CreatedAt: identityTime(c.CreatedAt)}); err != nil {
+		expiry := securitypolicy.From(txCtx).PasswordResetSeconds
+		if err = q.InsertPasswordRecoveryChallenge(txCtx, identitysql.InsertPasswordRecoveryChallengeParams{ID: identityID(c.ChallengeID), UserID: candidate.ID, TokenHash: c.TokenHash[:], CreatedAt: identityTime(c.CreatedAt), ExpirySeconds: expiry}); err != nil {
 			return err
 		}
-		if err = q.InsertPasswordRecoveryRequestedAudit(txCtx, identitysql.InsertPasswordRecoveryRequestedAuditParams{ID: identityID(c.AuditID), UserID: candidate.ID, ChallengeID: identityID(c.ChallengeID), At: identityTime(c.CreatedAt), CorrelationID: identityID(c.CorrelationID)}); err != nil {
+		if err = q.InsertPasswordRecoveryRequestedAudit(txCtx, identitysql.InsertPasswordRecoveryRequestedAuditParams{ID: identityID(c.AuditID), UserID: candidate.ID, ChallengeID: identityID(c.ChallengeID), At: identityTime(c.CreatedAt), CorrelationID: identityID(c.CorrelationID), ExpirySeconds: expiry}); err != nil {
 			return err
 		}
-		result = identityapp.PasswordRecoveryIssuance{Issued: true, UserID: identityapp.ID(candidate.ID.Bytes), Recipient: candidate.Email, ExpiresAt: c.CreatedAt.UTC().Add(30 * time.Minute)}
+		result = identityapp.PasswordRecoveryIssuance{Issued: true, UserID: identityapp.ID(candidate.ID.Bytes), Recipient: candidate.Email, ExpiresAt: c.CreatedAt.UTC().Add(time.Duration(expiry) * time.Second)}
 		return nil
 	})
 	return result, err

@@ -1,13 +1,13 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"errors"
 	"fmt"
 	"math"
 	"time"
 
-	"bidora/backend/internal/identity/session"
 )
 
 var ErrPasswordChangeConflict = errors.New("password_change_conflict")
@@ -61,7 +61,7 @@ func (s *PasswordChangeService) Change(ctx context.Context, input PasswordChange
 	if s == nil || s.reauth == nil || s.password == nil || s.tokens == nil || s.ids == nil || s.clock == nil || s.committer == nil {
 		return LoginResult{}, safe("password_change_unavailable", nil)
 	}
-	if err := s.password.ValidateNew(input.NewPassword); err != nil {
+	if err := s.password.ValidateNew(input.NewPassword); err != nil || !securitypolicy.PasswordAllowed(ctx, input.NewPassword) {
 		return LoginResult{}, safe("password_change_new_password_invalid", nil)
 	}
 	proof, err := s.reauth.Reauthenticate(ctx, GoogleLinkReauthenticationInput{Principal: input.Principal, Credentials: input.Credentials})
@@ -93,7 +93,7 @@ func (s *PasswordChangeService) Change(ctx context.Context, input PasswordChange
 		}
 	}
 	changedAt := s.clock.Now().UTC()
-	idle, absolute, err := session.Expiries(changedAt)
+	idle, absolute, err := securitypolicy.Expiries(ctx, changedAt, false)
 	if changedAt.IsZero() || err != nil {
 		return LoginResult{}, safe("password_change_unavailable", err)
 	}

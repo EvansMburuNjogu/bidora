@@ -14,6 +14,7 @@ import (
 
 	identityapp "bidora/backend/internal/identity/application"
 	"bidora/backend/internal/identity/attempt"
+	"bidora/backend/internal/identity/securitypolicy"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -113,10 +114,16 @@ func (c *Controller) Begin(ctx context.Context, scopes attempt.Scopes) (identity
 	if value != 1 {
 		return nil, errors.New("redis_attempt_result_invalid")
 	}
-	return &reservation{controller: c, identityFailureKey: keys[0], identityBlockKey: keys[1], reservationKey: keys[5]}, nil
+	p := c.policy
+	configured := securitypolicy.From(ctx)
+	p.IdentityFailureLimit = int(configured.FailedLoginAttempts)
+	p.IdentityWindow = time.Duration(configured.FailureWindowSeconds) * time.Second
+	p.IdentityDeny = time.Duration(configured.LockoutSeconds) * time.Second
+	return &reservation{policy: p, controller: c, identityFailureKey: keys[0], identityBlockKey: keys[1], reservationKey: keys[5]}, nil
 }
 
 type reservation struct {
+	policy                                               attempt.Policy
 	controller                                           *Controller
 	identityFailureKey, identityBlockKey, reservationKey string
 }
@@ -129,7 +136,7 @@ func (r *reservation) Finish(ctx context.Context, success bool) error {
 	if success {
 		successArg = "1"
 	}
-	p := r.controller.policy
+	p := r.policy
 	result, err := r.controller.runner.Eval(ctx, finishScript, []string{r.identityFailureKey, r.identityBlockKey, r.reservationKey}, successArg, millis(p.IdentityWindow), p.IdentityFailureLimit, millis(p.IdentityDeny))
 	if err != nil {
 		return err

@@ -23,55 +23,36 @@ INSERT INTO bidora_control_audit.audit_events (
 );
 
 -- name: ListCurrentUserActiveSessions :many
-WITH policy AS (SELECT sqlc.arg(policy_idle_seconds)::integer AS idle_seconds,sqlc.arg(policy_absolute_seconds)::integer AS absolute_seconds)
-SELECT s.id,s.rotated_from_session_id,s.created_at,s.last_seen_at,
- LEAST(s.idle_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.last_seen_at+make_interval(secs=>p.idle_seconds) ELSE s.idle_expires_at END,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS idle_expires_at,
- LEAST(s.absolute_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS absolute_expires_at
+WITH policy AS (SELECT sqlc.arg(policy_idle_seconds)::integer AS idle_seconds,sqlc.arg(policy_absolute_seconds)::integer AS absolute_seconds,sqlc.arg(admin_idle_seconds)::integer AS admin_idle_seconds,sqlc.arg(admin_absolute_seconds)::integer AS admin_absolute_seconds)
+SELECT s.id,s.rotated_from_session_id,s.created_at,s.last_seen_at,LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS idle_expires_at,LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS absolute_expires_at
 FROM identity.sessions s JOIN identity.users u ON u.id=s.user_id CROSS JOIN policy p
-WHERE s.user_id=sqlc.arg(user_id) AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL
- AND s.idle_expires_at>sqlc.arg(observed_at) AND s.absolute_expires_at>sqlc.arg(observed_at)
- AND (s.idle_timeout_seconds>1800 OR (s.last_seen_at+make_interval(secs=>p.idle_seconds)>sqlc.arg(observed_at) AND s.created_at+make_interval(secs=>p.absolute_seconds)>sqlc.arg(observed_at)))
+WHERE u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL
+ AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>sqlc.arg(observed_at) AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>sqlc.arg(observed_at) AND s.user_id=sqlc.arg(user_id)
 ORDER BY s.created_at DESC,s.id DESC LIMIT 101;
 
 -- name: GetActiveSession :one
-WITH policy AS (SELECT sqlc.arg(policy_idle_seconds)::integer AS idle_seconds,sqlc.arg(policy_absolute_seconds)::integer AS absolute_seconds)
-SELECT s.id, s.user_id, s.csrf_hash, s.auth_epoch,
-       LEAST(s.idle_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.last_seen_at+make_interval(secs=>p.idle_seconds) ELSE s.idle_expires_at END,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS idle_expires_at,
-       LEAST(s.absolute_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS absolute_expires_at,
-       s.assurance_level,s.assured_at,s.assurance_method
-FROM identity.sessions AS s
-JOIN identity.users AS u ON u.id = s.user_id
-CROSS JOIN policy p
-WHERE s.token_hash = sqlc.arg(token_hash)
-  AND u.email_verified_at IS NOT NULL
-  AND u.disabled_at IS NULL
-  AND u.auth_epoch = s.auth_epoch
-  AND s.revoked_at IS NULL
-  AND s.idle_expires_at > sqlc.arg(observed_at)
-  AND s.absolute_expires_at > sqlc.arg(observed_at)
-  AND (s.idle_timeout_seconds>1800 OR (s.last_seen_at+make_interval(secs=>p.idle_seconds)>sqlc.arg(observed_at) AND s.created_at+make_interval(secs=>p.absolute_seconds)>sqlc.arg(observed_at)));
+WITH policy AS (SELECT sqlc.arg(policy_idle_seconds)::integer AS idle_seconds,sqlc.arg(policy_absolute_seconds)::integer AS absolute_seconds,sqlc.arg(admin_idle_seconds)::integer AS admin_idle_seconds,sqlc.arg(admin_absolute_seconds)::integer AS admin_absolute_seconds)
+SELECT s.id,s.user_id,s.csrf_hash,s.auth_epoch,LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS idle_expires_at,LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS absolute_expires_at,s.assurance_level,s.assured_at,s.assurance_method
+FROM identity.sessions s JOIN identity.users u ON u.id=s.user_id CROSS JOIN policy p
+WHERE u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL
+ AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>sqlc.arg(observed_at) AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>sqlc.arg(observed_at) AND s.token_hash=sqlc.arg(token_hash);
 
--- Touch only after browser/request policy accepts the request. Validation alone
--- must not let rejected cross-site traffic extend idle lifetime.
+-- Touch only accepted requests; rejected traffic cannot prolong sessions.
 -- name: TouchActiveSession :execrows
-WITH policy AS (SELECT sqlc.arg(policy_idle_seconds)::integer AS idle_seconds,sqlc.arg(policy_absolute_seconds)::integer AS absolute_seconds)
-UPDATE identity.sessions AS s
-SET last_seen_at = sqlc.arg(observed_at),
-    idle_expires_at = LEAST(sqlc.arg(observed_at) + make_interval(secs=>CASE WHEN s.idle_timeout_seconds<=1800 THEN LEAST(s.idle_timeout_seconds,p.idle_seconds) ELSE s.idle_timeout_seconds END), s.absolute_expires_at,
-      CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)
-FROM policy p
-WHERE s.id = sqlc.arg(id)
-  AND s.revoked_at IS NULL
-  AND s.idle_expires_at > sqlc.arg(observed_at)
-  AND s.absolute_expires_at > sqlc.arg(observed_at)
-  AND s.last_seen_at <= sqlc.arg(observed_at)
-  AND (s.idle_timeout_seconds>1800 OR (s.last_seen_at+make_interval(secs=>p.idle_seconds)>sqlc.arg(observed_at) AND s.created_at+make_interval(secs=>p.absolute_seconds)>sqlc.arg(observed_at)));
+WITH policy AS (SELECT sqlc.arg(policy_idle_seconds)::integer AS idle_seconds,sqlc.arg(policy_absolute_seconds)::integer AS absolute_seconds,sqlc.arg(admin_idle_seconds)::integer AS admin_idle_seconds,sqlc.arg(admin_absolute_seconds)::integer AS admin_absolute_seconds)
+UPDATE identity.sessions s SET last_seen_at=sqlc.arg(observed_at),idle_expires_at=LEAST(sqlc.arg(observed_at)+make_interval(secs=>LEAST(s.idle_timeout_seconds,CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END)),s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))
+FROM identity.users u CROSS JOIN policy p WHERE u.id=s.user_id AND s.id=sqlc.arg(id) AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL AND s.last_seen_at<=sqlc.arg(observed_at) AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>sqlc.arg(observed_at) AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>sqlc.arg(observed_at);
 
--- Policy changes invalidate ordinary sessions atomically; no restoration when
--- a later policy relaxes. Verified administrator profiles remain governed.
 -- name: RevokeOrdinarySessionsForPolicy :execrows
 UPDATE identity.sessions SET revoked_at=sqlc.arg(at)::timestamptz
 WHERE revoked_at IS NULL AND idle_timeout_seconds<=1800;
+
+-- name: RevokeOtherSessionsForPolicy :execrows
+UPDATE identity.sessions SET revoked_at=GREATEST(sqlc.arg(at)::timestamptz,created_at,last_seen_at) WHERE revoked_at IS NULL AND id<>sqlc.arg(current_session_id)::uuid;
+-- name: RevokeExpiredPolicySession :execrows
+UPDATE identity.sessions SET revoked_at=GREATEST(sqlc.arg(at)::timestamptz,created_at,last_seen_at) WHERE id=sqlc.arg(current_session_id)::uuid AND revoked_at IS NULL AND LEAST(idle_expires_at,last_seen_at+make_interval(secs=>sqlc.arg(admin_idle_seconds)::integer),absolute_expires_at,created_at+make_interval(secs=>sqlc.arg(admin_absolute_seconds)::integer))<=sqlc.arg(at)::timestamptz;
+-- name: TightenCurrentPolicySession :execrows
+UPDATE identity.sessions SET idle_timeout_seconds=LEAST(idle_timeout_seconds,sqlc.arg(admin_idle_seconds)::integer),absolute_timeout_seconds=LEAST(absolute_timeout_seconds,sqlc.arg(admin_absolute_seconds)::integer),absolute_expires_at=LEAST(absolute_expires_at,created_at+make_interval(secs=>sqlc.arg(admin_absolute_seconds)::integer)),idle_expires_at=LEAST(idle_expires_at,last_seen_at+make_interval(secs=>sqlc.arg(admin_idle_seconds)::integer),absolute_expires_at,created_at+make_interval(secs=>sqlc.arg(admin_absolute_seconds)::integer)) WHERE id=sqlc.arg(current_session_id)::uuid AND revoked_at IS NULL;
 
 -- name: IsPlatformAdministrator :one
 SELECT EXISTS(SELECT 1 FROM identity.users WHERE id=sqlc.arg(user_id) AND account_type='PLATFORM_ADMIN' AND disabled_at IS NULL AND email_verified_at IS NOT NULL);

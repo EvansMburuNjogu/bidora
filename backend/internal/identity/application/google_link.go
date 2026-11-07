@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"errors"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"bidora/backend/internal/identity/googleoidc"
-	"bidora/backend/internal/identity/session"
 )
 
 var ErrGoogleLinkConflict = errors.New("google_link_conflict")
@@ -63,7 +63,7 @@ func (s *GoogleLinkService) LinkVerified(ctx context.Context, proof GoogleLinkPr
 			return LoginResult{}, safe("google_link_unavailable", err)
 		}
 	}
-	idle, absolute, err := session.Expiries(linkedAt)
+	idle, absolute, err := securitypolicy.Expiries(ctx, linkedAt, false)
 	if err != nil {
 		return LoginResult{}, safe("google_link_unavailable", err)
 	}

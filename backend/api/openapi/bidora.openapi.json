@@ -7564,6 +7564,53 @@
         ],
         "type": "object"
       },
+      "platform_session_policy__PasswordRequirements": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_password_bytes": {
+            "enum": [
+              128
+            ],
+            "type": "integer"
+          },
+          "minimum_password_bytes": {
+            "maximum": 128,
+            "minimum": 12,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minimum_password_bytes",
+          "maximum_password_bytes"
+        ],
+        "type": "object"
+      },
+      "platform_session_policy__PasswordRequirementsResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/platform_session_policy__PasswordRequirements"
+          },
+          "meta": {
+            "properties": {
+              "next_cursor": {
+                "type": "null"
+              },
+              "trace_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "trace_id"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
       "platform_session_policy__Policy": {
         "additionalProperties": false,
         "properties": {
@@ -7585,6 +7632,9 @@
             ],
             "type": "integer"
           },
+          "security": {
+            "$ref": "#/components/schemas/platform_session_policy__SecurityControls"
+          },
           "version": {
             "minimum": 1,
             "type": "integer"
@@ -7593,7 +7643,8 @@
         "required": [
           "idle_seconds",
           "absolute_seconds",
-          "version"
+          "version",
+          "security"
         ],
         "type": "object"
       },
@@ -7620,6 +7671,65 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "platform_session_policy__SecurityControls": {
+        "additionalProperties": false,
+        "properties": {
+          "admin_absolute_seconds": {
+            "maximum": 604800,
+            "minimum": 3600,
+            "multipleOf": 60,
+            "type": "integer"
+          },
+          "admin_idle_seconds": {
+            "maximum": 604800,
+            "minimum": 300,
+            "multipleOf": 60,
+            "type": "integer"
+          },
+          "allow_multiple_sessions": {
+            "type": "boolean"
+          },
+          "failed_login_attempts": {
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "failure_window_seconds": {
+            "maximum": 3600,
+            "minimum": 60,
+            "multipleOf": 60,
+            "type": "integer"
+          },
+          "lockout_seconds": {
+            "maximum": 3600,
+            "minimum": 60,
+            "multipleOf": 60,
+            "type": "integer"
+          },
+          "minimum_password_bytes": {
+            "maximum": 128,
+            "minimum": 12,
+            "type": "integer"
+          },
+          "password_reset_seconds": {
+            "maximum": 1800,
+            "minimum": 300,
+            "multipleOf": 60,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "failed_login_attempts",
+          "failure_window_seconds",
+          "lockout_seconds",
+          "minimum_password_bytes",
+          "password_reset_seconds",
+          "admin_idle_seconds",
+          "admin_absolute_seconds",
+          "allow_multiple_sessions"
         ],
         "type": "object"
       },
@@ -9952,6 +10062,40 @@
         ],
         "x-source-contract": "api/openapi/drafts/password-change.json",
         "x-source-status": "implemented-and-composed"
+      }
+    },
+    "/v1/auth/password-policy": {
+      "get": {
+        "operationId": "getPublicPasswordRequirements",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/platform_session_policy__PasswordRequirementsResponse"
+                }
+              }
+            },
+            "description": "Current or saved policy."
+          },
+          "400": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          }
+        },
+        "security": [],
+        "summary": "Read current requirements for creating a password",
+        "tags": [
+          "Authentication"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-session-policy.json",
+        "x-source-status": "implemented-not-verified"
       }
     },
     "/v1/auth/password-recovery": {
@@ -15108,11 +15252,15 @@
                       1800
                     ],
                     "type": "integer"
+                  },
+                  "security": {
+                    "$ref": "#/components/schemas/platform_session_policy__SecurityControls"
                   }
                 },
                 "required": [
                   "idle_seconds",
-                  "absolute_seconds"
+                  "absolute_seconds",
+                  "security"
                 ],
                 "type": "object"
               }

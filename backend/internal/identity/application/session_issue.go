@@ -1,11 +1,11 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"errors"
 	"time"
 
-	"bidora/backend/internal/identity/session"
 )
 
 type AuthenticationMethod string
@@ -55,7 +55,7 @@ func (s *SessionIssuer) Issue(ctx context.Context, input AuthenticatedSessionInp
 		return LoginResult{}, safe("authentication_unavailable", err)
 	}
 	createdAt := s.clock.Now().UTC()
-	idle, absolute, err := session.Expiries(createdAt)
+	idle, absolute, err := securitypolicy.Expiries(ctx, createdAt, false)
 	if err != nil {
 		return LoginResult{}, safe("authentication_unavailable", err)
 	}

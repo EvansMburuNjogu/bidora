@@ -5,15 +5,18 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
+	"bidora/backend/internal/identity/securitypolicy"
 	"bidora/backend/internal/platformsettings/domain"
 )
 
-// SessionPolicy can only tighten ordinary sessions. The separate verified
-// administrator profile and mandatory MFA/password/browser controls are fixed.
+// SessionPolicy configures bounded login/session controls. Mandatory verified
+// email, administrator assurance, CSRF and recent sensitive-action checks remain.
 type SessionPolicy struct {
+	Security        securitypolicy.Controls
 	IdleSeconds     int32
 	AbsoluteSeconds int32
 	Version         int64
@@ -30,7 +33,7 @@ type SessionPolicyTx interface {
 	ReadSessionPolicy(context.Context, bool) (SessionPolicy, error)
 	FindSessionPolicyCommand(context.Context, domain.ID, [32]byte) (InformationCommand, bool, error)
 	UpdateSessionPolicy(context.Context, SessionPolicySave, time.Time) (int64, error)
-	RevokeOrdinarySessions(context.Context, time.Time) (int64, error)
+	ApplySessionPolicy(context.Context, SessionPolicySave, time.Time) (int64, error)
 	AppendSessionPolicyEvidence(context.Context, domain.ID, domain.ID, SessionPolicySave, int64, time.Time, [32]byte, [32]byte) error
 }
 type SessionPolicyUnitOfWork interface {
@@ -51,7 +54,7 @@ func NewSessionPolicyService(uow SessionPolicyUnitOfWork, ids IDGenerator, clock
 func ValidSessionPolicy(p SessionPolicy) bool {
 	idle := p.IdleSeconds == 300 || p.IdleSeconds == 600 || p.IdleSeconds == 900 || p.IdleSeconds == 1800
 	absolute := p.AbsoluteSeconds == 3600 || p.AbsoluteSeconds == 14400 || p.AbsoluteSeconds == 28800 || p.AbsoluteSeconds == 43200
-	return idle && absolute && p.AbsoluteSeconds >= p.IdleSeconds && p.Version > 0
+	return idle && absolute && p.AbsoluteSeconds >= p.IdleSeconds && p.Version > 0 && securitypolicy.ValidControls(p.Security)
 }
 func (s *SessionPolicyService) Read(ctx context.Context, subject Subject) (out SessionPolicy, err error) {
 	if s == nil || !validInformationSubject(ctx, subject) {
@@ -131,9 +134,17 @@ func (s *SessionPolicyService) Save(ctx context.Context, in SessionPolicySave) (
 		if affected != 1 {
 			return ErrInformationConflict
 		}
-		// Revoke all ordinary sessions on every change, so relaxing a formerly
-		// stricter policy cannot resurrect a session that expired under that policy.
-		revoked, e := tx.RevokeOrdinarySessions(c, at)
+		// Persist tightened bounds and revoke other sessions atomically. A later
+		// relaxation cannot resurrect a session invalidated by an earlier rule.
+		before, _ := json.Marshal(current.Security)
+		after, _ := json.Marshal(in.Policy.Security)
+		var oldFields, newFields map[string]any
+		_ = json.Unmarshal(before, &oldFields)
+		_ = json.Unmarshal(after, &newFields)
+		for _, field := range []string{"failed_login_attempts", "failure_window_seconds", "lockout_seconds", "minimum_password_bytes", "password_reset_seconds", "allow_multiple_sessions", "admin_idle_seconds", "admin_absolute_seconds"} {
+			in.Changes = append(in.Changes, settingChange(field, fmt.Sprint(oldFields[field]), fmt.Sprint(newFields[field]))...)
+		}
+		revoked, e := tx.ApplySessionPolicy(c, in, at)
 		if e != nil {
 			return e
 		}

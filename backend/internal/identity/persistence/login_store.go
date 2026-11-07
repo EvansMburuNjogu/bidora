@@ -92,7 +92,7 @@ func (c *LoginCommitter) CommitLoginSession(ctx context.Context, commit identity
 			return errors.New("login_commit_unavailable")
 		}
 		queries := identitysql.New(db)
-		if err := queries.InsertSession(txCtx, identitysql.InsertSessionParams{ID: identityID(commit.SessionID), UserID: identityID(commit.UserID), TokenHash: commit.SessionHash[:], CsrfHash: commit.CSRFHash[:], AuthEpoch: commit.AuthEpoch, CreatedAt: identityTime(commit.CreatedAt), IdleExpiresAt: identityTime(commit.IdleExpiresAt), AbsoluteExpiresAt: identityTime(commit.AbsoluteExpiresAt), AssuranceLevel: commit.AssuranceLevel, IdleTimeoutSeconds: 1800, AbsoluteTimeoutSeconds: 43200, AssuredAt: identityTime(commit.AssuredAt), AssuranceMethod: commit.AssuranceMethod}); err != nil {
+		if err := queries.InsertSession(txCtx, identitysql.InsertSessionParams{ID: identityID(commit.SessionID), UserID: identityID(commit.UserID), TokenHash: commit.SessionHash[:], CsrfHash: commit.CSRFHash[:], AuthEpoch: commit.AuthEpoch, CreatedAt: identityTime(commit.CreatedAt), IdleExpiresAt: identityTime(commit.IdleExpiresAt), AbsoluteExpiresAt: identityTime(commit.AbsoluteExpiresAt), AssuranceLevel: commit.AssuranceLevel, IdleTimeoutSeconds: int32(commit.IdleExpiresAt.Sub(commit.CreatedAt).Seconds()), AbsoluteTimeoutSeconds: int32(commit.AbsoluteExpiresAt.Sub(commit.CreatedAt).Seconds()), AssuredAt: identityTime(commit.AssuredAt), AssuranceMethod: commit.AssuranceMethod}); err != nil {
 			return err
 		}
 		return queries.InsertLoginAudit(txCtx, identitysql.InsertLoginAuditParams{ID: identityID(commit.AuditID), ActorID: identityID(commit.UserID), TargetID: identityID(commit.SessionID), OccurredAt: identityTime(commit.CreatedAt), CorrelationID: identityID(commit.CorrelationID), ChangeSummary: summary})

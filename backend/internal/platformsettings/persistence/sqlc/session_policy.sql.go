@@ -13,7 +13,7 @@ import (
 
 const appendPlatformSessionPolicyAudit = `-- name: AppendPlatformSessionPolicyAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1::uuid,NULL,$2::uuid,'PlatformSessionPolicyUpdated','platform_session_policy','00000000-0000-4000-8000-000000000038'::uuid,$3::timestamptz,'SUCCEEDED',$4::uuid,jsonb_build_object('version',$5::bigint,'ordinary_sessions_revoked',$6::bigint,'changes',$7::jsonb),1,$3::timestamptz)
+VALUES($1::uuid,NULL,$2::uuid,'PlatformSessionPolicyUpdated','platform_session_policy','00000000-0000-4000-8000-000000000038'::uuid,$3::timestamptz,'SUCCEEDED',$4::uuid,jsonb_build_object('version',$5::bigint,'sessions_revoked',$6::bigint,'changes',$7::jsonb),1,$3::timestamptz)
 `
 
 type AppendPlatformSessionPolicyAuditParams struct {
@@ -62,19 +62,25 @@ func (q *Queries) AppendPlatformSessionPolicyOutbox(ctx context.Context, arg App
 }
 
 const getPlatformSessionPolicy = `-- name: GetPlatformSessionPolicy :one
-SELECT idle_seconds,absolute_seconds,version FROM platform_settings.session_policy WHERE id=true
+SELECT idle_seconds,absolute_seconds,version,jsonb_build_object('failed_login_attempts',p.failed_login_attempts,'failure_window_seconds',p.failure_window_seconds,'lockout_seconds',p.lockout_seconds,'minimum_password_bytes',p.minimum_password_bytes,'password_reset_seconds',p.password_reset_seconds,'allow_multiple_sessions',p.allow_multiple_sessions,'admin_idle_seconds',p.admin_idle_seconds,'admin_absolute_seconds',p.admin_absolute_seconds)::jsonb AS security FROM platform_settings.session_policy p WHERE id=true
 `
 
 type GetPlatformSessionPolicyRow struct {
 	IdleSeconds     int32
 	AbsoluteSeconds int32
 	Version         int64
+	Security        []byte
 }
 
 func (q *Queries) GetPlatformSessionPolicy(ctx context.Context) (GetPlatformSessionPolicyRow, error) {
 	row := q.db.QueryRow(ctx, getPlatformSessionPolicy)
 	var i GetPlatformSessionPolicyRow
-	err := row.Scan(&i.IdleSeconds, &i.AbsoluteSeconds, &i.Version)
+	err := row.Scan(
+		&i.IdleSeconds,
+		&i.AbsoluteSeconds,
+		&i.Version,
+		&i.Security,
+	)
 	return i, err
 }
 
@@ -121,29 +127,36 @@ func (q *Queries) InsertPlatformSessionPolicyCommand(ctx context.Context, arg In
 }
 
 const lockPlatformSessionPolicy = `-- name: LockPlatformSessionPolicy :one
-SELECT idle_seconds,absolute_seconds,version FROM platform_settings.session_policy WHERE id=true FOR UPDATE
+SELECT idle_seconds,absolute_seconds,version,jsonb_build_object('failed_login_attempts',p.failed_login_attempts,'failure_window_seconds',p.failure_window_seconds,'lockout_seconds',p.lockout_seconds,'minimum_password_bytes',p.minimum_password_bytes,'password_reset_seconds',p.password_reset_seconds,'allow_multiple_sessions',p.allow_multiple_sessions,'admin_idle_seconds',p.admin_idle_seconds,'admin_absolute_seconds',p.admin_absolute_seconds)::jsonb AS security FROM platform_settings.session_policy p WHERE id=true FOR UPDATE
 `
 
 type LockPlatformSessionPolicyRow struct {
 	IdleSeconds     int32
 	AbsoluteSeconds int32
 	Version         int64
+	Security        []byte
 }
 
 func (q *Queries) LockPlatformSessionPolicy(ctx context.Context) (LockPlatformSessionPolicyRow, error) {
 	row := q.db.QueryRow(ctx, lockPlatformSessionPolicy)
 	var i LockPlatformSessionPolicyRow
-	err := row.Scan(&i.IdleSeconds, &i.AbsoluteSeconds, &i.Version)
+	err := row.Scan(
+		&i.IdleSeconds,
+		&i.AbsoluteSeconds,
+		&i.Version,
+		&i.Security,
+	)
 	return i, err
 }
 
 const updatePlatformSessionPolicy = `-- name: UpdatePlatformSessionPolicy :execrows
-UPDATE platform_settings.session_policy SET idle_seconds=$1,absolute_seconds=$2,version=version+1,updated_at=$3::timestamptz,updated_by=$4::uuid WHERE id=true AND version=$5
+UPDATE platform_settings.session_policy SET idle_seconds=$1,absolute_seconds=$2,failed_login_attempts=($3::jsonb->>'failed_login_attempts')::integer,failure_window_seconds=($3::jsonb->>'failure_window_seconds')::integer,lockout_seconds=($3::jsonb->>'lockout_seconds')::integer,minimum_password_bytes=($3::jsonb->>'minimum_password_bytes')::integer,password_reset_seconds=($3::jsonb->>'password_reset_seconds')::integer,allow_multiple_sessions=($3::jsonb->>'allow_multiple_sessions')::boolean,admin_idle_seconds=($3::jsonb->>'admin_idle_seconds')::integer,admin_absolute_seconds=($3::jsonb->>'admin_absolute_seconds')::integer,version=version+1,updated_at=$4::timestamptz,updated_by=$5::uuid WHERE id=true AND version=$6
 `
 
 type UpdatePlatformSessionPolicyParams struct {
 	IdleSeconds     int32
 	AbsoluteSeconds int32
+	Security        []byte
 	At              pgtype.Timestamptz
 	ActorID         pgtype.UUID
 	ExpectedVersion int64
@@ -153,6 +166,7 @@ func (q *Queries) UpdatePlatformSessionPolicy(ctx context.Context, arg UpdatePla
 	result, err := q.db.Exec(ctx, updatePlatformSessionPolicy,
 		arg.IdleSeconds,
 		arg.AbsoluteSeconds,
+		arg.Security,
 		arg.At,
 		arg.ActorID,
 		arg.ExpectedVersion,

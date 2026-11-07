@@ -1,6 +1,7 @@
 package platformsettings_test
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"errors"
 	"testing"
@@ -52,7 +53,7 @@ func (f *policyFixture) UpdateSessionPolicy(_ context.Context, in app.SessionPol
 	f.writes++
 	return 1, nil
 }
-func (f *policyFixture) RevokeOrdinarySessions(context.Context, time.Time) (int64, error) {
+func (f *policyFixture) ApplySessionPolicy(context.Context, app.SessionPolicySave, time.Time) (int64, error) {
 	f.revocations++
 	return 4, nil
 }
@@ -66,12 +67,12 @@ func (f *policyFixture) AppendSessionPolicyEvidence(_ context.Context, _, _ doma
 }
 func TestSessionPolicyOwnerSaveRevocationReplayAndRollback(t *testing.T) {
 	at := time.Now().UTC()
-	f := &policyFixture{policy: app.SessionPolicy{IdleSeconds: 1800, AbsoluteSeconds: 43200, Version: 1}, receipts: map[[32]byte]app.InformationCommand{}, authority: app.Authority{EffectiveOwner: true, Capabilities: map[string]bool{"platform.admin.read": true}, AssuranceLevel: "AAL2", AssuranceMethod: "TOTP", AssuredAt: at}}
+	f := &policyFixture{policy: app.SessionPolicy{IdleSeconds: 1800, AbsoluteSeconds: 43200, Security: securitypolicy.DefaultControls(), Version: 1}, receipts: map[[32]byte]app.InformationCommand{}, authority: app.Authority{EffectiveOwner: true, Capabilities: map[string]bool{"platform.admin.read": true}, AssuranceLevel: "AAL2", AssuranceMethod: "TOTP", AssuredAt: at}}
 	service, err := app.NewSessionPolicyService(f, &infoIDs{}, infoClock{at})
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := app.SessionPolicySave{Subject: app.Subject{ActorID: domain.ID{1}, SessionID: domain.ID{2}, ContextGeneration: 1}, CorrelationID: domain.ID{3}, IdempotencyKey: "policy-1", Policy: app.SessionPolicy{IdleSeconds: 300, AbsoluteSeconds: 3600, Version: 1}}
+	in := app.SessionPolicySave{Subject: app.Subject{ActorID: domain.ID{1}, SessionID: domain.ID{2}, ContextGeneration: 1}, CorrelationID: domain.ID{3}, IdempotencyKey: "policy-1", Policy: app.SessionPolicy{IdleSeconds: 300, AbsoluteSeconds: 3600, Security: securitypolicy.DefaultControls(), Version: 1}}
 	out, err := service.Save(context.Background(), in)
 	if err != nil || out.Version != 2 || f.writes != 1 || f.revocations != 1 || f.evidence != 1 {
 		t.Fatal("policy not committed atomically", out, err)
@@ -100,7 +101,7 @@ func TestSessionPolicyOwnerSaveRevocationReplayAndRollback(t *testing.T) {
 	if _, err = service.Save(context.Background(), in); !errors.Is(err, app.ErrInformationForbidden) {
 		t.Fatal("stale TOTP accepted", err)
 	}
-	for _, p := range []app.SessionPolicy{{IdleSeconds: 1801, AbsoluteSeconds: 43200, Version: 1}, {IdleSeconds: 1800, AbsoluteSeconds: 604800, Version: 1}, {IdleSeconds: 0, AbsoluteSeconds: 3600, Version: 1}} {
+	for _, p := range []app.SessionPolicy{{IdleSeconds: 1801, AbsoluteSeconds: 43200, Security: securitypolicy.DefaultControls(), Version: 1}, {IdleSeconds: 1800, AbsoluteSeconds: 604800, Security: securitypolicy.DefaultControls(), Version: 1}, {IdleSeconds: 0, AbsoluteSeconds: 3600, Security: securitypolicy.DefaultControls(), Version: 1}} {
 		in.Policy = p
 		if _, err = service.Save(context.Background(), in); !errors.Is(err, app.ErrInformationInvalid) {
 			t.Fatal("mandatory bounds weakened", err)
