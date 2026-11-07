@@ -9,6 +9,7 @@ import (
 
 	app "bidora/backend/internal/notification/application"
 	"bidora/backend/internal/notification/domain"
+	"bidora/backend/internal/notification/message"
 	notificationsql "bidora/backend/internal/notification/persistence/sqlc"
 	platformapp "bidora/backend/internal/platformadmin/application"
 	platformpersistence "bidora/backend/internal/platformadmin/persistence"
@@ -16,13 +17,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type PlatformHistoryStore struct{ runner transactionRunner }
+type PlatformHistoryStore struct {
+	runner   transactionRunner
+	messages *message.Cipher
+}
+
+func (s *PlatformHistoryStore) EnableMessages(key []byte, version int32) error {
+	codec, err := message.New(key, version)
+	if err == nil {
+		s.messages = codec
+	}
+	return err
+}
 
 func NewPlatformHistoryStore(runner transactionRunner) (*PlatformHistoryStore, error) {
 	if runner == nil {
 		return nil, errors.New("platform_notification_history_store_invalid")
 	}
-	return &PlatformHistoryStore{runner}, nil
+	return &PlatformHistoryStore{runner: runner}, nil
 }
 func (s *PlatformHistoryStore) WithinPlatformHistory(ctx context.Context, fn func(context.Context, app.PlatformHistoryTx) error) error {
 	if ctx == nil || s == nil || s.runner == nil || fn == nil {
@@ -33,11 +45,12 @@ func (s *PlatformHistoryStore) WithinPlatformHistory(ctx context.Context, fn fun
 		if err != nil {
 			return err
 		}
-		return fn(c, &platformHistoryTx{q: notificationsql.New(db), authority: authority})
+		return fn(c, &platformHistoryTx{q: notificationsql.New(db), authority: authority, messages: s.messages})
 	})
 }
 
 type platformHistoryTx struct {
+	messages  *message.Cipher
 	q         *notificationsql.Queries
 	authority *platformpersistence.SettingsAuthorityTx
 }
@@ -45,14 +58,17 @@ type platformHistoryTx struct {
 func (t *platformHistoryTx) ResolvePlatformAuthority(ctx context.Context, query platformapp.AuthorityQuery) (platformapp.AuthorityFacts, error) {
 	return t.authority.Resolve(ctx, query)
 }
-func (t *platformHistoryTx) ListPlatformAttempts(ctx context.Context, limit int32, cursor *app.HistoryCursor) ([]app.AttemptHistoryRow, error) {
+func (t *platformHistoryTx) ListPlatformAttempts(ctx context.Context, limit int32, cursor *app.HistoryCursor, filters app.HistoryFilters) ([]app.AttemptHistoryRow, error) {
 	var at pgtype.Timestamptz
 	var cursorID pgtype.UUID
 	if cursor != nil {
 		at = timestamp(cursor.StartedAt)
 		cursorID = uuid(cursor.ID)
 	}
-	rows, err := t.q.ListPlatformNotificationAttempts(ctx, notificationsql.ListPlatformNotificationAttemptsParams{CursorAt: at, CursorID: cursorID, PageLimit: limit})
+	if err := t.q.PurgeExpiredNotificationMessages(ctx); err != nil {
+		return nil, err
+	}
+	rows, err := t.q.ListPlatformNotificationAttempts(ctx, notificationsql.ListPlatformNotificationAttemptsParams{CursorAt: at, CursorID: cursorID, PageLimit: limit, Category: filters.Category, Status: filters.Status, DateFrom: optionalTimestamp(filters.From), DateTo: optionalTimestamp(filters.To)})
 	if err != nil {
 		return nil, err
 	}
@@ -80,9 +96,27 @@ func (t *platformHistoryTx) ListPlatformAttempts(ctx context.Context, limit int3
 				item.FailureCode = &code
 			}
 		}
+		if t.messages != nil && row.KeyVersion != nil {
+			content, e := t.messages.Open(id(row.NotificationID), message.Encrypted{KeyVersion: *row.KeyVersion, Nonce: row.Nonce, Ciphertext: row.Ciphertext})
+			if e == nil {
+				item.Recipient = &content.Recipient
+				item.Subject = &content.Subject
+				item.Message = &content.Text
+			}
+		}
+		if item.Recipient == nil && row.CurrentRecipient != "" && t.messages.MatchesRecipient(row.CurrentRecipient, row.RecipientFingerprint) {
+			item.Recipient = &row.CurrentRecipient
+		}
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func optionalTimestamp(v *time.Time) pgtype.Timestamptz {
+	if v == nil {
+		return pgtype.Timestamptz{}
+	}
+	return timestamp(*v)
 }
 
 var notificationCategoryPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,79}$`)

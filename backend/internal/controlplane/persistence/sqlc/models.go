@@ -923,6 +923,15 @@ type NotificationDeliveryAttemptResult struct {
 	FinishedAt    pgtype.Timestamptz
 }
 
+type NotificationMessageSnapshot struct {
+	NotificationID pgtype.UUID
+	KeyVersion     int32
+	Nonce          []byte
+	Ciphertext     []byte
+	CreatedAt      pgtype.Timestamptz
+	ExpiresAt      pgtype.Timestamptz
+}
+
 type NotificationNotification struct {
 	ID                    pgtype.UUID
 	TenantID              pgtype.UUID

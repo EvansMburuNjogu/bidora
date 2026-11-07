@@ -16,7 +16,7 @@ import (
 )
 
 type PlatformNotificationHistoryReader interface {
-	List(context.Context, notificationapp.HistorySubject, int32, *notificationapp.HistoryCursor) (notificationapp.HistoryPage, error)
+	List(context.Context, notificationapp.HistorySubject, int32, *notificationapp.HistoryCursor, ...notificationapp.HistoryFilters) (notificationapp.HistoryPage, error)
 }
 type PlatformNotificationHistoryHandler struct {
 	reader PlatformNotificationHistoryReader
@@ -52,11 +52,11 @@ func (h *PlatformNotificationHistoryHandler) list(c fiber.Ctx) error {
 		return fail(c, 503, "NOTIFICATION_HISTORY_UNAVAILABLE", "Notification history is unavailable.", true)
 	}
 	values, err := url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil || len(values) > 2 {
+	if err != nil || len(values) > 6 {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	for key, entries := range values {
-		if (key != "limit" && key != "cursor") || len(entries) != 1 {
+		if (key != "limit" && key != "cursor" && key != "category" && key != "status" && key != "from" && key != "to") || len(entries) != 1 {
 			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 		}
 	}
@@ -72,7 +72,25 @@ func (h *PlatformNotificationHistoryHandler) list(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	page, err := h.reader.List(c.Context(), notificationapp.HistorySubject{UserID: domain.ID(principal.UserID), SessionID: domain.ID(principal.SessionID), CorrelationID: domain.ID(correlation), ContextGeneration: generation}, limit, cursor)
+	filters := notificationapp.HistoryFilters{Category: values.Get("category"), Status: values.Get("status")}
+	for _, key := range []string{"from", "to"} {
+		if raw := values.Get(key); raw != "" {
+			parsed, e := time.Parse("2006-01-02", raw)
+			if e != nil {
+				return fail(c, 400, "INVALID_REQUEST", "Enter valid filter dates.", false)
+			}
+			if key == "from" {
+				filters.From = &parsed
+			} else {
+				end := parsed.AddDate(0, 0, 1)
+				filters.To = &end
+			}
+		}
+	}
+	if !filters.Valid() {
+		return fail(c, 400, "INVALID_REQUEST", "The filters are invalid.", false)
+	}
+	page, err := h.reader.List(c.Context(), notificationapp.HistorySubject{UserID: domain.ID(principal.UserID), SessionID: domain.ID(principal.SessionID), CorrelationID: domain.ID(correlation), ContextGeneration: generation}, limit, cursor, filters)
 	if err != nil {
 		switch {
 		case errors.Is(err, notificationapp.ErrHistoryInvalid):
@@ -90,7 +108,7 @@ func (h *PlatformNotificationHistoryHandler) list(c fiber.Ctx) error {
 			value := row.FinishedAt.UTC().Format(time.RFC3339Nano)
 			finished = &value
 		}
-		items[i] = fiber.Map{"category": row.Category, "attempt_number": row.AttemptNumber, "disposition": row.Disposition, "failure_code": row.FailureCode, "started_at": row.StartedAt.UTC().Format(time.RFC3339Nano), "finished_at": finished}
+		items[i] = fiber.Map{"recipient": row.Recipient, "subject": row.Subject, "message": row.Message, "category": row.Category, "attempt_number": row.AttemptNumber, "disposition": row.Disposition, "failure_code": row.FailureCode, "started_at": row.StartedAt.UTC().Format(time.RFC3339Nano), "finished_at": finished}
 	}
 	next, err := encodeNotificationHistoryCursor(page.Next)
 	if err != nil {

@@ -75,7 +75,7 @@ func (d *Delivery) DeliverEmailVerificationWithEvidence(ctx context.Context, req
 		return d.recorder.Send(ctx, notificationdelivery.Request{
 			ActorID: notificationID(request.ActorID), RecipientUserID: notificationID(request.UserID), SourceID: notificationID(request.ChallengeID), CorrelationID: notificationID(request.CorrelationID), SMTPVersionID: notificationSettingsID(versionID),
 			Category: "EMAIL_VERIFICATION", TemplateKey: "identity.email_verification", SourceType: "EMAIL_VERIFICATION_CHALLENGE", IdempotencyKey: uuid.UUID(request.ChallengeID).String(), TemplateVersion: version, AttemptNumber: 1,
-			RecipientCanonical: request.Recipient.Lookup(), RenderedContent: fingerprint,
+			Subject: prepared.RecordSubject(), Text: prepared.RecordText(), RecipientCanonical: request.Recipient.Lookup(), RenderedContent: fingerprint,
 		}, func(sendCtx context.Context) error { return smtp.DeliverPrepared(sendCtx, prepared) })
 	})
 }
@@ -103,7 +103,7 @@ func (d *Delivery) DeliverPasswordRecoveryWithEvidence(ctx context.Context, requ
 		return d.recorder.Send(ctx, notificationdelivery.Request{
 			RecipientUserID: notificationID(request.UserID), SourceID: notificationID(request.ChallengeID), CorrelationID: notificationID(request.CorrelationID), SMTPVersionID: notificationSettingsID(versionID),
 			Category: "PASSWORD_RECOVERY", TemplateKey: "identity.password_recovery", SourceType: "PASSWORD_RECOVERY_CHALLENGE", IdempotencyKey: uuid.UUID(request.ChallengeID).String(), TemplateVersion: version, AttemptNumber: 1,
-			RecipientCanonical: request.Recipient.Lookup(), RenderedContent: fingerprint,
+			Subject: prepared.RecordSubject(), Text: prepared.RecordText(), RecipientCanonical: request.Recipient.Lookup(), RenderedContent: fingerprint,
 		}, func(sendCtx context.Context) error { return smtp.DeliverPrepared(sendCtx, prepared) })
 	})
 }

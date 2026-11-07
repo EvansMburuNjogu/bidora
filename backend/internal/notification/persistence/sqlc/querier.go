@@ -27,6 +27,7 @@ type Querier interface {
 	InsertDeliveryAttemptResult(ctx context.Context, arg InsertDeliveryAttemptResultParams) error
 	InsertNotification(ctx context.Context, arg InsertNotificationParams) error
 	InsertNotificationAudit(ctx context.Context, arg InsertNotificationAuditParams) error
+	InsertNotificationMessage(ctx context.Context, arg InsertNotificationMessageParams) error
 	InsertNotificationOutbox(ctx context.Context, arg InsertNotificationOutboxParams) error
 	InsertNotificationTemplateCommand(ctx context.Context, arg InsertNotificationTemplateCommandParams) error
 	InsertNotificationTemplateVersion(ctx context.Context, arg InsertNotificationTemplateVersionParams) error
@@ -34,11 +35,11 @@ type Querier interface {
 	IsActiveSMTPVersion(ctx context.Context, versionID pgtype.UUID) (bool, error)
 	ListNotificationTemplateVersions(ctx context.Context, templateKey string) ([]ListNotificationTemplateVersionsRow, error)
 	ListNotificationTemplates(ctx context.Context) ([]NotificationTemplate, error)
-	// Platform-authorized metadata only: no message body, token or recipient data.
 	ListPlatformNotificationAttempts(ctx context.Context, arg ListPlatformNotificationAttemptsParams) ([]ListPlatformNotificationAttemptsRow, error)
 	// Serialize starts/results without UPDATE privileges on append-only evidence.
 	LockNotificationForDelivery(ctx context.Context, id pgtype.UUID) error
 	LockNotificationTemplate(ctx context.Context, templateKey string) (NotificationTemplate, error)
+	PurgeExpiredNotificationMessages(ctx context.Context) error
 	UpdateNotificationTemplate(ctx context.Context, arg UpdateNotificationTemplateParams) (int64, error)
 }
 

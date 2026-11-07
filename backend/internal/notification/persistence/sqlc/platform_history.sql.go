@@ -37,39 +37,68 @@ func (q *Queries) InsertPlatformNotificationHistoryReadAudit(ctx context.Context
 }
 
 const listPlatformNotificationAttempts = `-- name: ListPlatformNotificationAttempts :many
-SELECT COALESCE(a.id,n.id)::uuid AS id, n.category, COALESCE(a.attempt_number,0)::integer AS attempt_number,
- COALESCE(a.started_at,n.created_at)::timestamptz AS started_at,
- r.id AS result_id, r.correlation_id AS result_correlation_id, r.disposition, r.failure_code, r.finished_at
+SELECT COALESCE(a.id,n.id)::uuid AS id,n.id AS notification_id,n.category,
+ COALESCE(a.attempt_number,0)::integer AS attempt_number,COALESCE(a.started_at,n.created_at)::timestamptz AS started_at,
+ r.id AS result_id,r.correlation_id AS result_correlation_id,r.disposition,r.failure_code,r.finished_at,
+ m.key_version,m.nonce,m.ciphertext,
+ COALESCE(CASE WHEN n.created_at>=CURRENT_TIMESTAMP-make_interval(days=>COALESCE((SELECT restricted_metadata_retention_days FROM platform_settings.operational_policy WHERE singleton),90)) THEN u.email_lookup ELSE NULL END,'')::text AS current_recipient,
+ n.recipient_fingerprint
 FROM notification.notifications n
 LEFT JOIN notification.delivery_attempts a ON a.notification_id=n.id
 LEFT JOIN notification.delivery_attempt_results r ON r.attempt_id=a.id
+LEFT JOIN notification.message_snapshots m ON m.notification_id=n.id AND m.expires_at>CURRENT_TIMESTAMP
+ AND m.created_at>=CURRENT_TIMESTAMP-make_interval(days=>COALESCE((SELECT restricted_metadata_retention_days FROM platform_settings.operational_policy WHERE singleton),90))
+LEFT JOIN identity.users u ON u.id=n.recipient_user_id
 WHERE ($1::timestamptz IS NULL OR
  (COALESCE(a.started_at,n.created_at),COALESCE(a.id,n.id))<($1::timestamptz,$2::uuid))
-ORDER BY COALESCE(a.started_at,n.created_at) DESC,COALESCE(a.id,n.id) DESC
-LIMIT $3
+ AND ($3::text='' OR n.category=$3::text)
+ AND ($4::text='' OR
+  ($4::text='NOT_ATTEMPTED' AND a.id IS NULL) OR
+  ($4::text='PENDING' AND a.id IS NOT NULL AND r.id IS NULL) OR
+  r.disposition=$4::text)
+ AND ($5::timestamptz IS NULL OR COALESCE(a.started_at,n.created_at)>=$5::timestamptz)
+ AND ($6::timestamptz IS NULL OR COALESCE(a.started_at,n.created_at)<$6::timestamptz)
+ORDER BY COALESCE(a.started_at,n.created_at) DESC,COALESCE(a.id,n.id) DESC LIMIT $7
 `
 
 type ListPlatformNotificationAttemptsParams struct {
 	CursorAt  pgtype.Timestamptz
 	CursorID  pgtype.UUID
+	Category  string
+	Status    string
+	DateFrom  pgtype.Timestamptz
+	DateTo    pgtype.Timestamptz
 	PageLimit int32
 }
 
 type ListPlatformNotificationAttemptsRow struct {
-	ID                  pgtype.UUID
-	Category            string
-	AttemptNumber       int32
-	StartedAt           pgtype.Timestamptz
-	ResultID            pgtype.UUID
-	ResultCorrelationID pgtype.UUID
-	Disposition         *string
-	FailureCode         *string
-	FinishedAt          pgtype.Timestamptz
+	ID                   pgtype.UUID
+	NotificationID       pgtype.UUID
+	Category             string
+	AttemptNumber        int32
+	StartedAt            pgtype.Timestamptz
+	ResultID             pgtype.UUID
+	ResultCorrelationID  pgtype.UUID
+	Disposition          *string
+	FailureCode          *string
+	FinishedAt           pgtype.Timestamptz
+	KeyVersion           *int32
+	Nonce                []byte
+	Ciphertext           []byte
+	CurrentRecipient     string
+	RecipientFingerprint []byte
 }
 
-// Platform-authorized metadata only: no message body, token or recipient data.
 func (q *Queries) ListPlatformNotificationAttempts(ctx context.Context, arg ListPlatformNotificationAttemptsParams) ([]ListPlatformNotificationAttemptsRow, error) {
-	rows, err := q.db.Query(ctx, listPlatformNotificationAttempts, arg.CursorAt, arg.CursorID, arg.PageLimit)
+	rows, err := q.db.Query(ctx, listPlatformNotificationAttempts,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.Category,
+		arg.Status,
+		arg.DateFrom,
+		arg.DateTo,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +108,7 @@ func (q *Queries) ListPlatformNotificationAttempts(ctx context.Context, arg List
 		var i ListPlatformNotificationAttemptsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.NotificationID,
 			&i.Category,
 			&i.AttemptNumber,
 			&i.StartedAt,
@@ -87,6 +117,11 @@ func (q *Queries) ListPlatformNotificationAttempts(ctx context.Context, arg List
 			&i.Disposition,
 			&i.FailureCode,
 			&i.FinishedAt,
+			&i.KeyVersion,
+			&i.Nonce,
+			&i.Ciphertext,
+			&i.CurrentRecipient,
+			&i.RecipientFingerprint,
 		); err != nil {
 			return nil, err
 		}

@@ -10,6 +10,7 @@ import (
 
 	app "bidora/backend/internal/notification/application"
 	"bidora/backend/internal/notification/domain"
+	"bidora/backend/internal/notification/message"
 )
 
 type EvidenceService interface {
@@ -45,6 +46,7 @@ type Request struct {
 	AttemptNumber                                                              int32
 	RecipientCanonical                                                         string
 	RenderedContent                                                            []byte
+	Subject, Text                                                              string
 }
 
 // Send persists the logical notification and attempt start before invoking send.
@@ -67,6 +69,21 @@ func (r *Recorder) Send(ctx context.Context, request Request, send func(context.
 	})
 	if err != nil {
 		return err
+	}
+	if writer, ok := r.service.(interface {
+		RecordMessage(context.Context, domain.ID, message.Encrypted) error
+	}); ok {
+		codec, e := message.New(r.key, r.version)
+		if e != nil {
+			return e
+		}
+		snapshot, e := codec.Seal(notification.ID, message.Content{Recipient: request.RecipientCanonical, Subject: request.Subject, Text: request.Text})
+		if e != nil {
+			return e
+		}
+		if e = writer.RecordMessage(ctx, notification.ID, snapshot); e != nil {
+			return e
+		}
 	}
 	attempt, fresh, err := r.service.StartAttemptForDelivery(ctx, app.StartAttemptInput{NotificationID: notification.ID, SMTPVersionID: request.SMTPVersionID, CorrelationID: request.CorrelationID, Number: request.AttemptNumber})
 	if err != nil {

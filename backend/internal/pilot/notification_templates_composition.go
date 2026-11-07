@@ -120,7 +120,7 @@ func (s templateSelfTestSender) SendTemplateTest(ctx context.Context, subject ap
 		if e != nil {
 			return e
 		}
-		return s.recorder.Send(ctx, delivery.Request{ActorID: subject.ActorID, RecipientUserID: subject.ActorID, SourceID: domain.ID(effect), CorrelationID: subject.CorrelationID, SMTPVersionID: domain.ID(version), Category: "PLATFORM_TEMPLATE_TEST", TemplateKey: t.Key, TemplateVersion: t.Version, SourceType: "PLATFORM_TEMPLATE_TEST", IdempotencyKey: effect.String(), AttemptNumber: 1, RecipientCanonical: recipient.Lookup(), RenderedContent: r.ContentForFingerprint()}, func(c context.Context) error { return smtp.DeliverPrepared(c, prepared) })
+		return s.recorder.Send(ctx, delivery.Request{ActorID: subject.ActorID, RecipientUserID: subject.ActorID, SourceID: domain.ID(effect), CorrelationID: subject.CorrelationID, SMTPVersionID: domain.ID(version), Category: "PLATFORM_TEMPLATE_TEST", TemplateKey: t.Key, TemplateVersion: t.Version, SourceType: "PLATFORM_TEMPLATE_TEST", IdempotencyKey: effect.String(), AttemptNumber: 1, Subject: prepared.RecordSubject(), Text: prepared.RecordText(), RecipientCanonical: recipient.Lookup(), RenderedContent: r.ContentForFingerprint()}, func(c context.Context) error { return smtp.DeliverPrepared(c, prepared) })
 	})
 	if sendErr != nil {
 		return "UNAVAILABLE", sendErr

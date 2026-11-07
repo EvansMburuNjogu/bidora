@@ -14767,7 +14767,7 @@
     },
     "/v1/platform/notifications/attempts": {
       "get": {
-        "description": "Current Platform Integration Administrator with matching context generation and recent TOTP-AAL2. Each page rechecks authority and commits a read audit in the same control transaction. Scope is tenant_id NULL and the four platform-originated categories with matching source types. Attempts without results have null disposition/failure_code/finished_at; SMTP_ACCEPTED means provider handoff, not delivery. No recipient identifiers, content, fingerprints, tokens, templates, tenant or identity records, exports or retry operations. Pagination is not a snapshot; newly started attempts may appear on a later first page.",
+        "description": "Requires current Platform authority, matching context and recent administrator verification; read access is audited. Includes all categories and prepared-only notifications. Recipient/subject/message are nullable when not recorded or expired. New previews are secret-redacted before encrypted storage and governed by restricted metadata retention. Historical recipients are shown only when the current address matches the original keyed fingerprint. SMTP_ACCEPTED means handoff, not inbox delivery. No credentials, tokens, raw HTML, ciphertext or fingerprints are returned.",
         "operationId": "getPlatformNotificationsAttempts",
         "parameters": [
           {
@@ -14794,6 +14794,45 @@
             "name": "cursor",
             "schema": {
               "maxLength": 384,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "NOT_ATTEMPTED",
+                "PENDING",
+                "SMTP_ACCEPTED",
+                "FAILED",
+                "AMBIGUOUS"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive UTC date.",
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date",
               "type": "string"
             }
           }
@@ -14854,12 +14893,37 @@
                               "null"
                             ]
                           },
+                          "message": {
+                            "description": "Plain-text preview with secret tokens, codes and URLs removed; never raw HTML.",
+                            "maxLength": 6100,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "recipient": {
+                            "maxLength": 254,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "started_at": {
                             "format": "date-time",
                             "type": "string"
+                          },
+                          "subject": {
+                            "maxLength": 600,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
+                          "recipient",
+                          "subject",
+                          "message",
                           "category",
                           "attempt_number",
                           "disposition",
@@ -14898,7 +14962,7 @@
                 }
               }
             },
-            "description": "Audited page without counts or recipient fields"
+            "description": "Audited page of communication records; unavailable or expired details are null"
           },
           "400": {
             "description": "Invalid request"
@@ -14921,7 +14985,7 @@
             "browserSession": []
           }
         ],
-        "summary": "List platform-originated notification attempts, not recipient delivery",
+        "summary": "Filter system communications with protected recipients and secret-redacted message previews",
         "tags": [
           "Platform Administration"
         ],

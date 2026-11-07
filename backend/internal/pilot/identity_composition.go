@@ -470,6 +470,11 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err != nil {
 		return fail(err)
 	}
+	if len(config.NotificationFingerprintKey) == 32 {
+		if err = platformHistoryStore.EnableMessages(config.NotificationFingerprintKey, config.NotificationFingerprintKeyVersion); err != nil {
+			return fail(err)
+		}
+	}
 	platformHistory, err := notificationapp.NewPlatformHistoryService(platformHistoryStore, notificationIDs{}, systemClock{})
 	if err != nil {
 		return fail(err)

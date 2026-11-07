@@ -87,6 +87,13 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Communications recipients, message previews and filters — BID-MVP-03 / BID-MVP-05
+
+- Communications displays Recipient, Subject/expandable plain-text message preview, category, send outcome and timestamps. Category/outcome/inclusive UTC date filters execute in PostgreSQL before cursor pagination; applying/clearing filters returns to page one. Empty, denied and unavailable/expired historical details are explicit. SMTP acceptance is never labelled inbox delivery.
+- New message previews are captured before SMTP through the shared recorder and encrypted with a purpose-separated key derived from the existing notification fingerprint secret; no new credential source. Codes, token-length strings and URLs are redacted before encryption. Snapshot failure blocks SMTP; previews cannot be swapped across notifications. Exact historical recipients are shown only when the current address matches the original keyed fingerprint, never guessed. Original old messages are not reconstructed or fabricated.
+- Migration 54 adds separate encrypted snapshots with INSERT/SELECT and retention DELETE only, no UPDATE. Existing append-only delivery evidence remains immutable. Global restricted metadata retention controls snapshot expiry, immediate read suppression and bounded cleanup on send/authorised history read. All reads retain current Platform permission, recent administrator verification, context checks, no-store response and read audit; no tenant/ordinary-user access or raw HTML/code/ciphertext exposure.
+- Affected Go tests/build, schema/checksum/grant checks, API/auth contracts, TypeScript/ESLint, production web build and intercepted browser proof passed. Live database transaction proved migration/runtime grants/history query and rolled back to 53 without sending mail. Deployment pending; authenticated real inbox delivery is not claimed.
+
 ## Saved SMTP username and password retention — BID-MVP-03 / BID-MVP-05
 
 - The active SMTP form read now resolves the saved username from the encrypted vault only after current Platform read permission and recent verification; historical versions remain username-redacted. Passwords, encrypted payloads and secret references never enter API responses. Both runtime compositions enable this projection for the exact returned version ID.

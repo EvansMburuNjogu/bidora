@@ -23,7 +23,7 @@ func (f *historyScopeFixture) WithinPlatformHistory(ctx context.Context, fn func
 func (f *historyScopeFixture) ResolvePlatformAuthority(context.Context, platformapp.AuthorityQuery) (platformapp.AuthorityFacts, error) {
 	return f.facts, nil
 }
-func (f *historyScopeFixture) ListPlatformAttempts(context.Context, int32, *app.HistoryCursor) ([]app.AttemptHistoryRow, error) {
+func (f *historyScopeFixture) ListPlatformAttempts(context.Context, int32, *app.HistoryCursor, app.HistoryFilters) ([]app.AttemptHistoryRow, error) {
 	f.reads++
 	return []app.AttemptHistoryRow{{Category: "PASSWORD_RECOVERY"}, {Category: "LOGIN_CODE"}, {Category: "TENANT_INVITATION"}}, nil
 }

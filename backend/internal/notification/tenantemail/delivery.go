@@ -53,7 +53,7 @@ func (d *Delivery) DeliverTenantRoleInvitationWithEvidence(ctx context.Context, 
 		return d.recorder.Send(ctx, notificationdelivery.Request{
 			TenantID: notificationID(request.TenantID), ActorID: notificationID(request.ActorID), SourceID: notificationID(request.InvitationID), CorrelationID: notificationID(request.CorrelationID), SMTPVersionID: notificationSettingsID(versionID),
 			Category: "TENANT_INVITATION", TemplateKey: "tenant.invitation", SourceType: "TENANT_INVITATION", IdempotencyKey: uuid.UUID(request.InvitationID).String(), TemplateVersion: 1, AttemptNumber: 1,
-			RecipientCanonical: recipient.Lookup(), RenderedContent: prepared.BytesForFingerprint(),
+			Subject: prepared.RecordSubject(), Text: prepared.RecordText(), RecipientCanonical: recipient.Lookup(), RenderedContent: prepared.BytesForFingerprint(),
 		}, func(sendCtx context.Context) error { return smtp.DeliverPrepared(sendCtx, prepared) })
 	})
 }

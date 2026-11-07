@@ -3053,7 +3053,7 @@
         },
         {
           "description": "`getPlatformNotificationsAttempts` — source: `api/openapi/drafts/platform-notification-history.json`",
-          "name": "List platform-originated notification attempts, not recipient delivery",
+          "name": "Filter system communications with protected recipients and secret-redacted message previews",
           "request": {
             "header": [
               {
@@ -3077,6 +3077,26 @@
                   "disabled": true,
                   "key": "cursor",
                   "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "category",
+                  "value": "{{category}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "{{status}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "from",
+                  "value": "{{from}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "to",
+                  "value": "{{to}}"
                 }
               ],
               "raw": "{{base_url}}/v1/platform/notifications/attempts"
@@ -7320,6 +7340,10 @@
       "value": "00000000-0000-0000-0000-000000000000"
     },
     {
+      "key": "category",
+      "value": ""
+    },
+    {
       "key": "change_id",
       "value": "00000000-0000-0000-0000-000000000000"
     },
@@ -7493,6 +7517,10 @@
     },
     {
       "key": "sort",
+      "value": ""
+    },
+    {
+      "key": "status",
       "value": ""
     },
     {

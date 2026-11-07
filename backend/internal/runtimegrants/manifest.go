@@ -121,6 +121,7 @@ var control = map[string]string{
 	"platform_settings.smtp_secrets":                            "SI",
 	"notification.delivery_attempt_results":                     "SI",
 	"notification.delivery_attempts":                            "SI",
+	"notification.message_snapshots":                            "SID",
 	"notification.notifications":                                "SI",
 	"tenancy.invitations":                                       "SIU",
 	"tenancy.organization_creation_commands":                    "SI",
@@ -203,7 +204,7 @@ func Load(plane string) (Manifest, error) {
 	switch plane {
 	case "control":
 		source = control
-		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 53}
+		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 54}
 	case "tenant":
 		source = tenant
 		result = Manifest{Plane: plane, CompatibilitySet: "tenant_common+tenant_tenderpreneur", CompatibilityVersion: 9_000_034}

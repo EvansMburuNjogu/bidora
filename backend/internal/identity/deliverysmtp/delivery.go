@@ -48,12 +48,15 @@ func (Config) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED SMTP del
 type Delivery struct{ config Config }
 
 type Prepared struct {
-	recipient email.Address
-	message   string
+	recipient     email.Address
+	message       string
+	subject, text string
 }
 
 func (Prepared) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED prepared email]") }
 func (p Prepared) BytesForFingerprint() []byte { return []byte(p.message) }
+func (p Prepared) RecordSubject() string       { return p.subject }
+func (p Prepared) RecordText() string          { return p.text }
 
 func New(config Config) (*Delivery, error) {
 	if !validConfig(config) {
@@ -107,7 +110,7 @@ func (d *Delivery) prepareStyled(recipient email.Address, title, key, code strin
 	}
 	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: title, Body: body, Code: code, Expiry: expiry.UTC().Format(time.RFC3339), Origin: d.config.ActionOrigin, Key: key, SupportEmail: d.config.ReplyTo.Display()})
 	message, err := renderedMessage(d.config.Sender, recipient, title, text, html)
-	return Prepared{recipient: recipient, message: message}, err
+	return Prepared{recipient: recipient, message: message, subject: title, text: text}, err
 }
 
 func (d *Delivery) DeliverPrepared(ctx context.Context, prepared Prepared) error {
@@ -186,7 +189,7 @@ func (d *Delivery) PrepareRendered(recipient email.Address, subject, text, html 
 	if recipient.IsZero() || err != nil {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	return Prepared{recipient: recipient, message: message}, nil
+	return Prepared{recipient: recipient, message: message, subject: subject, text: text}, nil
 }
 func (d *Delivery) DeliverRendered(ctx context.Context, recipient email.Address, subject, text, html string) error {
 	prepared, err := d.PrepareRendered(recipient, subject, text, html)

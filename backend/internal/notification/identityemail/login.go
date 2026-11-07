@@ -45,7 +45,7 @@ func (d *Delivery) DeliverLoginCodeWithEvidence(ctx context.Context, request ide
 			SourceID: notificationID(request.TransactionID), CorrelationID: notificationID(request.TransactionID), SMTPVersionID: notificationSettingsID(version),
 			Category: "LOGIN_CODE", TemplateKey: "identity.login_code", SourceType: "EMAIL_LOGIN_TRANSACTION",
 			IdempotencyKey: uuid.UUID(request.TransactionID).String(), TemplateVersion: v.Version, AttemptNumber: 1,
-			RecipientCanonical: request.Recipient.Lookup(), RenderedContent: v.ContentForFingerprint(),
+			Subject: prepared.RecordSubject(), Text: prepared.RecordText(), RecipientCanonical: request.Recipient.Lookup(), RenderedContent: v.ContentForFingerprint(),
 		}, func(c context.Context) error { return smtp.DeliverPrepared(c, prepared) })
 	})
 }

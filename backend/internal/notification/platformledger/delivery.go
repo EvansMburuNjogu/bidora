@@ -117,7 +117,7 @@ func (d *Delivery) send(ctx context.Context, request sendRequest) error {
 		return d.recorder.Send(ctx, notificationdelivery.Request{
 			ActorID: notificationID(request.ActorID), RecipientUserID: notificationID(request.RecipientUserID), SourceID: notificationID(request.SourceID), CorrelationID: notificationID(request.CorrelationID), SMTPVersionID: notificationSettingsID(versionID),
 			Category: request.Category, TemplateKey: request.TemplateKey, SourceType: request.SourceType, IdempotencyKey: uuid.UUID(request.SourceID).String(), TemplateVersion: version, AttemptNumber: 1,
-			RecipientCanonical: request.Recipient.Lookup(), RenderedContent: fingerprint,
+			Subject: prepared.RecordSubject(), Text: prepared.RecordText(), RecipientCanonical: request.Recipient.Lookup(), RenderedContent: fingerprint,
 		}, func(sendCtx context.Context) error { return smtp.DeliverPrepared(sendCtx, prepared) })
 	})
 }

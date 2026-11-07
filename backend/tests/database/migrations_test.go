@@ -26,7 +26,7 @@ func TestMigrationAndGenerationInputsMatchReviewedChecksums(t *testing.T) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 183 {
+	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 185 {
 		t.Fatal("unexpected manifest scope")
 	}
 	for name, want := range manifest.Files {
@@ -286,7 +286,7 @@ func TestAuthenticationMigrationTargetStopsBeforeNonAuthSchemas(t *testing.T) {
 	if _, err = migrationrunner.Resolve("control-auth", 30); err == nil {
 		t.Fatal("authentication migration plan accepted notification schema")
 	}
-	full, err := migrationrunner.Resolve("control", 53)
+	full, err := migrationrunner.Resolve("control", 54)
 	if err != nil || full.Directory != auth.Directory || full.TableName != auth.TableName || full.LockKey != auth.LockKey {
 		t.Fatal("control migration plans do not share one fenced ledger", full, err)
 	}

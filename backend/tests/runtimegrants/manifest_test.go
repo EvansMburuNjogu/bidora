@@ -29,7 +29,7 @@ func TestRuntimeGrantManifestsExactlyCoverReviewedQueries(t *testing.T) {
 		plane string
 		dirs  []string
 		count int
-	}{{"control", []string{"control", "identity", "controlplane", "platformadmin", "platformsettings", "commercial", "authorization", "notification"}, 97}, {"tenant", []string{"eventing", "organization", "tenantevidence", "entitlement", "opportunity"}, 61}} {
+	}{{"control", []string{"control", "identity", "controlplane", "platformadmin", "platformsettings", "commercial", "authorization", "notification"}, 98}, {"tenant", []string{"eventing", "organization", "tenantevidence", "entitlement", "opportunity"}, 61}} {
 		t.Run(tc.plane, func(t *testing.T) {
 			manifest, err := runtimegrants.Load(tc.plane)
 			if err != nil {
@@ -59,7 +59,7 @@ func TestRuntimeGrantManifestMetadataIsFixed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtimegrants.Version != 1 || control.CompatibilitySet != "control_registry" || control.CompatibilityVersion != 53 || tenant.CompatibilitySet != "tenant_common+tenant_tenderpreneur" || tenant.CompatibilityVersion != 9_000_034 {
+	if runtimegrants.Version != 1 || control.CompatibilitySet != "control_registry" || control.CompatibilityVersion != 54 || tenant.CompatibilitySet != "tenant_common+tenant_tenderpreneur" || tenant.CompatibilityVersion != 9_000_034 {
 		t.Fatal("runtime grant manifest compatibility metadata drifted")
 	}
 	if _, err = runtimegrants.Load("exchange"); err == nil {

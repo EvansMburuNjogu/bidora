@@ -14,9 +14,11 @@ export async function proxyPlatformCommunications(request: Request): Promise<Res
   const params = [...url.searchParams.entries()];
   const generation = request.headers.get("x-bidora-platform-context-generation");
   if (request.body || request.headers.get("content-length") && request.headers.get("content-length") !== "0" ||
-    !generation || !/^[1-9]\d{0,18}$/.test(generation) || params.length > 2 ||
+    !generation || !/^[1-9]\d{0,18}$/.test(generation) || params.length > 6 ||
     new Set(params.map(([key]) => key)).size !== params.length || params.some(([key, value]) =>
-      key === "limit" ? !/^(?:[1-9]|[1-9]\d|100)$/.test(value) : key === "cursor" ? !/^[A-Za-z0-9_-]{1,384}$/.test(value) : true)) return failure(400);
+      key === "limit" ? !/^(?:[1-9]|[1-9]\d|100)$/.test(value) : key === "cursor" ? !/^[A-Za-z0-9_-]{1,384}$/.test(value) :
+      key === "category" ? !/^[A-Z][A-Z0-9_]{0,79}$/.test(value) : key === "status" ? !["NOT_ATTEMPTED","PENDING","SMTP_ACCEPTED","FAILED","AMBIGUOUS"].includes(value) :
+      key === "from" || key === "to" ? !/^\d{4}-\d\d-\d\d$/.test(value) : true)) return failure(400);
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
   forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
@@ -27,7 +29,7 @@ export async function proxyPlatformCommunications(request: Request): Promise<Res
   if (![200, 400, 401, 403, 409, 503].includes(upstream.status) || upstream.headers.get("content-type")?.split(";")[0] !== "application/json") { await upstream.body?.cancel(); return failure(503); }
   let body: ArrayBuffer;
   try { body = await upstream.arrayBuffer(); } catch { return failure(503); }
-  if (body.byteLength > 131_072) return failure(503);
+  if (body.byteLength > 4_194_304) return failure(503);
   const responseHeaders = new Headers({ ...responseBase, "Content-Type": "application/json" });
   for (const name of ["retry-after", "x-request-id"]) { const value = upstream.headers.get(name); if (value) responseHeaders.set(name, value); }
   for (const value of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
