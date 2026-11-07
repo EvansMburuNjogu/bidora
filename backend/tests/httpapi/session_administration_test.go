@@ -118,12 +118,13 @@ func TestSessionInventoryReturnsCurrentAccountSessionsWithoutSensitiveMetadata(t
 	}
 	var envelope struct {
 		Data struct {
+			Blockers []string `json:"blockers"`
 			Sessions []struct {
 				Current bool `json:"current"`
 			} `json:"sessions"`
 		} `json:"data"`
 	}
-	if err = json.Unmarshal(body, &envelope); err != nil || len(envelope.Data.Sessions) != 2 || !envelope.Data.Sessions[0].Current || envelope.Data.Sessions[1].Current {
+	if err = json.Unmarshal(body, &envelope); err != nil || envelope.Data.Blockers == nil || len(envelope.Data.Sessions) != 2 || !envelope.Data.Sessions[0].Current || envelope.Data.Sessions[1].Current {
 		t.Fatal("current-session inventory marker drifted", err)
 	}
 }

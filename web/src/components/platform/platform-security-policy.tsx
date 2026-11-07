@@ -47,7 +47,7 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [dialog, setDialog] = useState<"save" | "reload" | null>(null);
+  const [dialog, setDialog] = useState<"save" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const submitting = useRef(false);
   const mounted = useRef(true);
@@ -88,7 +88,7 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
       if (response.status === 401) { refresh(); return; }
       const value = response.ok ? parsePlatformSessionPolicy(await response.json()) : null;
       if (!mounted.current) return;
-      if (!value) { const error = response.status === 409 ? "Saved settings changed. Reload and review the latest values before saving." : submissionErrorMessage(response.status, response.headers.get("retry-after")); setMessage(error); toast.error(error, { id: "session-policy" }); return; }
+      if (!value) { const error = response.status === 409 ? "Saved settings changed. Refresh this page to review the latest values before saving." : submissionErrorMessage(response.status, response.headers.get("retry-after")); setMessage(error); toast.error(error, { id: "session-policy" }); return; }
       setPolicy(value); setDraft(clonePolicy(value)); setDialog(null); receipt.current = null; toast.success("Security settings saved. Other sessions were signed out.", { id: "session-policy" }); onSaved(); refresh();
     } catch { if (mounted.current) { setMessage(networkSubmissionError); toast.error(networkSubmissionError, { id: "session-policy" }); } }
     finally { submitting.current = false; if (mounted.current) setBusy(false); }
@@ -115,9 +115,9 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
       {!canSave && <p className="mb-3 text-sm text-muted-foreground">Only the Platform Owner can change security settings.</p>}
       {message && <p role="alert" className="mb-3 text-sm text-destructive">{message}</p>}
       {!valid && <p role="alert" className="mb-3 text-sm text-destructive">Check the allowed ranges. Maximum session durations must not be shorter than inactivity timeouts.</p>}
-      <div className="flex flex-wrap justify-end gap-3 pb-6"><Button type="button" variant="ghost" disabled={busy || loading} onClick={() => dirty ? setDialog("reload") : reload()}><RotateCcwIcon aria-hidden="true" />Reload settings</Button><Button type="button" variant="outline" disabled={busy || !dirty} onClick={() => { setDraft(clonePolicy(policy)); setMessage(null); }}>Cancel</Button><Button type="submit" disabled={disabled || !csrfToken || !dirty || !valid}><SaveIcon aria-hidden="true" />Save Changes</Button></div>
+      <div className="flex flex-wrap justify-end gap-3 pb-6"><Button type="button" variant="outline" disabled={busy || !dirty} onClick={() => { setDraft(clonePolicy(policy)); setMessage(null); }}>Cancel</Button><Button type="submit" disabled={disabled || !csrfToken || !dirty || !valid}><SaveIcon aria-hidden="true" />Save Changes</Button></div>
     </form>
-    <AlertDialog open={dialog !== null} onOpenChange={open => { if (!open && !busy) setDialog(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{dialog === "reload" ? "Reload saved settings?" : "Update security settings?"}</AlertDialogTitle><AlertDialogDescription>{dialog === "reload" ? "Your unsaved changes will be replaced with the latest saved settings." : "Other sessions will be signed out. Your session may also end if it no longer meets the new limits. Password and lockout rules apply to new attempts and requests."}</AlertDialogDescription></AlertDialogHeader>{message && dialog === "save" && <p role="alert" className="text-sm text-destructive">{message}</p>}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="button" disabled={busy} aria-busy={busy} onClick={() => dialog === "reload" ? reload() : void save()}>{busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}{dialog === "reload" ? "Reload settings" : busy ? "Saving…" : "Save Changes"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog open={dialog !== null} onOpenChange={open => { if (!open && !busy) setDialog(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Update security settings?</AlertDialogTitle><AlertDialogDescription>Other sessions will be signed out. Your session may also end if it no longer meets the new limits. Password and lockout rules apply to new attempts and requests.</AlertDialogDescription></AlertDialogHeader>{message && <p role="alert" className="text-sm text-destructive">{message}</p>}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="button" disabled={busy} aria-busy={busy} onClick={() => void save()}>{busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}{busy ? "Saving…" : "Save Changes"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </>;
 }
 
@@ -129,29 +129,35 @@ async function readSessions(signal?: AbortSignal): Promise<SessionInventoryRespo
 function ActiveSessions({ csrfToken }: { csrfToken: string }) {
   const [inventory, setInventory] = useState<SessionInventoryResponse["data"] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const { refresh } = useSession();
   const submitting = useRef(false);
   const keys = useRef(new Map<string, string>());
   const mounted = useRef(true);
+  const requestVersion = useRef(0);
   const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true); setFailed(false);
+    const version = ++requestVersion.current;
+    setLoading(true);
     try {
       const data = await readSessions(signal);
-      if (signal?.aborted || !mounted.current) return;
-      if (!data) { setInventory(null); setFailed(true); return; }
+      if (signal?.aborted || !mounted.current || version !== requestVersion.current) return;
+      if (!data) { setInventory(null); return; }
       setInventory(data);
-    } catch { if (!signal?.aborted && mounted.current) { setInventory(null); setFailed(true); } }
-    finally { if (!signal?.aborted && mounted.current) setLoading(false); }
+    } catch { if (!signal?.aborted && mounted.current && version === requestVersion.current) setInventory(null); }
+    finally { if (!signal?.aborted && mounted.current && version === requestVersion.current) setLoading(false); }
   }, []);
   useEffect(() => {
     const controller = new AbortController();
     mounted.current = true;
     void Promise.resolve().then(() => { if (!controller.signal.aborted) return load(controller.signal); });
     const requestKeys = keys.current;
-    return () => { mounted.current = false; controller.abort(); requestKeys.clear(); };
+    const refreshVisible = () => { if (document.visibilityState === "visible") void load(controller.signal); };
+    // Refresh on actual return to the page, not a timer that would keep an
+    // otherwise idle session alive through repeated authenticated reads.
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => { mounted.current = false; controller.abort(); window.removeEventListener("focus", refreshVisible); document.removeEventListener("visibilitychange", refreshVisible); requestKeys.clear(); };
   }, [load]);
   async function revokeSelected() {
     const item = inventory?.sessions.find((session) => session.session_id === selected);
@@ -174,7 +180,6 @@ function ActiveSessions({ csrfToken }: { csrfToken: string }) {
       {inventory?.sessions.map((item) => <tr key={item.session_id}><td className="px-3 py-3">{item.current ? "Current session" : "Other session"}</td><td className="px-3 py-3">{localTime(item.last_seen_at)}</td><td className="px-3 py-3"><PlatformStatus value={item.current ? "Current" : "Active"} /></td><td className="px-3 py-3">{!item.current && inventory.other_session_revocation_available && !pending ? <PlatformRowActions label="other session" actions={[{ label: "Revoke session", onSelect: () => setSelected(item.session_id), destructive: true }]} /> : <span className="text-muted-foreground">—</span>}</td></tr>)}
       {!inventory && <tr><td colSpan={4} className="px-3 py-5 text-center text-muted-foreground">{loading ? "Loading sessions…" : "Session list could not be loaded."}</td></tr>}
     </tbody></table></div>
-    {failed && <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry sessions</Button>}
     <AlertDialog open={selected !== null} onOpenChange={(open) => { if (!open && !pending) setSelected(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Revoke this session?</AlertDialogTitle><AlertDialogDescription>This signs out the selected other session. Your current session stays active.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><Button type="button" variant="destructive" disabled={pending || !csrfToken} onClick={() => void revokeSelected()} aria-busy={pending}>{pending ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : <ShieldOffIcon aria-hidden="true" />}{pending ? "Revoking…" : "Revoke Session"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </section>;
 }
