@@ -87,6 +87,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Administrator email-login session policy correction — BID-MVP-03 / BID-MVP-05
+
+- Confirmed live settings: administrator inactivity/absolute limits are both 604800 seconds (10080 minutes), while verified EMAIL_OTP administrator sessions were being created with ordinary 1800/43200-second bounds. Root cause: email-code completion explicitly selected ordinary policy; the database correctly refuses to extend a shorter issued session and therefore could not repair it. Changed completion to classify the actual account and use the existing shared assured-session policy helper, just like TOTP. Response, commit and session/CSRF cookie expiry now agree with the saved administrator settings.
+- Focused password/Google tests cover seven-day and custom administrator limits, unchanged ordinary limits, cookie flags/expiry, classification dependency failure and code replay. Race checks/build passed. Actual runtime-role PostgreSQL proof inserted a temporary seven-day session, verified insert/read at +5 minutes/+31 minutes/+6 days and rejection at seven days, then rolled back; no live token/session was extracted or changed. Five-minute expiry was not established; short-lived historical revocations include explicit logout actions. Mandatory code expiry and recent verification for sensitive actions stay unchanged.
+- Backend-only deployment pending, no schema/environment/SMTP changes. Existing short or expired/revoked sessions are not resurrected; a fresh sign-in is required for longer bounds.
+
 ## Communications recipient filter — BID-MVP-03 / BID-MVP-05
 
 - Added optional Recipient email exact-match filter, case-insensitive under the existing mailbox policy; provider aliases are not rewritten. Recipient search is POST with a bounded strict JSON body, never a mailbox in URLs. Existing category/outcome/UTC date/cursor filters combine with recipient; applying/clearing resets pagination and subsequent pages retain the mailbox in the protected body.

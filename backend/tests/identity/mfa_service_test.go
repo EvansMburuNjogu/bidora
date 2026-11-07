@@ -14,6 +14,8 @@ import (
 )
 
 type mfaStoreFake struct {
+	platformAdministrator             bool
+	classificationErr                 error
 	active, pending                   *identityapp.MFAFactorMaterial
 	pendingCommit                     identityapp.MFAPendingCommit
 	stepUpCommit                      identityapp.MFAStepUpCommit
@@ -31,7 +33,7 @@ func (s *mfaStoreFake) HasActiveMFA(context.Context, identityapp.ID) (bool, erro
 	return s.active != nil, nil
 }
 func (s *mfaStoreFake) IsPlatformAdministrator(context.Context, identityapp.ID) (bool, error) {
-	return false, nil
+	return s.platformAdministrator, s.classificationErr
 }
 func (s *mfaStoreFake) SavePendingMFA(_ context.Context, c identityapp.MFAPendingCommit) error {
 	s.pendingCommit = c

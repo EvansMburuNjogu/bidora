@@ -599,7 +599,7 @@ func (s *MFAService) CompleteLogin(ctx context.Context, raw, code, kind string, 
 	if err != nil {
 		return LoginResult{}, safe("mfa_unavailable", err)
 	}
-	idle, absolute, err := securitypolicy.Expiries(ctx, now, false)
+	idle, absolute, err := s.assuredSessionExpiries(ctx, challenge.UserID, now)
 	if err != nil {
 		return LoginResult{}, safe("mfa_unavailable", err)
 	}
