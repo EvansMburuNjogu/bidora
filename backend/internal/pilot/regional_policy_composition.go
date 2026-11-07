@@ -26,6 +26,9 @@ func registerRegionalRuntime(f *fiber.App, b *httpapi.BrowserSessionMiddleware, 
 	if e != nil {
 		return e
 	}
+	if e = b.ConfigureSecurityPolicy(securityPolicyResolver(pool)); e != nil {
+		return e
+	}
 	if e = b.ConfigureRequestAudit(ips); e != nil {
 		return e
 	}

@@ -87,14 +87,15 @@ func (q *Queries) InsertPasswordRecoveredAudit(ctx context.Context, arg InsertPa
 
 const insertPasswordRecoveryChallenge = `-- name: InsertPasswordRecoveryChallenge :exec
 INSERT INTO identity.password_recovery_challenges(id,user_id,purpose,token_hash,expires_at,created_at)
-VALUES($1,$2,'PASSWORD_RECOVERY',$3,$4::timestamptz+interval '30 minutes',$4::timestamptz)
+VALUES($1,$2,'PASSWORD_RECOVERY',$3,$4::timestamptz+make_interval(secs=>$5::integer),$4::timestamptz)
 `
 
 type InsertPasswordRecoveryChallengeParams struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	TokenHash []byte
-	CreatedAt pgtype.Timestamptz
+	ID            pgtype.UUID
+	UserID        pgtype.UUID
+	TokenHash     []byte
+	CreatedAt     pgtype.Timestamptz
+	ExpirySeconds int32
 }
 
 func (q *Queries) InsertPasswordRecoveryChallenge(ctx context.Context, arg InsertPasswordRecoveryChallengeParams) error {
@@ -103,13 +104,14 @@ func (q *Queries) InsertPasswordRecoveryChallenge(ctx context.Context, arg Inser
 		arg.UserID,
 		arg.TokenHash,
 		arg.CreatedAt,
+		arg.ExpirySeconds,
 	)
 	return err
 }
 
 const insertPasswordRecoveryRequestedAudit = `-- name: InsertPasswordRecoveryRequestedAudit :exec
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
-VALUES($1,NULL,$2,'PasswordRecoveryRequested','password_recovery_challenge',$3,$4,'SUCCEEDED',$5,jsonb_build_object('purpose','PASSWORD_RECOVERY','expires_in_seconds',1800),1,$4)
+VALUES($1,NULL,$2,'PasswordRecoveryRequested','password_recovery_challenge',$3,$4,'SUCCEEDED',$5,jsonb_build_object('purpose','PASSWORD_RECOVERY','expires_in_seconds',$6::integer),1,$4)
 `
 
 type InsertPasswordRecoveryRequestedAuditParams struct {
@@ -118,6 +120,7 @@ type InsertPasswordRecoveryRequestedAuditParams struct {
 	ChallengeID   pgtype.UUID
 	At            pgtype.Timestamptz
 	CorrelationID pgtype.UUID
+	ExpirySeconds int32
 }
 
 func (q *Queries) InsertPasswordRecoveryRequestedAudit(ctx context.Context, arg InsertPasswordRecoveryRequestedAuditParams) error {
@@ -127,6 +130,7 @@ func (q *Queries) InsertPasswordRecoveryRequestedAudit(ctx context.Context, arg 
 		arg.ChallengeID,
 		arg.At,
 		arg.CorrelationID,
+		arg.ExpirySeconds,
 	)
 	return err
 }

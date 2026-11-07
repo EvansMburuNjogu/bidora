@@ -1,6 +1,6 @@
 "use client";
 
-import { parsePlatformSessionPolicy, type PlatformSessionPolicy } from "@/lib/platform-session-policy-contract";
+import { parsePlatformSessionPolicy, validSessionPolicy, type SecurityControls, type PlatformSessionPolicy } from "@/lib/platform-session-policy-contract";
 import { PlatformSelect } from "@/components/platform/platform-select";
 import Link from "next/link";
 import { Loader2Icon, RotateCcwIcon, ShieldOffIcon, SaveIcon } from "lucide-react";
@@ -8,6 +8,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionInventoryResponse } from "@/contracts/auth.generated";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/components/session/session-provider";
 import { revokeSession } from "@/lib/session-administration-client";
 import { parseSessionInventory } from "@/lib/session-contract";
@@ -20,92 +22,102 @@ import { networkSubmissionError, submissionErrorMessage } from "@/lib/submission
 function PolicyField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return <div className="grid gap-2 sm:grid-cols-[minmax(12rem,0.9fr)_minmax(0,1.1fr)] sm:items-center sm:gap-6"><div><p className="text-sm font-medium">{label}</p>{hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}</div><div className="min-w-0">{children}</div></div>;
 }
-function FixedValue({ value }: { value: string }) {
-  return <p className="py-2 text-sm text-muted-foreground">{value}</p>;
-}
-function FixedNumber({ id, label, value }: { id: string; label: string; value: number }) {
-  return <p id={id} aria-label={label} className="py-2 text-sm text-muted-foreground">{value}</p>;
-}
-function FixedSelect({ label, value }: { label: string; value: string }) {
-  return <p aria-label={label} className="py-2 text-sm text-muted-foreground">{value}</p>;
-}
-
 export function PlatformSecurityPolicy() {
   const { resolution, csrfToken } = useSession();
-  const allowed = resolution.capabilities.includes("platform.admin.read") && resolution.platform_context_generation !== null;
+  const [inventoryRevision, setInventoryRevision] = useState(0);
+  const generation = resolution.platform_context_generation;
+  const allowed = resolution.capabilities.includes("platform.admin.read") && generation !== null;
   return <main className="app-page">
-    <div className="app-page-header mb-7"><h1 className="type-title">Security &amp; Sessions</h1><p className="type-lead text-muted-foreground">Manage platform login security and session preferences.</p></div>
+    <div className="app-page-header mb-7"><h1 className="type-title">Security &amp; Sessions</h1><p className="type-lead text-muted-foreground">Manage login protection and session limits across the platform.</p></div>
     {!allowed ? <p className="text-sm text-muted-foreground">You do not currently have access to this section.</p> : <div className="max-w-4xl">
-      
-      <section aria-labelledby="login-security-heading" className="space-y-5 py-6"><h2 id="login-security-heading" className="text-base font-semibold">Login Security</h2>
-        <PolicyField label="Require Two-Step Verification for Administrators"><FixedValue value="Required for administrator access" /></PolicyField>
-        <PolicyField label="Maximum Failed Login Attempts" hint="Within 15 minutes."><FixedNumber id="failed-logins" label="Maximum failed login attempts per identity" value={5} /></PolicyField>
-        <PolicyField label="Account Lockout Duration"><FixedSelect label="Account lockout duration" value="15 minutes" /></PolicyField>
-        <PolicyField label="Minimum Password Length" hint="Required minimum."><FixedNumber id="minimum-password" label="Minimum password length in bytes" value={12} /></PolicyField>
-      </section>
-      <section aria-labelledby="session-management-heading" className="space-y-5 border-t py-6"><h2 id="session-management-heading" className="text-base font-semibold">Session Management</h2>
-        <SessionPolicyFields />
-        <PolicyField label="Allow Multiple Active Sessions"><FixedValue value="Allowed" /></PolicyField>
-        <PolicyField label="Require Reauthentication for Sensitive Actions"><FixedValue value="Required · recent two-step verification" /></PolicyField>
-      </section>
-      <section aria-labelledby="account-protection-heading" className="space-y-5 border-t py-6"><h2 id="account-protection-heading" className="text-base font-semibold">Account Protection</h2>
-        <PolicyField label="Email Verification Required"><FixedValue value="Required for sign-in" /></PolicyField>
-        <PolicyField label="Password Reset Expiry"><FixedSelect label="Password reset expiry" value="30 minutes" /></PolicyField>
-        
-      </section>
-      <ActiveSessions key={csrfToken} csrfToken={csrfToken} />
+      <SessionPolicyFields key={`${generation}:${csrfToken}`} onSaved={() => setInventoryRevision(value => value + 1)} />
+      <section aria-labelledby="required-protection-heading" className="space-y-2 border-t py-6"><h2 id="required-protection-heading" className="text-base font-semibold">Required Protections</h2><p className="text-sm text-muted-foreground">Verified email and administrator two-step verification are always required. Sensitive actions require recent verification. These protections cannot be disabled.</p></section>
+      <ActiveSessions key={`${csrfToken}:${inventoryRevision}`} csrfToken={csrfToken} />
     </div>}
   </main>;
 }
 
-function SessionPolicyFields() {
+function duration(seconds: number) { return seconds >= 86400 ? `${seconds / 86400} ${seconds === 86400 ? "day" : "days"}` : seconds >= 3600 ? `${seconds / 3600} ${seconds === 3600 ? "hour" : "hours"}` : `${seconds / 60} minutes`; }
+function clonePolicy(value: PlatformSessionPolicy): PlatformSessionPolicy { return { ...value, security: { ...value.security } }; }
+function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
   const { resolution, csrfToken, refresh } = useSession();
   const generation = resolution.platform_context_generation;
-  const [loaded, setLoaded] = useState<{ generation: number; value: PlatformSessionPolicy } | null>(null);
-  const policy = loaded?.generation === generation ? loaded.value : null;
-  const [idle, setIdle] = useState(1800);
-  const [absolute, setAbsolute] = useState(43200);
+  const [policy, setPolicy] = useState<PlatformSessionPolicy | null>(null);
+  const [draft, setDraft] = useState<PlatformSessionPolicy | null>(null);
   const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState(false);
+  const [dialog, setDialog] = useState<"save" | "reload" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const submitting = useRef(false);
+  const mounted = useRef(true);
   const receipt = useRef<{ fingerprint: string; key: string } | null>(null);
   const canSave = resolution.capabilities.includes("platform.governance.approve");
+  const dirty = policy !== null && draft !== null && JSON.stringify(policy) !== JSON.stringify(draft);
+  const valid = draft !== null && validSessionPolicy(draft);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   useEffect(() => {
     if (!generation) return;
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch("/api/platform/security/session-policy", { cache: "no-store", signal: controller.signal, headers: { "X-Bidora-Platform-Context-Generation": String(generation) } });
+        const response = await fetch("/api/platform/security/session-policy", { credentials: "include", cache: "no-store", signal: controller.signal, headers: { "X-Bidora-Platform-Context-Generation": String(generation) } });
         const value = response.ok ? parsePlatformSessionPolicy(await response.json()) : null;
         if (controller.signal.aborted) return;
-        if (!value) { setLoaded(null); setMessage("Session settings could not be loaded."); return; }
-        setLoaded({ generation, value }); setIdle(value.idle_seconds); setAbsolute(value.absolute_seconds); setMessage(null);
-      } catch { if (!controller.signal.aborted) { setLoaded(null); setMessage("Session settings could not be loaded."); } }
+        if (!value) { setMessage(submissionErrorMessage(response.status)); return; }
+        setPolicy(value); setDraft(clonePolicy(value)); receipt.current = null; setMessage(null);
+      } catch { if (!controller.signal.aborted) setMessage("Security settings could not be loaded. Please retry."); }
+      finally { if (!controller.signal.aborted) setLoading(false); }
     })();
     return () => controller.abort();
   }, [generation, revision]);
+  function reload() { setDialog(null); setLoading(true); setRevision(value => value + 1); }
+  function change<K extends keyof SecurityControls>(key: K, value: SecurityControls[K]) { setDraft(current => current ? { ...current, security: { ...current.security, [key]: value } } : null); }
   async function save() {
-    if (!policy || !generation || !csrfToken || busy || submitting.current) return;
-    const fingerprint = JSON.stringify({ idle_seconds: idle, absolute_seconds: absolute, version: policy.version, generation });
+    if (!policy || !draft || !valid || !dirty || !canSave || !generation || !csrfToken || busy || submitting.current) return;
+    const body = { idle_seconds: draft.idle_seconds, absolute_seconds: draft.absolute_seconds, security: draft.security };
+    const fingerprint = JSON.stringify({ body, version: policy.version, generation });
     if (receipt.current?.fingerprint !== fingerprint) receipt.current = { fingerprint, key: crypto.randomUUID() };
     submitting.current = true; setBusy(true); setMessage(null);
     try {
-      const response = await fetch("/api/platform/security/session-policy", { method: "PUT", credentials: "include", cache: "no-store", headers: { "Content-Type": "application/json", "X-Bidora-Platform-Context-Generation": String(generation), "X-CSRF-Token": csrfToken, "If-Match": `"${policy.version}"`, "Idempotency-Key": receipt.current.key }, body: JSON.stringify({ idle_seconds: idle, absolute_seconds: absolute }) });
+      const response = await fetch("/api/platform/security/session-policy", { method: "PUT", credentials: "include", cache: "no-store", headers: { "Content-Type": "application/json", "X-Bidora-Platform-Context-Generation": String(generation), "X-CSRF-Token": csrfToken, "If-Match": `"${policy.version}"`, "Idempotency-Key": receipt.current.key }, body: JSON.stringify(body) });
+      if (!mounted.current) return;
       if (response.status === 401) { refresh(); return; }
       const value = response.ok ? parsePlatformSessionPolicy(await response.json()) : null;
-      if (!value) { toast.error(submissionErrorMessage(response.status, response.headers.get("retry-after")), { id: "session-policy" }); return; }
-      setLoaded({ generation, value }); setConfirm(false); receipt.current = null; toast.success("Session settings saved. Ordinary sessions were signed out.", { id: "session-policy" }); refresh();
-    } catch { toast.error(networkSubmissionError, { id: "session-policy" }); }
-    finally { submitting.current = false; setBusy(false); }
+      if (!mounted.current) return;
+      if (!value) { const error = response.status === 409 ? "Saved settings changed. Reload and review the latest values before saving." : submissionErrorMessage(response.status, response.headers.get("retry-after")); setMessage(error); toast.error(error, { id: "session-policy" }); return; }
+      setPolicy(value); setDraft(clonePolicy(value)); setDialog(null); receipt.current = null; toast.success("Security settings saved. Other sessions were signed out.", { id: "session-policy" }); onSaved(); refresh();
+    } catch { if (mounted.current) { setMessage(networkSubmissionError); toast.error(networkSubmissionError, { id: "session-policy" }); } }
+    finally { submitting.current = false; if (mounted.current) setBusy(false); }
   }
+  if (!draft || !policy) return <div className="space-y-3 py-6"><p role="status" className="text-sm text-muted-foreground">{loading ? "Loading security settings…" : message ?? "Security settings are unavailable."}</p>{!loading && <Button variant="outline" onClick={reload}><RotateCcwIcon aria-hidden="true" />Retry security settings</Button>}</div>;
+  const disabled = !canSave || busy || loading;
+  const number = (label: string, key: Exclude<keyof SecurityControls, "allow_multiple_sessions">, min: number, max: number, unit = 1) => <Input type="number" inputMode="numeric" aria-label={label} value={draft.security[key] / unit} min={min} max={max} step={1} required disabled={disabled} onChange={event => change(key, Number(event.target.value) * unit)} />;
   return <>
-    <PolicyField label="Session Inactivity Timeout" hint="For standard user sessions."><PlatformSelect aria-label="Ordinary session inactivity timeout" value={idle} disabled={!policy || !canSave || busy} onChange={(event) => setIdle(Number(event.target.value))}>{[300, 600, 900, 1800].map((seconds) => <option value={seconds} key={seconds}>{seconds / 60} minutes</option>)}</PlatformSelect></PolicyField>
-    <PolicyField label="Maximum Session Duration" hint="Administrator sessions are unchanged."><PlatformSelect aria-label="Ordinary maximum session duration" value={absolute} disabled={!policy || !canSave || busy} onChange={(event) => setAbsolute(Number(event.target.value))}>{[3600, 14400, 28800, 43200].map((seconds) => <option value={seconds} key={seconds}>{seconds / 3600} hours</option>)}</PlatformSelect></PolicyField>
-    {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
-    <div className="flex justify-end gap-3"><Button type="button" variant="outline" disabled={busy||!policy} onClick={() => { if(policy){setIdle(policy.idle_seconds);setAbsolute(policy.absolute_seconds);} }}>Cancel</Button><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setRevision(value=>value+1)} aria-label="Refresh session settings"><RotateCcwIcon aria-hidden="true"/></Button><Button type="button" disabled={!policy || !canSave || busy || !csrfToken || idle === policy.idle_seconds && absolute === policy.absolute_seconds} onClick={() => setConfirm(true)}><SaveIcon aria-hidden="true"/>Save Changes</Button></div>
-    <AlertDialog open={confirm} onOpenChange={(open) => { if (!busy) setConfirm(open); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Update session settings?</AlertDialogTitle><AlertDialogDescription>Standard users will be signed out. Administrator sessions stay active.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="button" disabled={busy} aria-busy={busy} onClick={() => void save()}>{busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}{busy ? "Saving…" : "Save Changes"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <form onSubmit={event => { event.preventDefault(); if (valid && dirty && canSave) setDialog("save"); }}>
+      <section aria-labelledby="login-security-heading" className="space-y-5 py-6"><h2 id="login-security-heading" className="text-base font-semibold">Login Security</h2>
+        <PolicyField label="Maximum Failed Password Attempts" hint="Per account, within the window below. Network protection stays enabled.">{number("Maximum failed password attempts", "failed_login_attempts", 1, 5)}</PolicyField>
+        <PolicyField label="Failed Attempt Window" hint="Minutes for new failure windows. Existing windows keep their expiry.">{number("Failed attempt window in minutes", "failure_window_seconds", 1, 60, 60)}</PolicyField>
+        <PolicyField label="Account Lockout Duration" hint="Minutes for new lockouts. Existing lockouts keep their original expiry.">{number("Account lockout duration in minutes", "lockout_seconds", 1, 60, 60)}</PolicyField>
+        <PolicyField label="Minimum Password Length" hint="12–128 UTF-8 bytes. Applies to new and changed passwords, not existing sign-ins.">{number("Minimum password length in bytes", "minimum_password_bytes", 12, 128)}</PolicyField>
+      </section>
+      <section aria-labelledby="session-management-heading" className="space-y-5 border-t py-6"><h2 id="session-management-heading" className="text-base font-semibold">Session Management</h2>
+        <PolicyField label="User Inactivity Timeout"><PlatformSelect aria-label="Ordinary session inactivity timeout" value={draft.idle_seconds} disabled={disabled} onChange={event => setDraft({ ...draft, idle_seconds: Number(event.target.value) })}>{[300, 600, 900, 1800].map(seconds => <option value={seconds} key={seconds}>{duration(seconds)}</option>)}</PlatformSelect></PolicyField>
+        <PolicyField label="Maximum User Session Duration"><PlatformSelect aria-label="Ordinary maximum session duration" value={draft.absolute_seconds} disabled={disabled} onChange={event => setDraft({ ...draft, absolute_seconds: Number(event.target.value) })}>{[3600, 14400, 28800, 43200].map(seconds => <option value={seconds} key={seconds}>{duration(seconds)}</option>)}</PlatformSelect></PolicyField>
+        <PolicyField label="Administrator Inactivity Timeout" hint="Minutes, from 5 minutes to 7 days.">{number("Administrator inactivity timeout in minutes", "admin_idle_seconds", 5, 10080, 60)}</PolicyField>
+        <PolicyField label="Maximum Administrator Session Duration" hint="Minutes, from 1 hour to 7 days.">{number("Administrator maximum session duration in minutes", "admin_absolute_seconds", 60, 10080, 60)}</PolicyField>
+        <PolicyField label="Allow Multiple Active Sessions" hint="When off, each new sign-in replaces other sessions for that account."><label className="flex items-center gap-3"><Checkbox aria-label="Allow multiple active sessions" checked={draft.security.allow_multiple_sessions} disabled={disabled} onCheckedChange={checked => change("allow_multiple_sessions", checked === true)} /><span className="text-sm">{draft.security.allow_multiple_sessions ? "Allowed" : "One session per account"}</span></label></PolicyField>
+      </section>
+      <section aria-labelledby="account-protection-heading" className="space-y-5 border-t py-6"><h2 id="account-protection-heading" className="text-base font-semibold">Account Protection</h2><PolicyField label="Password Reset Expiry" hint="Minutes for new recovery codes. Existing codes keep their expiry.">{number("Password reset expiry in minutes", "password_reset_seconds", 5, 30, 60)}</PolicyField></section>
+      {!canSave && <p className="mb-3 text-sm text-muted-foreground">Only the Platform Owner can change security settings.</p>}
+      {message && <p role="alert" className="mb-3 text-sm text-destructive">{message}</p>}
+      {!valid && <p role="alert" className="mb-3 text-sm text-destructive">Check the allowed ranges. Maximum session durations must not be shorter than inactivity timeouts.</p>}
+      <div className="flex flex-wrap justify-end gap-3 pb-6"><Button type="button" variant="ghost" disabled={busy || loading} onClick={() => dirty ? setDialog("reload") : reload()}><RotateCcwIcon aria-hidden="true" />Reload settings</Button><Button type="button" variant="outline" disabled={busy || !dirty} onClick={() => { setDraft(clonePolicy(policy)); setMessage(null); }}>Cancel</Button><Button type="submit" disabled={disabled || !csrfToken || !dirty || !valid}><SaveIcon aria-hidden="true" />Save Changes</Button></div>
+    </form>
+    <AlertDialog open={dialog !== null} onOpenChange={open => { if (!open && !busy) setDialog(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{dialog === "reload" ? "Reload saved settings?" : "Update security settings?"}</AlertDialogTitle><AlertDialogDescription>{dialog === "reload" ? "Your unsaved changes will be replaced with the latest saved settings." : "Other sessions will be signed out. Your session may also end if it no longer meets the new limits. Password and lockout rules apply to new attempts and requests."}</AlertDialogDescription></AlertDialogHeader>{message && dialog === "save" && <p role="alert" className="text-sm text-destructive">{message}</p>}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="button" disabled={busy} aria-busy={busy} onClick={() => dialog === "reload" ? reload() : void save()}>{busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}{dialog === "reload" ? "Reload settings" : busy ? "Saving…" : "Save Changes"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </>;
 }
 

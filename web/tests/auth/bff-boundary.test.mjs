@@ -16,11 +16,18 @@ let webOrigin;
 let forwarded = [];
 let loginAuditContext = null;
 let googleRedirect = "valid";
+let publicMinimum = 20;
 let logs = "";
 const platformRequests = [];
 const managedRequests = [];
 let platformStatus = 200;
 let platformError = "PLATFORM_SETTING_NOT_FOUND";
+
+test("public password requirements use current values and reject invalid policy responses", async () => {
+  publicMinimum=20;let response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,200);assert.equal((await response.json()).data.minimum_password_bytes,20);
+  publicMinimum=24;response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal((await response.json()).data.minimum_password_bytes,24);
+  publicMinimum=8;response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,503);publicMinimum=20;
+});
 
 async function freePort() {
   const server = net.createServer();
@@ -147,6 +154,7 @@ test.before(async () => {
   backend = http.createServer((request, response) => {
     forwarded.push(request.headers["x-forwarded-for"] ?? null);
     if (request.url === "/v1/auth/login-code/verify") loginAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"] };
+    if (request.url === "/v1/auth/password-policy") { response.writeHead(200, { "Content-Type": "application/json" }); response.end(JSON.stringify({data:{minimum_password_bytes:publicMinimum,maximum_password_bytes:128},meta:{trace_id:"synthetic-policy"}})); return; }
     if (request.url === "/v1/auth/google/start") {
       response.writeHead(303, { Location: googleRedirect === "valid" ? "https://accounts.google.com/o/oauth2/v2/auth?client_id=synthetic&state=opaque" : "https://attacker.invalid/oauth?state=opaque" });
       response.end();

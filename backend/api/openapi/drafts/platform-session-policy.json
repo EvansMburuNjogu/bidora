@@ -146,7 +146,8 @@
                 "additionalProperties": false,
                 "required": [
                   "idle_seconds",
-                  "absolute_seconds"
+                  "absolute_seconds",
+                  "security"
                 ],
                 "properties": {
                   "idle_seconds": {
@@ -166,6 +167,9 @@
                       28800,
                       43200
                     ]
+                  },
+                  "security": {
+                    "$ref": "#/components/schemas/SecurityControls"
                   }
                 }
               }
@@ -173,10 +177,44 @@
           }
         }
       }
+    },
+    "/v1/auth/password-policy": {
+      "get": {
+        "operationId": "getPublicPasswordRequirements",
+        "summary": "Read current requirements for creating a password",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Current or saved policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordRequirementsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "409": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          },
+          "503": {
+            "description": "Safe validation, authentication, authority, conflict or dependency error."
+          }
+        }
+      }
     }
   },
   "components": {
-    "securitySchemes": { "browserSession": { "type": "apiKey", "in": "cookie", "name": "__Host-bidora_session" } },
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    },
     "schemas": {
       "Policy": {
         "type": "object",
@@ -184,7 +222,8 @@
         "required": [
           "idle_seconds",
           "absolute_seconds",
-          "version"
+          "version",
+          "security"
         ],
         "properties": {
           "idle_seconds": {
@@ -208,6 +247,9 @@
           "version": {
             "type": "integer",
             "minimum": 1
+          },
+          "security": {
+            "$ref": "#/components/schemas/SecurityControls"
           }
         }
       },
@@ -220,6 +262,112 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Policy"
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "trace_id"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "SecurityControls": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "failed_login_attempts",
+          "failure_window_seconds",
+          "lockout_seconds",
+          "minimum_password_bytes",
+          "password_reset_seconds",
+          "admin_idle_seconds",
+          "admin_absolute_seconds",
+          "allow_multiple_sessions"
+        ],
+        "properties": {
+          "failed_login_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "failure_window_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 3600,
+            "multipleOf": 60
+          },
+          "lockout_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 3600,
+            "multipleOf": 60
+          },
+          "minimum_password_bytes": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 128
+          },
+          "password_reset_seconds": {
+            "type": "integer",
+            "minimum": 300,
+            "maximum": 1800,
+            "multipleOf": 60
+          },
+          "admin_idle_seconds": {
+            "type": "integer",
+            "minimum": 300,
+            "maximum": 604800,
+            "multipleOf": 60
+          },
+          "admin_absolute_seconds": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 604800,
+            "multipleOf": 60
+          },
+          "allow_multiple_sessions": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PasswordRequirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "minimum_password_bytes",
+          "maximum_password_bytes"
+        ],
+        "properties": {
+          "minimum_password_bytes": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 128
+          },
+          "maximum_password_bytes": {
+            "type": "integer",
+            "enum": [
+              128
+            ]
+          }
+        }
+      },
+      "PasswordRequirementsResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PasswordRequirements"
           },
           "meta": {
             "type": "object",

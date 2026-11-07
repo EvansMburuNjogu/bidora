@@ -1287,12 +1287,20 @@ type PlatformSettingsRegionalPolicyCommand struct {
 }
 
 type PlatformSettingsSessionPolicy struct {
-	ID              bool
-	IdleSeconds     int32
-	AbsoluteSeconds int32
-	Version         int64
-	UpdatedAt       pgtype.Timestamptz
-	UpdatedBy       pgtype.UUID
+	ID                    bool
+	IdleSeconds           int32
+	AbsoluteSeconds       int32
+	Version               int64
+	UpdatedAt             pgtype.Timestamptz
+	UpdatedBy             pgtype.UUID
+	FailedLoginAttempts   int32
+	FailureWindowSeconds  int32
+	LockoutSeconds        int32
+	MinimumPasswordBytes  int32
+	PasswordResetSeconds  int32
+	AllowMultipleSessions bool
+	AdminIdleSeconds      int32
+	AdminAbsoluteSeconds  int32
 }
 
 type PlatformSettingsSessionPolicyCommand struct {

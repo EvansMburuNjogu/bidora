@@ -3,7 +3,7 @@ package application
 import (
 	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/identity/mfa"
-	"bidora/backend/internal/identity/session"
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
@@ -583,7 +583,7 @@ func (s *MFAService) CompleteLogin(ctx context.Context, raw, code, kind string, 
 	if err != nil {
 		return LoginResult{}, safe("mfa_unavailable", err)
 	}
-	idle, absolute, err := session.Expiries(now)
+	idle, absolute, err := securitypolicy.Expiries(ctx, now, false)
 	if err != nil {
 		return LoginResult{}, safe("mfa_unavailable", err)
 	}
@@ -667,9 +667,9 @@ func (s *MFAService) assuredSessionExpiries(ctx context.Context, user ID, at tim
 		return time.Time{}, time.Time{}, err
 	}
 	if platform {
-		return session.PlatformExpiries(at)
+		return securitypolicy.Expiries(ctx, at, true)
 	}
-	return session.Expiries(at)
+	return securitypolicy.Expiries(ctx, at, false)
 }
 
 func generateEmailLoginCode() (string, error) {

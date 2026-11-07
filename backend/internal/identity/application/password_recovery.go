@@ -3,6 +3,7 @@ package application
 import (
 	"bidora/backend/internal/identity/attempt"
 	"bidora/backend/internal/identity/email"
+	"bidora/backend/internal/identity/securitypolicy"
 	"bidora/backend/internal/identity/verification"
 	"context"
 	"errors"
@@ -185,7 +186,7 @@ func NewPasswordRecoveryResetService(committer PasswordRecoveryResetCommitter, p
 }
 func (s *PasswordRecoveryResetService) Reset(ctx context.Context, in PasswordRecoveryResetInput) error {
 	hash, err := verification.HashPresented(in.Token)
-	if ctx == nil || err != nil || in.CorrelationID.IsZero() || s.password.ValidateNew(in.NewPassword) != nil {
+	if ctx == nil || err != nil || in.CorrelationID.IsZero() || !securitypolicy.PasswordAllowed(ctx, in.NewPassword) || s.password.ValidateNew(in.NewPassword) != nil {
 		return safe("password_recovery_reset_invalid", nil)
 	}
 	phc, err := s.password.Hash(in.NewPassword)

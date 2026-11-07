@@ -370,7 +370,7 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err != nil {
 		return fail(err)
 	}
-	if err = sessionReader.EnableSessionPolicy(currentSessionLimits); err != nil {
+	if err = sessionReader.EnableSecurityPolicy(currentSecurityPolicy); err != nil {
 		return fail(err)
 	}
 	sessionValidator, err := identityapp.NewSessionValidator(sessionReader, systemClock{})
@@ -381,7 +381,7 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err != nil {
 		return fail(err)
 	}
-	if err = sessionToucher.EnableSessionPolicy(currentSessionLimits); err != nil {
+	if err = sessionToucher.EnableSecurityPolicy(currentSecurityPolicy); err != nil {
 		return fail(err)
 	}
 	browserMiddleware, err := httpapi.NewBrowserSessionMiddleware(sessionValidator, sessionToucher, protection, systemClock{})

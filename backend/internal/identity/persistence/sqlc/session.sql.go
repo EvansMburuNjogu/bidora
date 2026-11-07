@@ -12,29 +12,20 @@ import (
 )
 
 const getActiveSession = `-- name: GetActiveSession :one
-WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds)
-SELECT s.id, s.user_id, s.csrf_hash, s.auth_epoch,
-       LEAST(s.idle_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.last_seen_at+make_interval(secs=>p.idle_seconds) ELSE s.idle_expires_at END,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS idle_expires_at,
-       LEAST(s.absolute_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS absolute_expires_at,
-       s.assurance_level,s.assured_at,s.assurance_method
-FROM identity.sessions AS s
-JOIN identity.users AS u ON u.id = s.user_id
-CROSS JOIN policy p
-WHERE s.token_hash = $1
-  AND u.email_verified_at IS NOT NULL
-  AND u.disabled_at IS NULL
-  AND u.auth_epoch = s.auth_epoch
-  AND s.revoked_at IS NULL
-  AND s.idle_expires_at > $2
-  AND s.absolute_expires_at > $2
-  AND (s.idle_timeout_seconds>1800 OR (s.last_seen_at+make_interval(secs=>p.idle_seconds)>$2 AND s.created_at+make_interval(secs=>p.absolute_seconds)>$2))
+WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds,$5::integer AS admin_idle_seconds,$6::integer AS admin_absolute_seconds)
+SELECT s.id,s.user_id,s.csrf_hash,s.auth_epoch,LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS idle_expires_at,LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS absolute_expires_at,s.assurance_level,s.assured_at,s.assurance_method
+FROM identity.sessions s JOIN identity.users u ON u.id=s.user_id CROSS JOIN policy p
+WHERE u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL
+ AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND s.token_hash=$2
 `
 
 type GetActiveSessionParams struct {
-	TokenHash             []byte
 	ObservedAt            pgtype.Timestamptz
+	TokenHash             []byte
 	PolicyIdleSeconds     int32
 	PolicyAbsoluteSeconds int32
+	AdminIdleSeconds      int32
+	AdminAbsoluteSeconds  int32
 }
 
 type GetActiveSessionRow struct {
@@ -51,10 +42,12 @@ type GetActiveSessionRow struct {
 
 func (q *Queries) GetActiveSession(ctx context.Context, arg GetActiveSessionParams) (GetActiveSessionRow, error) {
 	row := q.db.QueryRow(ctx, getActiveSession,
-		arg.TokenHash,
 		arg.ObservedAt,
+		arg.TokenHash,
 		arg.PolicyIdleSeconds,
 		arg.PolicyAbsoluteSeconds,
+		arg.AdminIdleSeconds,
+		arg.AdminAbsoluteSeconds,
 	)
 	var i GetActiveSessionRow
 	err := row.Scan(
@@ -197,22 +190,21 @@ func (q *Queries) IsPlatformAdministrator(ctx context.Context, userID pgtype.UUI
 }
 
 const listCurrentUserActiveSessions = `-- name: ListCurrentUserActiveSessions :many
-WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds)
-SELECT s.id,s.rotated_from_session_id,s.created_at,s.last_seen_at,
- LEAST(s.idle_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.last_seen_at+make_interval(secs=>p.idle_seconds) ELSE s.idle_expires_at END,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS idle_expires_at,
- LEAST(s.absolute_expires_at,CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)::timestamptz AS absolute_expires_at
+WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds,$5::integer AS admin_idle_seconds,$6::integer AS admin_absolute_seconds)
+SELECT s.id,s.rotated_from_session_id,s.created_at,s.last_seen_at,LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS idle_expires_at,LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS absolute_expires_at
 FROM identity.sessions s JOIN identity.users u ON u.id=s.user_id CROSS JOIN policy p
-WHERE s.user_id=$1 AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL
- AND s.idle_expires_at>$2 AND s.absolute_expires_at>$2
- AND (s.idle_timeout_seconds>1800 OR (s.last_seen_at+make_interval(secs=>p.idle_seconds)>$2 AND s.created_at+make_interval(secs=>p.absolute_seconds)>$2))
+WHERE u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL
+ AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND s.user_id=$2
 ORDER BY s.created_at DESC,s.id DESC LIMIT 101
 `
 
 type ListCurrentUserActiveSessionsParams struct {
-	UserID                pgtype.UUID
 	ObservedAt            pgtype.Timestamptz
+	UserID                pgtype.UUID
 	PolicyIdleSeconds     int32
 	PolicyAbsoluteSeconds int32
+	AdminIdleSeconds      int32
+	AdminAbsoluteSeconds  int32
 }
 
 type ListCurrentUserActiveSessionsRow struct {
@@ -226,10 +218,12 @@ type ListCurrentUserActiveSessionsRow struct {
 
 func (q *Queries) ListCurrentUserActiveSessions(ctx context.Context, arg ListCurrentUserActiveSessionsParams) ([]ListCurrentUserActiveSessionsRow, error) {
 	rows, err := q.db.Query(ctx, listCurrentUserActiveSessions,
-		arg.UserID,
 		arg.ObservedAt,
+		arg.UserID,
 		arg.PolicyIdleSeconds,
 		arg.PolicyAbsoluteSeconds,
+		arg.AdminIdleSeconds,
+		arg.AdminAbsoluteSeconds,
 	)
 	if err != nil {
 		return nil, err
@@ -276,15 +270,54 @@ func (q *Queries) RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSe
 	return result.RowsAffected(), nil
 }
 
+const revokeExpiredPolicySession = `-- name: RevokeExpiredPolicySession :execrows
+UPDATE identity.sessions SET revoked_at=GREATEST($1::timestamptz,created_at,last_seen_at) WHERE id=$2::uuid AND revoked_at IS NULL AND LEAST(idle_expires_at,last_seen_at+make_interval(secs=>$3::integer),absolute_expires_at,created_at+make_interval(secs=>$4::integer))<=$1::timestamptz
+`
+
+type RevokeExpiredPolicySessionParams struct {
+	At                   pgtype.Timestamptz
+	CurrentSessionID     pgtype.UUID
+	AdminIdleSeconds     int32
+	AdminAbsoluteSeconds int32
+}
+
+func (q *Queries) RevokeExpiredPolicySession(ctx context.Context, arg RevokeExpiredPolicySessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeExpiredPolicySession,
+		arg.At,
+		arg.CurrentSessionID,
+		arg.AdminIdleSeconds,
+		arg.AdminAbsoluteSeconds,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeOrdinarySessionsForPolicy = `-- name: RevokeOrdinarySessionsForPolicy :execrows
 UPDATE identity.sessions SET revoked_at=$1::timestamptz
 WHERE revoked_at IS NULL AND idle_timeout_seconds<=1800
 `
 
-// Policy changes invalidate ordinary sessions atomically; no restoration when
-// a later policy relaxes. Verified administrator profiles remain governed.
 func (q *Queries) RevokeOrdinarySessionsForPolicy(ctx context.Context, at pgtype.Timestamptz) (int64, error) {
 	result, err := q.db.Exec(ctx, revokeOrdinarySessionsForPolicy, at)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeOtherSessionsForPolicy = `-- name: RevokeOtherSessionsForPolicy :execrows
+UPDATE identity.sessions SET revoked_at=GREATEST($1::timestamptz,created_at,last_seen_at) WHERE revoked_at IS NULL AND id<>$2::uuid
+`
+
+type RevokeOtherSessionsForPolicyParams struct {
+	At               pgtype.Timestamptz
+	CurrentSessionID pgtype.UUID
+}
+
+func (q *Queries) RevokeOtherSessionsForPolicy(ctx context.Context, arg RevokeOtherSessionsForPolicyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeOtherSessionsForPolicy, arg.At, arg.CurrentSessionID)
 	if err != nil {
 		return 0, err
 	}
@@ -333,19 +366,28 @@ func (q *Queries) RevokeSessionByToken(ctx context.Context, arg RevokeSessionByT
 	return result.RowsAffected(), nil
 }
 
+const tightenCurrentPolicySession = `-- name: TightenCurrentPolicySession :execrows
+UPDATE identity.sessions SET idle_timeout_seconds=LEAST(idle_timeout_seconds,$1::integer),absolute_timeout_seconds=LEAST(absolute_timeout_seconds,$2::integer),absolute_expires_at=LEAST(absolute_expires_at,created_at+make_interval(secs=>$2::integer)),idle_expires_at=LEAST(idle_expires_at,last_seen_at+make_interval(secs=>$1::integer),absolute_expires_at,created_at+make_interval(secs=>$2::integer)) WHERE id=$3::uuid AND revoked_at IS NULL
+`
+
+type TightenCurrentPolicySessionParams struct {
+	AdminIdleSeconds     int32
+	AdminAbsoluteSeconds int32
+	CurrentSessionID     pgtype.UUID
+}
+
+func (q *Queries) TightenCurrentPolicySession(ctx context.Context, arg TightenCurrentPolicySessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, tightenCurrentPolicySession, arg.AdminIdleSeconds, arg.AdminAbsoluteSeconds, arg.CurrentSessionID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const touchActiveSession = `-- name: TouchActiveSession :execrows
-WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds)
-UPDATE identity.sessions AS s
-SET last_seen_at = $1,
-    idle_expires_at = LEAST($1 + make_interval(secs=>CASE WHEN s.idle_timeout_seconds<=1800 THEN LEAST(s.idle_timeout_seconds,p.idle_seconds) ELSE s.idle_timeout_seconds END), s.absolute_expires_at,
-      CASE WHEN s.idle_timeout_seconds<=1800 THEN s.created_at+make_interval(secs=>p.absolute_seconds) ELSE s.absolute_expires_at END)
-FROM policy p
-WHERE s.id = $2
-  AND s.revoked_at IS NULL
-  AND s.idle_expires_at > $1
-  AND s.absolute_expires_at > $1
-  AND s.last_seen_at <= $1
-  AND (s.idle_timeout_seconds>1800 OR (s.last_seen_at+make_interval(secs=>p.idle_seconds)>$1 AND s.created_at+make_interval(secs=>p.absolute_seconds)>$1))
+WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds,$5::integer AS admin_idle_seconds,$6::integer AS admin_absolute_seconds)
+UPDATE identity.sessions s SET last_seen_at=$1,idle_expires_at=LEAST($1+make_interval(secs=>LEAST(s.idle_timeout_seconds,CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END)),s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))
+FROM identity.users u CROSS JOIN policy p WHERE u.id=s.user_id AND s.id=$2 AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL AND s.last_seen_at<=$1 AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1
 `
 
 type TouchActiveSessionParams struct {
@@ -353,16 +395,19 @@ type TouchActiveSessionParams struct {
 	ID                    pgtype.UUID
 	PolicyIdleSeconds     int32
 	PolicyAbsoluteSeconds int32
+	AdminIdleSeconds      int32
+	AdminAbsoluteSeconds  int32
 }
 
-// Touch only after browser/request policy accepts the request. Validation alone
-// must not let rejected cross-site traffic extend idle lifetime.
+// Touch only accepted requests; rejected traffic cannot prolong sessions.
 func (q *Queries) TouchActiveSession(ctx context.Context, arg TouchActiveSessionParams) (int64, error) {
 	result, err := q.db.Exec(ctx, touchActiveSession,
 		arg.ObservedAt,
 		arg.ID,
 		arg.PolicyIdleSeconds,
 		arg.PolicyAbsoluteSeconds,
+		arg.AdminIdleSeconds,
+		arg.AdminAbsoluteSeconds,
 	)
 	if err != nil {
 		return 0, err

@@ -8,6 +8,7 @@ try {
  let resetStatus = 400;
  const resets = [];
  await page.route("**/api/**", route => {
+  if (new URL(route.request().url()).pathname === "/api/auth/password-policy") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({data:{minimum_password_bytes:12,maximum_password_bytes:128},meta:{trace_id:"synthetic"}})});
   if (new URL(route.request().url()).pathname === "/api/auth/password-recovery") {
    requests++;
    return route.fulfill({ status, headers: { "Retry-After": "900" } });
@@ -45,7 +46,7 @@ try {
  assert.equal(resets.length,0);
  await page.getByLabel("Confirm new password",{exact:true}).fill("A new secure passphrase");
  await page.getByRole("button",{name:"Reset password",exact:true}).click();
- await page.getByText(/The recovery code is invalid, expired, or already used/).waitFor();
+ await page.getByText(/The recovery code or password requirements are invalid/).waitFor();
  assert.deepEqual(resets,[{token,new_password:"A new secure passphrase"}]);
  resetStatus=204;
  await page.getByRole("button",{name:"Reset password",exact:true}).click();

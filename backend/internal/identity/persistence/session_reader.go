@@ -12,8 +12,9 @@ import (
 )
 
 type SessionReader struct {
-	runner readOnlyRunner
-	policy SessionPolicyReader
+	security RuntimePolicyReader
+	runner   readOnlyRunner
+	policy   SessionPolicyReader
 }
 
 func NewSessionReader(runner readOnlyRunner) (*SessionReader, error) {
@@ -34,11 +35,11 @@ func (r *SessionReader) GetSession(ctx context.Context, tokenHash [32]byte, obse
 		if txCtx == nil || db == nil {
 			return errors.New("session_lookup_unavailable")
 		}
-		idle, absolute, err := sessionLimits(txCtx, db, r.policy)
+		policy, err := readSessionSecurity(txCtx, db, r.policy, r.security)
 		if err != nil {
 			return err
 		}
-		row, err := identitysql.New(db).GetActiveSession(txCtx, identitysql.GetActiveSessionParams{PolicyIdleSeconds: idle, PolicyAbsoluteSeconds: absolute, ObservedAt: identityTime(observedAt), TokenHash: tokenHash[:]})
+		row, err := identitysql.New(db).GetActiveSession(txCtx, identitysql.GetActiveSessionParams{PolicyIdleSeconds: policy.IdleSeconds, PolicyAbsoluteSeconds: policy.AbsoluteSeconds, AdminIdleSeconds: policy.AdminIdleSeconds, AdminAbsoluteSeconds: policy.AdminAbsoluteSeconds, ObservedAt: identityTime(observedAt), TokenHash: tokenHash[:]})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return identityapp.ErrSessionNotFound
 		}
@@ -63,11 +64,11 @@ func (r *SessionReader) ListActiveUserSessions(ctx context.Context, userID ident
 		return nil, errors.New("session_inventory_invalid")
 	}
 	err = r.runner.WithinReadOnlyTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
-		idle, absolute, err := sessionLimits(txCtx, db, r.policy)
+		policy, err := readSessionSecurity(txCtx, db, r.policy, r.security)
 		if err != nil {
 			return err
 		}
-		rows, err := identitysql.New(db).ListCurrentUserActiveSessions(txCtx, identitysql.ListCurrentUserActiveSessionsParams{PolicyIdleSeconds: idle, PolicyAbsoluteSeconds: absolute, UserID: identityID(userID), ObservedAt: identityTime(observedAt)})
+		rows, err := identitysql.New(db).ListCurrentUserActiveSessions(txCtx, identitysql.ListCurrentUserActiveSessionsParams{PolicyIdleSeconds: policy.IdleSeconds, PolicyAbsoluteSeconds: policy.AbsoluteSeconds, AdminIdleSeconds: policy.AdminIdleSeconds, AdminAbsoluteSeconds: policy.AdminAbsoluteSeconds, UserID: identityID(userID), ObservedAt: identityTime(observedAt)})
 		if err != nil {
 			return err
 		}
@@ -84,8 +85,9 @@ func (r *SessionReader) ListActiveUserSessions(ctx context.Context, userID ident
 }
 
 type SessionToucher struct {
-	runner writeRunner
-	policy SessionPolicyReader
+	security RuntimePolicyReader
+	runner   writeRunner
+	policy   SessionPolicyReader
 }
 
 func NewSessionToucher(runner writeRunner) (*SessionToucher, error) {
@@ -105,11 +107,11 @@ func (t *SessionToucher) TouchSession(ctx context.Context, sessionID identityapp
 		if txCtx == nil || db == nil {
 			return errors.New("session_touch_unavailable")
 		}
-		idle, absolute, err := sessionLimits(txCtx, db, t.policy)
+		policy, err := readSessionSecurity(txCtx, db, t.policy, t.security)
 		if err != nil {
 			return err
 		}
-		rows, err := identitysql.New(db).TouchActiveSession(txCtx, identitysql.TouchActiveSessionParams{PolicyIdleSeconds: idle, PolicyAbsoluteSeconds: absolute, ObservedAt: identityTime(observedAt), ID: identityID(sessionID)})
+		rows, err := identitysql.New(db).TouchActiveSession(txCtx, identitysql.TouchActiveSessionParams{PolicyIdleSeconds: policy.IdleSeconds, PolicyAbsoluteSeconds: policy.AbsoluteSeconds, AdminIdleSeconds: policy.AdminIdleSeconds, AdminAbsoluteSeconds: policy.AdminAbsoluteSeconds, ObservedAt: identityTime(observedAt), ID: identityID(sessionID)})
 		if err != nil {
 			return err
 		}

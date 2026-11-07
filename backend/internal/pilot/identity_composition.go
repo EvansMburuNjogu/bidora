@@ -345,7 +345,7 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err != nil {
 		return fail(err)
 	}
-	if err = sessionReader.EnableSessionPolicy(currentSessionLimits); err != nil {
+	if err = sessionReader.EnableSecurityPolicy(currentSecurityPolicy); err != nil {
 		return fail(err)
 	}
 	sessionValidator, err := identityapp.NewSessionValidator(sessionReader, systemClock{})
@@ -356,7 +356,7 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err != nil {
 		return fail(err)
 	}
-	if err = sessionToucher.EnableSessionPolicy(currentSessionLimits); err != nil {
+	if err = sessionToucher.EnableSecurityPolicy(currentSecurityPolicy); err != nil {
 		return fail(err)
 	}
 	browserMiddleware, err := httpapi.NewBrowserSessionMiddleware(sessionValidator, sessionToucher, composition.protection, systemClock{})

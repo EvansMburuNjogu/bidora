@@ -7,6 +7,7 @@ import (
 	"time"
 
 	identitypersistence "bidora/backend/internal/identity/persistence"
+	"bidora/backend/internal/identity/securitypolicy"
 	app "bidora/backend/internal/platformsettings/application"
 	"bidora/backend/internal/platformsettings/domain"
 	q "bidora/backend/internal/platformsettings/persistence/sqlc"
@@ -64,16 +65,19 @@ func (t *SessionPolicyTx) ReadSessionPolicy(ctx context.Context, lock bool) (app
 		if e != nil {
 			return app.SessionPolicy{}, e
 		}
-		return sessionPolicyView(v.IdleSeconds, v.AbsoluteSeconds, v.Version)
+		return sessionPolicyView(v.IdleSeconds, v.AbsoluteSeconds, v.Version, v.Security)
 	}
 	v, e := t.q.GetPlatformSessionPolicy(ctx)
 	if e != nil {
 		return app.SessionPolicy{}, e
 	}
-	return sessionPolicyView(v.IdleSeconds, v.AbsoluteSeconds, v.Version)
+	return sessionPolicyView(v.IdleSeconds, v.AbsoluteSeconds, v.Version, v.Security)
 }
-func sessionPolicyView(idle, absolute int32, version int64) (app.SessionPolicy, error) {
+func sessionPolicyView(idle, absolute int32, version int64, raw []byte) (app.SessionPolicy, error) {
 	p := app.SessionPolicy{IdleSeconds: idle, AbsoluteSeconds: absolute, Version: version}
+	if err := json.Unmarshal(raw, &p.Security); err != nil || !securitypolicy.ValidControls(p.Security) {
+		return app.SessionPolicy{}, errors.New("session_policy_row_invalid")
+	}
 	if !app.ValidSessionPolicy(p) {
 		return app.SessionPolicy{}, errors.New("session_policy_row_invalid")
 	}
@@ -95,10 +99,14 @@ func (t *SessionPolicyTx) FindSessionPolicyCommand(ctx context.Context, actor do
 	return app.InformationCommand{RequestHash: hash, ResultVersion: v.ResultVersion}, true, nil
 }
 func (t *SessionPolicyTx) UpdateSessionPolicy(ctx context.Context, in app.SessionPolicySave, at time.Time) (int64, error) {
-	return t.q.UpdatePlatformSessionPolicy(ctx, q.UpdatePlatformSessionPolicyParams{IdleSeconds: in.Policy.IdleSeconds, AbsoluteSeconds: in.Policy.AbsoluteSeconds, ExpectedVersion: in.Policy.Version, At: pgtype.Timestamptz{Time: at, Valid: true}, ActorID: uuid(in.Subject.ActorID)})
+	raw, err := json.Marshal(in.Policy.Security)
+	if err != nil {
+		return 0, err
+	}
+	return t.q.UpdatePlatformSessionPolicy(ctx, q.UpdatePlatformSessionPolicyParams{Security: raw, IdleSeconds: in.Policy.IdleSeconds, AbsoluteSeconds: in.Policy.AbsoluteSeconds, ExpectedVersion: in.Policy.Version, At: pgtype.Timestamptz{Time: at, Valid: true}, ActorID: uuid(in.Subject.ActorID)})
 }
-func (t *SessionPolicyTx) RevokeOrdinarySessions(ctx context.Context, at time.Time) (int64, error) {
-	return t.revoker.RevokeOrdinarySessions(ctx, at)
+func (t *SessionPolicyTx) ApplySessionPolicy(ctx context.Context, in app.SessionPolicySave, at time.Time) (int64, error) {
+	return t.revoker.ApplySessionPolicy(ctx, [16]byte(in.Subject.SessionID), securitypolicy.Policy{Controls: in.Policy.Security, IdleSeconds: in.Policy.IdleSeconds, AbsoluteSeconds: in.Policy.AbsoluteSeconds}, at)
 }
 func (t *SessionPolicyTx) AppendSessionPolicyEvidence(ctx context.Context, audit, outbox domain.ID, in app.SessionPolicySave, revoked int64, at time.Time, key, hash [32]byte) error {
 	when := pgtype.Timestamptz{Time: at, Valid: true}

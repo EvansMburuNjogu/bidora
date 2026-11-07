@@ -111,11 +111,11 @@ type Querier interface {
 	ResetPasswordCredential(ctx context.Context, arg ResetPasswordCredentialParams) (int64, error)
 	RevokeActiveCurrentEpochSessions(ctx context.Context, arg RevokeActiveCurrentEpochSessionsParams) (int64, error)
 	RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSessionsParams) (int64, error)
+	RevokeExpiredPolicySession(ctx context.Context, arg RevokeExpiredPolicySessionParams) (int64, error)
 	RevokeMFACurrentSession(ctx context.Context, arg RevokeMFACurrentSessionParams) (int64, error)
 	RevokeMFAUserSessions(ctx context.Context, arg RevokeMFAUserSessionsParams) error
-	// Policy changes invalidate ordinary sessions atomically; no restoration when
-	// a later policy relaxes. Verified administrator profiles remain governed.
 	RevokeOrdinarySessionsForPolicy(ctx context.Context, at pgtype.Timestamptz) (int64, error)
+	RevokeOtherSessionsForPolicy(ctx context.Context, arg RevokeOtherSessionsForPolicyParams) (int64, error)
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
 	RevokePlatformIdentitySessions(ctx context.Context, arg RevokePlatformIdentitySessionsParams) (int64, error)
 	RevokePreOTPAdministratorSessions(ctx context.Context, arg RevokePreOTPAdministratorSessionsParams) error
@@ -124,9 +124,9 @@ type Querier interface {
 	SelectUserAccountType(ctx context.Context, arg SelectUserAccountTypeParams) (int64, error)
 	SetPlatformIdentityActive(ctx context.Context, arg SetPlatformIdentityActiveParams) (int64, error)
 	SetPlatformIdentityDisabled(ctx context.Context, arg SetPlatformIdentityDisabledParams) (int64, error)
+	TightenCurrentPolicySession(ctx context.Context, arg TightenCurrentPolicySessionParams) (int64, error)
 	TouchActiveMFAFactor(ctx context.Context, arg TouchActiveMFAFactorParams) (int64, error)
-	// Touch only after browser/request policy accepts the request. Validation alone
-	// must not let rejected cross-site traffic extend idle lifetime.
+	// Touch only accepted requests; rejected traffic cannot prolong sessions.
 	TouchActiveSession(ctx context.Context, arg TouchActiveSessionParams) (int64, error)
 	TouchGoogleIdentity(ctx context.Context, arg TouchGoogleIdentityParams) (int64, error)
 }

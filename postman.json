@@ -677,6 +677,22 @@
           }
         },
         {
+          "description": "`getPublicPasswordRequirements` — source: `api/openapi/drafts/platform-session-policy.json`",
+          "name": "Read current requirements for creating a password",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/password-policy"
+            }
+          }
+        },
+        {
           "description": "`getAuthRecoveryPreparation` — source: `api/openapi/drafts/recovery-preparation.json`",
           "name": "Read the current authenticated account's recovery posture without enabling recovery",
           "request": {
@@ -3578,7 +3594,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"idle_seconds\": 300,\n  \"absolute_seconds\": 3600\n}"
+              "raw": "{\n  \"idle_seconds\": 300,\n  \"absolute_seconds\": 3600,\n  \"security\": {\n    \"failed_login_attempts\": 1,\n    \"failure_window_seconds\": 60,\n    \"lockout_seconds\": 60,\n    \"minimum_password_bytes\": 12,\n    \"password_reset_seconds\": 300,\n    \"admin_idle_seconds\": 300,\n    \"admin_absolute_seconds\": 3600,\n    \"allow_multiple_sessions\": false\n  }\n}"
             },
             "header": [
               {

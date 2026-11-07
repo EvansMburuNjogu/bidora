@@ -65,7 +65,7 @@ func TestSessionReaderExecutesGuardedRefreshAndMapsRecord(t *testing.T) {
 	if !runner.committed || record.SessionID != identityID(1) || record.UserID != identityID(2) || record.CSRFHash[31] != 9 || record.AuthEpoch != 4 || !record.IdleExpiresAt.Equal(observed.Add(30*time.Minute)) || !strings.Contains(db.sql, "GetActiveSession") {
 		t.Fatal("session refresh mapping drifted", record)
 	}
-	if got := db.args[0].([]byte); len(got) != 32 || got[31] != 8 {
+	if got := db.args[1].([]byte); len(got) != 32 || got[31] != 8 {
 		t.Fatal("session token hash mapping drifted")
 	}
 }

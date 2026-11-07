@@ -26,7 +26,7 @@ func TestMigrationAndGenerationInputsMatchReviewedChecksums(t *testing.T) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 180 {
+	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 181 {
 		t.Fatal("unexpected manifest scope")
 	}
 	for name, want := range manifest.Files {
@@ -286,7 +286,7 @@ func TestAuthenticationMigrationTargetStopsBeforeNonAuthSchemas(t *testing.T) {
 	if _, err = migrationrunner.Resolve("control-auth", 30); err == nil {
 		t.Fatal("authentication migration plan accepted notification schema")
 	}
-	full, err := migrationrunner.Resolve("control", 51)
+	full, err := migrationrunner.Resolve("control", 52)
 	if err != nil || full.Directory != auth.Directory || full.TableName != auth.TableName || full.LockKey != auth.LockKey {
 		t.Fatal("control migration plans do not share one fenced ledger", full, err)
 	}
@@ -441,7 +441,7 @@ func TestBrowserSessionsAreHashedBoundedAndRevocable(t *testing.T) {
 			t.Fatal("session query missing", name)
 		}
 	}
-	for _, required := range []string{"u.email_verified_at IS NOT NULL", "u.disabled_at IS NULL", "u.auth_epoch = s.auth_epoch", "s.idle_expires_at > sqlc.arg(observed_at)", "s.absolute_expires_at > sqlc.arg(observed_at)", "last_seen_at <= sqlc.arg(observed_at)", "s.last_seen_at <= sqlc.arg(observed_at)", "policy_idle_seconds", "policy_absolute_seconds", "s.idle_timeout_seconds<=1800", "s.created_at+make_interval(secs=>p.absolute_seconds)"} {
+	for _, required := range []string{"u.email_verified_at IS NOT NULL", "u.disabled_at IS NULL", "u.auth_epoch=s.auth_epoch", "s.revoked_at IS NULL", "LEAST(s.idle_expires_at,s.last_seen_at+make_interval", "LEAST(s.absolute_expires_at,s.created_at+make_interval", "s.last_seen_at<=sqlc.arg(observed_at)", "policy_idle_seconds", "policy_absolute_seconds", "admin_idle_seconds", "admin_absolute_seconds", "u.account_type='PLATFORM_ADMIN'", "s.assurance_level='AAL2'"} {
 		if !strings.Contains(queries, required) {
 			t.Fatal("session refresh guard missing", required)
 		}

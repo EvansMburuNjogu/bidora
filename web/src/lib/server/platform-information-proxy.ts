@@ -1,4 +1,5 @@
 import "server-only";
+import { validSecurityControls } from "@/lib/platform-session-policy-contract";
 import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
 import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
@@ -30,7 +31,7 @@ export async function proxyPlatformInformation(request: Request, section: "infor
     if (!value || typeof value !== "object" || Array.isArray(value)) return failure(400);
     const fields = value as Record<string, unknown>;
     if (section === "security/session-policy") {
-      if (Object.keys(fields).length !== 2 || !Number.isSafeInteger(fields.idle_seconds) || !Number.isSafeInteger(fields.absolute_seconds)) return failure(400);
+      if (Object.keys(fields).sort().join(",") !== "absolute_seconds,idle_seconds,security" || !Number.isSafeInteger(fields.idle_seconds) || !Number.isSafeInteger(fields.absolute_seconds) || !validSecurityControls(fields.security)) return failure(400);
     } else if (Object.keys(fields).length < 2 || Object.keys(fields).length > 4 || Object.keys(fields).some((key) => !["platform_name", "contact_phone", "support_email", "website"].includes(key)) || typeof fields.support_email !== "string" || typeof fields.website !== "string" || "platform_name" in fields && typeof fields.platform_name !== "string" || "contact_phone" in fields && typeof fields.contact_phone !== "string") return failure(400);
     headers.set("Content-Type", "application/json"); headers.set("X-CSRF-Token", csrf); headers.set("If-Match", version); headers.set("Idempotency-Key", key);
   }

@@ -11,6 +11,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { PasswordInput } from "@/components/auth/password-input";
+import { usePasswordPolicy } from "@/components/auth/use-password-policy";
 import { VerificationCodeInput } from "@/components/auth/verification-code-input";
 import { useLoginChallenge } from "@/components/auth/login-challenge-provider";
 import { challengeDeadline, countdownLabel, maskLoginEmail } from "@/lib/login-challenge";
@@ -32,6 +33,7 @@ const config: Record<Mode, { submit: string }> = {
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const passwordPolicy = usePasswordPolicy(mode === "register" || mode === "password-reset");
   const { hint, setHint } = useLoginChallenge();
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<AuthFieldError | null>(null);
@@ -60,7 +62,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || (mode === "password-recovery" && resendSeconds > 0)) return;
+    if (pending || (mode === "password-recovery" && resendSeconds > 0) || ((mode === "register" || mode === "password-reset") && passwordPolicy.minimum === null)) return;
     setFieldError(null);
 
     const form = event.currentTarget;
@@ -91,7 +93,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       return;
     }
     if (needsPassword) {
-      const error = validatePassword(password, mode === "login" ? 1 : 12);
+      const error = validatePassword(password, mode === "login" ? 1 : passwordPolicy.minimum!);
       if (error) {
         setFieldError({ field: "password", message: error });
         return;
@@ -167,8 +169,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
         router.push("/login");
         return;
       }
+      if ((mode === "register" || mode === "password-reset") && response.status === 400) passwordPolicy.retry();
       if (mode === "password-reset" && response.status === 400) {
-        setFieldError({ field: "token", message: "The recovery code is invalid, expired, or already used. Check the latest email or request a new recovery link." });
+        setFieldError({ field: "token", message: "The recovery code or password requirements are invalid. Check the latest email and requirements, then try again." });
         return;
       }
       if (mode === "password-reset" && response.status === 503) {
@@ -362,7 +365,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 aria-invalid={fieldError?.field === "password" || undefined}
                 onChange={() => fieldError?.field === "password" && setFieldError(null)}
               />
-              {mode !== "login" && <FieldDescription>Use a long passphrase (12–128 bytes).</FieldDescription>}
+              {mode !== "login" && <FieldDescription>{passwordPolicy.minimum === null ? passwordPolicy.failed ? "Password requirements are unavailable." : "Loading password requirements…" : `Use a long passphrase (${passwordPolicy.minimum}–128 bytes).`}</FieldDescription>}
+              {mode !== "login" && passwordPolicy.failed && <Button type="button" variant="outline" size="sm" onClick={passwordPolicy.retry}>Retry password requirements</Button>}
               {fieldError?.field === "password" && <FieldError>{fieldError.message}</FieldError>}
             </Field>
           )}
@@ -414,7 +418,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </Field>
           )}
 
-          <Button type="submit" size="lg" className="w-full" disabled={pending || restartPending || resendPending || completed || challengeExpired || (mode === "password-recovery" && resendSeconds > 0) || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
+          <Button type="submit" size="lg" className="w-full" disabled={((mode === "register" || mode === "password-reset") && passwordPolicy.minimum === null) || pending || restartPending || resendPending || completed || challengeExpired || (mode === "password-recovery" && resendSeconds > 0) || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
             {completed ? "Verified. Continuing…" : pending ? mode === "password-recovery" ? "Sending…" : "Verifying…" : mode === "password-recovery" && resendSeconds > 0 ? `Try again in ${countdownLabel(resendUntil, now)}` : config[mode].submit}
             {mode === "login" && !pending && <ArrowRightIcon aria-hidden="true" />}
           </Button>

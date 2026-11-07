@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/auth/password-input";
+import { usePasswordPolicy } from "@/components/auth/use-password-policy";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -11,12 +12,14 @@ import { submitPasswordChange } from "@/lib/auth-client";
 import { isAcceptedEmail, validatePassword } from "@/lib/auth-validation";
 
 export function PasswordChangeForm() {
+ const passwordPolicy = usePasswordPolicy();
   const { csrfToken, refresh } = useSession();
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending || passwordPolicy.minimum === null) return;
     setFieldError(null);
 
     const form = event.currentTarget;
@@ -35,7 +38,7 @@ export function PasswordChangeForm() {
       setFieldError(currentError);
       return;
     }
-    const newError = validatePassword(newPassword, 12);
+    const newError = validatePassword(newPassword, passwordPolicy.minimum!);
     if (newError) {
       setFieldError(newError);
       return;
@@ -61,6 +64,7 @@ export function PasswordChangeForm() {
         return;
       }
       if (response.status === 400) {
+        passwordPolicy.retry();
         setFieldError("Choose a new password that meets the requirements.");
         return;
       }
@@ -131,7 +135,8 @@ export function PasswordChangeForm() {
             disabled={pending}
             onChange={() => setFieldError(null)}
           />
-          <FieldDescription>Use 12–128 UTF-8 bytes. Spaces are kept exactly as entered.</FieldDescription>
+          <FieldDescription>{passwordPolicy.minimum === null ? passwordPolicy.failed ? "Password requirements are unavailable." : "Loading password requirements…" : `Use ${passwordPolicy.minimum}–128 UTF-8 bytes. Spaces are kept exactly as entered.`}</FieldDescription>
+          {passwordPolicy.failed && <Button type="button" variant="outline" size="sm" onClick={passwordPolicy.retry}>Retry password requirements</Button>}
         </Field>
 
         <Field>
@@ -149,7 +154,7 @@ export function PasswordChangeForm() {
 
         {fieldError && <FieldError>{fieldError}</FieldError>}
 
-        <Button type="submit" size="lg" className="w-full sm:w-fit" disabled={pending}>
+        <Button type="submit" size="lg" className="w-full sm:w-fit" disabled={pending || passwordPolicy.minimum === null}>
           {pending ? "Changing password…" : "Change password"}
         </Button>
       </FieldGroup>
