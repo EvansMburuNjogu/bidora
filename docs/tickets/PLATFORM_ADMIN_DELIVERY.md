@@ -87,6 +87,17 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Single system-wide SMTP — BID-MVP-03 / BID-MVP-05
+
+- User requirement: Platform Admin SMTP settings are the single source for sign-in, recovery, verification, invitations and notifications; do not introduce feature-specific SMTP credentials or bypass activation checks. Canonical main runtime already uses the shared active SMTP resolver for these flows and rejects obsolete deployment SMTP keys. The live compatibility runtime still has a temporary OTP-only delivery path, not a recovery fallback.
+- Confirmed recovery 503 dependency using read-only checks: exactly one SMTP version is PENDING_APPROVAL and the SMTP head has no active version. Recovery availability correctly fails closed; no provider call, false success, direct activation SQL, synthetic checker or approval bypass was attempted. SMTP UI now describes the shared source and displays Awaiting approval / No active default SMTP. Completion requires the existing authorised different-Owner approval, then removal of obsolete login-only environment keys and a managed-only runtime cutover; preserve working sign-in until those prerequisites pass.
+
+## Active Sessions display correction — BID-MVP-03 / BID-MVP-05
+
+- Confirmed defect: the inventory endpoint serialized an absent blockers slice as null, but the strict browser contract requires an array and discarded the otherwise valid session inventory. Normalize the HTTP response to an empty array; retain current-account isolation, CSRF, expiry checks and metadata restrictions.
+- Removed Reload settings and Retry sessions as requested. Sessions refresh on page/tab return and after revocation, with stale-response protection. No background polling that would keep idle sessions alive. Existing failure text remains truthful; no fake sessions or relaxed parser validation.
+- Focused verification only: session-inventory HTTP regressions, affected ESLint and TypeScript passed. Full test suites/race/integration reruns deferred per delivery preference. Required deployment image builds completed; deployed frontend `8fac2f0` and login-compatible backend `c97cdd7`, both healthy. The private inventory API correctly rejects anonymous requests with 401; authenticated row visibility still needs user confirmation. Reload settings/Retry sessions are removed. No migration, credential change or provider activation.
+
 ## Dynamic Security & Sessions settings — BID-MVP-03 / BID-MVP-05
 
 - Deployed artifacts: backend `sha256:d593d0daffc08b661d2751d632ec690cd2c51cd649ee956a5d20a9046b4596cc`; web `sha256:0b01c4ce3e08b74b815910704943a6120f1755df8f3de79c6a226661eff4f084`. Release source excludes unrelated pending business handlers, schemas and API changes. Source, compatible backend and rollback branches are committed/pushed. Schema-51 binaries are no longer compatible; no destructive down migration or database restore was performed.
