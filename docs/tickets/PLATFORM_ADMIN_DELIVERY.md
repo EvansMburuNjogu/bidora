@@ -141,7 +141,8 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 ## Numeric input editing — BID-MVP-03 / BID-MVP-04
 
 - Audited numeric inputs across Security, SMTP, OpenAI, Operational Policies, plan pricing/limits, credit amounts and the UI preview. Security fields now retain empty text while editing instead of coercing it to zero; invalid/empty values cannot save. Quantity/money inputs normalize integer-prefix zeros without rounding decimal values. Real zero values, ranges, native stepping, unit conversion, Cancel/reset, permissions and confirmation/idempotency flows remain. Verification codes, phone numbers and identifiers are deliberately untouched.
-- Implementation complete. TypeScript, affected ESLint, two normalization tests and seven intercepted browser regressions passed. Desktop/mobile checked all 11 numeric settings fields, clearing, sequential typing, pasted leading zeros, canonical save payloads, invalid input rejection and Cancel/reload. No actual settings or financial actions were submitted.
+- Implementation complete. TypeScript, affected ESLint, 14 focused unit/contract/security checks and seven intercepted browser regressions passed. Desktop/mobile checked all 11 numeric settings fields, clearing, sequential typing, pasted leading zeros, canonical save payloads, invalid input rejection and Cancel/reload. No actual settings or financial actions were submitted.
+- Frontend **`beffa7e`** deployed after a successful isolated production image build; backend remains `72c9bee`, with no migrations, provider activation or configuration changes by this release. All seven browser regressions also passed against the deployed bundle via loopback, with APIs intercepted. Backend/web healthy, zero restarts; prior web retained as `before-numeric-inputs`.
 
 ## Account Security display cleanup — BID-MVP-03
 
