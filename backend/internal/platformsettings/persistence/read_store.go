@@ -146,6 +146,15 @@ func (t *settingsReadTx) version(ctx context.Context, row versionRow) (settingsa
 	default:
 		return settingsapp.RedactedVersion{}, errors.New("platform_setting_version_view_invalid")
 	}
+	if view.Kind != domain.SMTP && view.State == domain.PendingApproval {
+		change, e := t.q.GetPendingIntegrationChangeForVersion(ctx, uuid(view.ID))
+		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
+			return settingsapp.RedactedVersion{}, e
+		}
+		if e == nil {
+			view.PendingChangeID = id(change)
+		}
+	}
 	if !view.LatestTestID.IsZero() {
 		test, err := t.q.GetIntegrationTest(ctx, uuid(view.LatestTestID))
 		if err != nil {

@@ -167,7 +167,11 @@ func platformSettingVersionJSON(v settingsapp.RedactedVersion) any {
 		c := v.PesaPal
 		configuration = map[string]any{"setting_kind": "PESAPAL", "enabled": c.Enabled, "environment": c.Environment, "merchant_name": c.MerchantName, "credential_reference_configured": c.CredentialsConfigured, "notification_id": optionalSettingID(c.NotificationID), "api_endpoint": domain.PesaPalConfiguration{Environment: c.Environment}.API()}
 	}
-	return map[string]any{"id": uuid.UUID(v.ID).String(), "setting_kind": v.Kind, "sequence": v.Sequence, "state": v.State, "version": v.Version, "configuration": configuration, "test_status": v.TestStatus, "test_code": nullableText(v.TestCode), "created_at": v.CreatedAt, "tested_at": v.TestedAt, "activated_at": v.ActivatedAt, "superseded_at": v.SupersededAt}
+	view := map[string]any{"id": uuid.UUID(v.ID).String(), "setting_kind": v.Kind, "sequence": v.Sequence, "state": v.State, "version": v.Version, "configuration": configuration, "test_status": v.TestStatus, "test_code": nullableText(v.TestCode), "created_at": v.CreatedAt, "tested_at": v.TestedAt, "activated_at": v.ActivatedAt, "superseded_at": v.SupersededAt}
+	if v.Kind != domain.SMTP {
+		view["pending_change_id"] = optionalSettingID(v.PendingChangeID)
+	}
+	return view
 }
 func platformSettingChangeJSON(v settingsapp.RedactedChange) any {
 	return map[string]any{"id": uuid.UUID(v.ID).String(), "setting_kind": v.Kind, "target_version_id": uuid.UUID(v.TargetVersionID).String(), "action": v.Action, "state": v.State, "version": v.Version, "maker_user_id": uuid.UUID(v.MakerUserID).String(), "checker_user_id": optionalSettingID(v.CheckerUserID), "created_at": v.CreatedAt, "expires_at": v.ExpiresAt, "decided_at": v.DecidedAt}

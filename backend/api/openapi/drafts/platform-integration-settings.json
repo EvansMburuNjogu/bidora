@@ -479,6 +479,7 @@
             ],
             "format": "date-time"
           },
+          "pending_change_id": {"type":["string","null"],"format":"uuid","description":"Authorized pending request linked to this saved OpenAI or PesaPal version; no manual reference entry is needed."},
           "superseded_at": {
             "type": [
               "string",

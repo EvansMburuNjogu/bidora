@@ -138,6 +138,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Integration settings form cleanup — BID-MVP-03
+
+- Removed SMTP’s non-editable Connection security selector; STARTTLS, certificate verification and deployment trust remain mandatory in the adapter. Removed OpenAI/PesaPal’s manual Review an approval/reference-entry sections and reference display. Their existing pending requests are discoverable through the saved version’s View action, using authorized pending-change metadata instead of copied identifiers. Maker/checker, recent verification, explicit provider-test consent and activation rules are unchanged; this is not removal of backend approval policy.
+- Seven focused frontend/source/contract checks and affected Go settings/HTTP packages passed, with TypeScript and affected lint. No live setting, provider activation, paid request or mail send was performed.
+
 ## Login-code Back to sign in correction — BID-MVP-03 / BID-MVP-05
 
 - Confirmed cancellation reached the backend without ingress client-address context and failed `AUDIT_CONTEXT_UNAVAILABLE`; the same request with trusted context returned 204. The dedicated cancel BFF now uses the shared trusted audit-context forwarder, retaining Origin/body/query checks and backend challenge invalidation before clearing only the challenge cookie.

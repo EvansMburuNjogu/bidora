@@ -6670,6 +6670,14 @@
             "format": "uuid",
             "type": "string"
           },
+          "pending_change_id": {
+            "description": "Authorized pending request linked to this saved OpenAI or PesaPal version; no manual reference entry is needed.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "sequence": {
             "minimum": 1,
             "type": "integer"

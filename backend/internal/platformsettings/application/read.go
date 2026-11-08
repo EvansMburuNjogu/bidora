@@ -27,6 +27,7 @@ type RedactedPesaPal struct {
 }
 
 type RedactedVersion struct {
+	PendingChangeID                     domain.ID
 	PesaPal                             *RedactedPesaPal
 	ID, LatestTestID                    domain.ID
 	Kind                                domain.Kind

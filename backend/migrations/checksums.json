@@ -2,6 +2,7 @@
   "status": "pre-release-reviewed-slice",
   "algorithm": "sha256",
   "files": {
+    "queries/platformsettings/pending_change.sql": "e441555f69072e7d431aee9a7ca4fcaf51e8b883666172f84371a1ff8f923035",
     "migrations/control/00055_platform_tenant_lifecycle.sql": "9cdc3bea99d75a915ca9cbdb4f07f84969f6bac2daa95ddeb6a533dda6a5133d",
     "queries/control/platform_tenant_lifecycle.sql": "53a59b7de177e6bf688d050b51e1c2d69170d364a1349bd42435c5bb900069b8",
     "queries/controlplane/platform_overview.sql": "550e1a08062a5e5aa8587b7c37ed90cd60710121724817fcaeb7c375e5ea97fe",

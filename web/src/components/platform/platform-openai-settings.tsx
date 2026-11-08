@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { PlatformSelect } from "@/components/platform/platform-select";
-import { SettingsField, SettingsSwitch, SettingsApprovalReference, settingsStateLabel } from "@/components/platform/settings-draft-controls";
+import { SettingsField, SettingsSwitch, settingsStateLabel } from "@/components/platform/settings-draft-controls";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { parseOpenAISetting, parseOpenAISettingPage, type OpenAISetting, type OpenAISettingPage } from "@/lib/platform-openai-contract";
-import { parseIntegrationChange, smtpUUID, type SMTPChange } from "@/lib/platform-smtp-contract";
+import { parseIntegrationChange, type SMTPChange } from "@/lib/platform-smtp-contract";
 import { networkSubmissionError, submissionErrorMessage, unconfirmedSubmissionError } from "@/lib/submission-errors";
 
 type Change = Omit<SMTPChange, "setting_kind"> & { setting_kind: "OPENAI" };
@@ -27,7 +27,7 @@ function OpenAIConfiguration() {
   const { resolution, csrfToken, refresh } = useSession(); const generation = resolution.platform_context_generation;
   const canManage = resolution.capabilities.includes("platform.integration.ai.manage"), canTest = resolution.capabilities.includes("platform.integration.ai.test"), canActivate = resolution.capabilities.includes("platform.integration.ai.activate"), canApprove = resolution.capabilities.includes("platform.governance.approve");
   const [active, setActive] = useState<OpenAISetting | null>(null), [history, setHistory] = useState<OpenAISettingPage | null>(null), [models, setModels] = useState<string[]>([]), [draft, setDraft] = useState<Draft>(initial);
-  const [selected, setSelected] = useState<OpenAISetting | null>(null), [change, setChange] = useState<Change | null>(null), [changeID, setChangeID] = useState(""), [reason, setReason] = useState("");
+  const [selected, setSelected] = useState<OpenAISetting | null>(null), [change, setChange] = useState<Change | null>(null), [reason, setReason] = useState("");
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [loadError, setLoadError] = useState(false), [pageError, setPageError] = useState(false), [touched, setTouched] = useState(false);
   const [confirmation, setConfirmation] = useState<"test" | "propose" | "approve" | "reject" | null>(null);
   const lock = useRef(false), sequence = useRef(0), keys = useRef(new Map<string, { body: string; key: string }>());
@@ -92,9 +92,19 @@ function OpenAIConfiguration() {
       keys.current.delete(operation); setConfirmation(null);
     } catch { toast.error(networkSubmissionError, { id: "openai-settings" }); } finally { lock.current = false; setBusy(false); }
   }
-  async function lookup(event: FormEvent) {
-    event.preventDefault(); if (lock.current || !smtpUUID.test(changeID)) return; lock.current = true; setBusy(true);
-    try { const response = await fetch(base + `/changes/${changeID}`, { cache: "no-store", headers: headers() }); if (response.status === 401) { refresh(); return; } if (!response.ok) { toast.error(submissionErrorMessage(response.status), { id: "openai-settings" }); return; } const value = parseIntegrationChange(await response.json(), "OPENAI", changeID); if (!value) { toast.error(unconfirmedSubmissionError, { id: "openai-settings" }); return; } setChange(value); } catch { toast.error(networkSubmissionError, { id: "openai-settings" }); } finally { lock.current = false; setBusy(false); }
+  async function viewVersion(version: OpenAISetting) {
+    if (lock.current) return;
+    setSelected(version); setChange(null); setReason("");
+    if (!canApprove || !version.pending_change_id) return;
+    lock.current = true; setBusy(true);
+    try {
+      const response = await fetch(base + `/changes/${version.pending_change_id}`, { cache: "no-store", headers: headers() });
+      if (response.status === 401) { refresh(); return; }
+      const value = response.ok ? parseIntegrationChange(await response.json(), "OPENAI", version.pending_change_id) : null;
+      if (!value || value.target_version_id !== version.id) { toast.error("The saved change could not be loaded. Refresh settings and try again.", { id: "openai-settings" }); return; }
+      setChange(value);
+    } catch { toast.error(networkSubmissionError, { id: "openai-settings" }); }
+    finally { lock.current = false; setBusy(false); }
   }
   async function more() { if (!history?.next_cursor || lock.current) return; lock.current = true; setBusy(true); try { const response = await fetch(base + `/versions?cursor=${encodeURIComponent(history.next_cursor)}`, { cache: "no-store", headers: headers() }); if (response.status === 401) { refresh(); return; } const value = response.ok ? parseOpenAISettingPage(await response.json()) : null; if (!value) { setPageError(true); return; } setHistory((old) => old ? { versions: [...old.versions, ...value.versions.filter((v) => !old.versions.some((row) => row.id === v.id))], next_cursor: value.next_cursor } : null); setPageError(false); } catch { setPageError(true); } finally { lock.current = false; setBusy(false); } }
   const validDecisionReason = reason.trim() === reason && reason.length > 0 && new TextEncoder().encode(reason).length <= 1000;
@@ -117,9 +127,8 @@ function OpenAIConfiguration() {
 </div></form>
 <p className="py-3 text-sm"><span className="font-medium">Connection Status: </span><span className="text-muted-foreground">{active?active.configuration.enabled?"Enabled":"Disabled":"Not configured"}</span></p>
 {selected&&<section aria-label="Review selected AI version" className="space-y-3 border-t py-4 text-sm"><h2 className="font-medium">Saved changes</h2><p>{settingsStateLabel(selected.state)} · {settingsStateLabel(selected.test_status)}</p>{canActivate&&selected.test_status==="PASSED"&&["TEST_PASSED","SUPERSEDED"].includes(selected.state)&&<Button disabled={busy} onClick={()=>setConfirmation("propose")}>Request {selected.state==="SUPERSEDED"?"Rollback":"Approval"}</Button>}</section>}
-{change&&<section className="space-y-3 border-t py-4 text-sm"><h2 className="font-medium">{settingsStateLabel(change.state)}</h2><SettingsApprovalReference reference={change.id}/>{canApprove&&change.state==="PENDING_APPROVAL"&&<><label className="grid gap-2">Reason<Input value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)} aria-invalid={!!reason&&!validDecisionReason}/></label><div className="flex gap-3"><Button disabled={busy||!validDecisionReason} onClick={()=>setConfirmation("approve")}>Approve</Button><Button variant="outline" disabled={busy||!validDecisionReason} onClick={()=>setConfirmation("reject")}>Reject</Button></div></>}</section>}
-{canApprove&&<details className="border-t py-4"><summary className="cursor-pointer text-sm font-medium">Review an approval</summary><form onSubmit={event=>void lookup(event)} className="mt-4 flex flex-wrap items-end gap-3"><label className="grid min-w-0 flex-1 gap-2 text-sm">Approval reference<Input value={changeID} onChange={event=>setChangeID(event.target.value)} aria-invalid={!!changeID&&!smtpUUID.test(changeID)}/></label><Button type="submit" variant="outline" disabled={busy||!smtpUUID.test(changeID)}>Review</Button></form></details>}
-<details className="border-t py-4"><summary className="cursor-pointer text-sm font-medium">Previous settings</summary><ul className="mt-4 divide-y text-sm">{history?.versions.map(v=><li key={v.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p>{v.configuration.model}</p><p className="text-xs text-muted-foreground">{settingsStateLabel(v.state)} · {new Date(v.created_at).toLocaleString()}</p></div><Button type="button" variant="outline" size="sm" disabled={busy} onClick={()=>setSelected(v)}>Review</Button></li>)}</ul>{history&&!history.versions.length&&<p className="py-3 text-sm text-muted-foreground">No previous settings.</p>}{pageError&&<p role="alert" className="text-sm text-destructive">Could not load more settings.</p>}{history?.next_cursor&&<Button variant="outline" disabled={busy} onClick={()=>void more()}>Load more</Button>}</details>
+{change&&<section className="space-y-3 border-t py-4 text-sm"><h2 className="font-medium">{settingsStateLabel(change.state)}</h2>{canApprove&&change.state==="PENDING_APPROVAL"&&<><label className="grid gap-2">Reason<Input value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)} aria-invalid={!!reason&&!validDecisionReason}/></label><div className="flex gap-3"><Button disabled={busy||!validDecisionReason} onClick={()=>setConfirmation("approve")}>Approve</Button><Button variant="outline" disabled={busy||!validDecisionReason} onClick={()=>setConfirmation("reject")}>Reject</Button></div></>}</section>}
+<details className="border-t py-4"><summary className="cursor-pointer text-sm font-medium">Previous settings</summary><ul className="mt-4 divide-y text-sm">{history?.versions.map(v=><li key={v.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p>{v.configuration.model}</p><p className="text-xs text-muted-foreground">{settingsStateLabel(v.state)} · {new Date(v.created_at).toLocaleString()}</p></div><Button type="button" variant="outline" size="sm" disabled={busy} onClick={()=>void viewVersion(v)}>View</Button></li>)}</ul>{history&&!history.versions.length&&<p className="py-3 text-sm text-muted-foreground">No previous settings.</p>}{pageError&&<p role="alert" className="text-sm text-destructive">Could not load more settings.</p>}{history?.next_cursor&&<Button variant="outline" disabled={busy} onClick={()=>void more()}>Load more</Button>}</details>
 <AlertDialog open={confirmation!==null} onOpenChange={open=>{if(!lock.current&&!open)setConfirmation(null);}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{confirmation==="test"?"Test Connection?":confirmation==="propose"?"Request approval?":confirmation==="approve"?"Approve changes?":"Reject changes?"}</AlertDialogTitle><AlertDialogDescription>{confirmation==="test"?selected?.configuration.enabled===false?"No provider request is made while disabled.":"This uses a small paid AI request. No tenant data is sent.":confirmation==="propose"?"Another Owner must approve before these settings take effect.":"The current settings change only after approval."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button disabled={busy} aria-busy={busy} onClick={()=>void execute()}>{busy&&<Loader2Icon aria-hidden="true" className="animate-spin"/>}Confirm</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
 </div>;
 }
