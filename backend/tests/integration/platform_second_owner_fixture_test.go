@@ -74,10 +74,10 @@ func TestLivePlatformSecondOwnerRollbackFixture(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		maker, checker, subject := platformapp.ID(second), platformapp.ID(original), platformapp.ID(target)
+		maker, subject := platformapp.ID(second), platformapp.ID(target)
 		roleInput := platformapp.RoleChangeInput{ActorID: maker, SessionID: platformapp.ID(makerSession), TargetUserID: subject, CorrelationID: platformapp.ID(uuid.New()), IdempotencyKey: platformapp.ID(uuid.New()), PlatformContextGeneration: 1, ExpectedAdministratorVersion: 1, ExpectedTargetContextGeneration: 1, Action: platformapp.AssignRole, Role: domain.PlatformOwner, Reason: "Rollback fixture owner proposal"}
 		proposal, e := service.Change(ctx, roleInput)
-		if e != nil || proposal.State != "PENDING_APPROVAL" {
+		if e != nil || proposal.State != "EXECUTED" {
 			return fmt.Errorf("owner proposal: %v %s", e, proposal.State)
 		}
 		fixtureChange = uuid.UUID(proposal.ChangeID)
@@ -89,22 +89,6 @@ func TestLivePlatformSecondOwnerRollbackFixture(t *testing.T) {
 		wrong.Reason = "Changed request with same key"
 		if _, e = service.Change(ctx, wrong); !errors.Is(e, platformapp.ErrInvitationConflict) {
 			return fmt.Errorf("same-key changed body must conflict: %v", e)
-		}
-		decision := platformapp.OwnerRoleDispositionInput{CheckerID: maker, SessionID: platformapp.ID(makerSession), ChangeID: proposal.ChangeID, CorrelationID: platformapp.ID(uuid.New()), IdempotencyKey: platformapp.ID(uuid.New()), PlatformContextGeneration: 1, ExpectedChangeVersion: 1, Reason: "Synthetic approval"}
-		if _, e = service.ApproveOwnerRoleChange(ctx, decision); !errors.Is(e, platformapp.ErrPlatformAccessForbidden) {
-			return fmt.Errorf("maker approved own change: %v", e)
-		}
-		decision.CheckerID = checker
-		decision.PlatformContextGeneration = checkerGeneration
-		decision.SessionID = platformapp.ID(checkerSession)
-		decision.IdempotencyKey = platformapp.ID(uuid.New())
-		approved, e := service.ApproveOwnerRoleChange(ctx, decision)
-		if e != nil || approved.State != "EXECUTED" {
-			return fmt.Errorf("distinct checker approval: %v %s", e, approved.State)
-		}
-		approvedReplay, e := service.ApproveOwnerRoleChange(ctx, decision)
-		if e != nil || !approvedReplay.Replay {
-			return fmt.Errorf("approval replay: %v", e)
 		}
 		var roleCount, auditCount, eventCount int64
 		if e = db.QueryRow(ctx, `SELECT (SELECT count(*) FROM platform_administration.role_assignments WHERE user_id=$1 AND role_key='PLATFORM_OWNER' AND state='ACTIVE'),(SELECT count(*) FROM bidora_control_audit.audit_events WHERE target_id=$2),(SELECT count(*) FROM bidora_control_eventing.outbox_events WHERE aggregate_id=$2)`, target, uuid.UUID(proposal.ChangeID)).Scan(&roleCount, &auditCount, &eventCount); e != nil {
@@ -125,13 +109,8 @@ func TestLivePlatformSecondOwnerRollbackFixture(t *testing.T) {
 		}
 		identity := platformapp.IdentityStateChangeInput{ActorID: maker, SessionID: platformapp.ID(makerSession), TargetUserID: subject, CorrelationID: platformapp.ID(uuid.New()), IdempotencyKey: platformapp.ID(uuid.New()), PlatformContextGeneration: 1, ExpectedAdministratorVersion: version, ExpectedTargetContextGeneration: generation, Action: platformapp.DisableAdministrator, Reason: "Rollback fixture disable proposal"}
 		pending, e := service.ChangeIdentityState(ctx, identity)
-		if e != nil || pending.State != "PENDING_APPROVAL" {
+		if e != nil || pending.State != "EXECUTED" {
 			return fmt.Errorf("disable proposal: %v %s", e, pending.State)
-		}
-		identityDecision := platformapp.OwnerIdentityDispositionInput{CheckerID: checker, SessionID: platformapp.ID(checkerSession), ChangeID: pending.ChangeID, CorrelationID: platformapp.ID(uuid.New()), IdempotencyKey: platformapp.ID(uuid.New()), PlatformContextGeneration: checkerGeneration, ExpectedChangeVersion: 1, Reason: "Synthetic disable approval"}
-		completed, e := service.ApproveOwnerIdentityStateChange(ctx, identityDecision)
-		if e != nil || completed.State != "EXECUTED" {
-			return fmt.Errorf("disable approval: %v %s", e, completed.State)
 		}
 		var disabled bool
 		if e = db.QueryRow(ctx, `SELECT disabled_at IS NOT NULL FROM identity.users WHERE id=$1`, target).Scan(&disabled); e != nil || !disabled {

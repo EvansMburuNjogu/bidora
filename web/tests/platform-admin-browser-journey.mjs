@@ -58,23 +58,12 @@ try {
   const dialog = page.getByRole("alertdialog");
   await dialog.getByRole("textbox", { name: "Reason" }).fill("Browser synthetic owner disable");
   await dialog.getByRole("button", { name: "Disable administrator" }).click();
-  await page.getByText("Your request has been submitted. The account is awaiting approval.").waitFor({ timeout: 12000 });
-  stage = "maker-denied";
+  await page.getByText("Administrator disabled and sessions revoked.", { exact: true }).waitFor({ timeout: 12000 });
+  stage = "retired-approval-route";
   await page.goto(web.origin + "/platform/approvals");
-  const makerItem = page.locator("li").filter({ hasText: "Browser synthetic owner disable" });
-  await makerItem.getByRole("textbox", { name: "Decision reason" }).fill("Self approval denied");
-  await makerItem.getByRole("button", { name: "Approve" }).click();
-  await page.getByText("You cannot decide this change.", { exact: false }).waitFor({ timeout: 12000 });
-  stage = "checker-approve";
-  const checker = await browser.newContext();
-  await cookies(checker, "CHECKER");
-  const review = await checker.newPage();
-  await review.goto(web.origin + "/platform/approvals");
-  const item = review.locator("li").filter({ hasText: "Browser synthetic owner disable" });
-  await item.getByRole("textbox", { name: "Decision reason" }).fill("Independent browser checker");
-  await item.getByRole("button", { name: "Approve" }).click();
-  await review.getByText("No pending administrator changes.").waitFor({ timeout: 12000 });
-  console.log("isolated_browser_maker_checker_passed");
+  await page.waitForURL(web.origin + "/platform/users");
+  await page.getByRole("heading", { name: "Users", exact: true }).waitFor();
+  console.log("isolated_browser_direct_actions_passed");
 } catch {
   console.error(`isolated_browser_stage_failed:${stage} bootstrap=${statuses.bootstrap} me=${statuses.me} detail=${statuses.detail}`);
   process.exitCode = 1;

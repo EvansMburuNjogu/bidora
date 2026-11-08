@@ -265,7 +265,7 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 		if _, authErr := requireInvitationOwner(txCtx, tx, input.ActorID, input.SessionID, input.PlatformContextGeneration, now); authErr != nil {
 			return authErr
 		}
-		governance, txErr := tx.LockGovernance(txCtx)
+		_, txErr := tx.LockGovernance(txCtx)
 		if txErr != nil {
 			return txErr
 		}
@@ -286,44 +286,19 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 		var tokenHash *[32]byte
 		var activatedAt, expiresAt *time.Time
 		var changeID *ID
-		if input.Role == domain.PlatformOwner && effectiveOwners >= 2 {
-			state = InvitationPendingApproval
-			authorizationPath = InvitationMakerChecker
-		} else {
-			if input.Role == domain.PlatformOwner {
-				open, found, findErr := tx.FindOpenOwnerInvitation(txCtx)
-				if findErr != nil {
-					return findErr
-				}
-				resend := found && open.EmailLookup == address.Lookup() && open.AuthorizationPath == InvitationFirstOwnerException
-				if found && !resend {
-					return ErrInvitationConflict
-				}
-				if governance.FirstAdditionalOwnerExceptionConsumed && !resend {
-					return ErrInvitationConflict
-				}
-				authorizationPath = InvitationFirstOwnerException
-				if !governance.FirstAdditionalOwnerExceptionConsumed {
-					if txErr = tx.ConsumeFirstOwnerException(txCtx, governance.Version, now); txErr != nil {
-						return txErr
-					}
-					governance.Version++
-				}
-			}
-			deliveryToken, txErr = s.tokens.Generate()
-			if txErr != nil || deliveryToken.IsZero() {
-				return errors.New("platform_invitation_token_unavailable")
-			}
-			hash := deliveryToken.Hash()
-			tokenHash = &hash
-			activated := now
-			expires, expiryErr := platforminvite.ExpiresAt(now)
-			if expiryErr != nil {
-				return expiryErr
-			}
-			activatedAt, expiresAt = &activated, &expires
-			recipient = address
+		deliveryToken, txErr = s.tokens.Generate()
+		if txErr != nil || deliveryToken.IsZero() {
+			return errors.New("platform_invitation_token_unavailable")
 		}
+		hash := deliveryToken.Hash()
+		tokenHash = &hash
+		activated := now
+		expires, expiryErr := platforminvite.ExpiresAt(now)
+		if expiryErr != nil {
+			return expiryErr
+		}
+		activatedAt, expiresAt = &activated, &expires
+		recipient = address
 		ids, txErr := s.newIDs(5)
 		if txErr != nil {
 			return txErr
@@ -337,13 +312,6 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 		}
 		if txErr = tx.InsertInvitation(txCtx, record, tokenHash); txErr != nil {
 			return txErr
-		}
-		if state == InvitationPendingApproval {
-			change := ids[1]
-			changeID = &change
-			if txErr = tx.InsertOwnerInvitationChange(txCtx, change, record, now.Add(30*time.Minute)); txErr != nil {
-				return txErr
-			}
 		}
 		if txErr = tx.ClaimCommand(txCtx, ids[2], input.ActorID, "INVITATION_ISSUE", keyHash, requestHash, record.ID, 201, now); txErr != nil {
 			return txErr

@@ -934,16 +934,21 @@ SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles AS p
 WHERE ($1::uuid IS NULL OR p.user_id = $1::uuid)
   AND ($2::text IS NULL OR EXISTS (
+       SELECT 1 FROM identity.users u WHERE u.id=p.user_id AND u.account_type='PLATFORM_ADMIN'
+       AND (($2::text='ACTIVE' AND u.disabled_at IS NULL)
+         OR ($2::text='DISABLED' AND u.disabled_at IS NOT NULL))))
+  AND ($3::text IS NULL OR EXISTS (
        SELECT 1 FROM platform_administration.role_assignments AS r
-       WHERE r.user_id = p.user_id AND r.role_key = $2 AND r.state = 'ACTIVE'))
-  AND ($3::timestamptz IS NULL
-       OR (p.created_at, p.user_id) < ($3, $4::uuid))
+       WHERE r.user_id = p.user_id AND r.role_key = $3 AND r.state = 'ACTIVE'))
+  AND ($4::timestamptz IS NULL
+       OR (p.created_at, p.user_id) < ($4, $5::uuid))
 ORDER BY p.created_at DESC, p.user_id DESC
-LIMIT $5
+LIMIT $6
 `
 
 type ListPlatformAdministratorProfilesParams struct {
 	FilterUserID    pgtype.UUID
+	FilterState     *string
 	FilterRoleKey   *string
 	BeforeCreatedAt pgtype.Timestamptz
 	BeforeUserID    pgtype.UUID
@@ -953,6 +958,7 @@ type ListPlatformAdministratorProfilesParams struct {
 func (q *Queries) ListPlatformAdministratorProfiles(ctx context.Context, arg ListPlatformAdministratorProfilesParams) ([]PlatformAdministrationAdministratorProfile, error) {
 	rows, err := q.db.Query(ctx, listPlatformAdministratorProfiles,
 		arg.FilterUserID,
+		arg.FilterState,
 		arg.FilterRoleKey,
 		arg.BeforeCreatedAt,
 		arg.BeforeUserID,

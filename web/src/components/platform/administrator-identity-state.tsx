@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { networkSubmissionError, submissionErrorMessage, submissionFieldErrors } from "@/lib/submission-errors";
 import { useSession } from "@/components/session/session-provider";
@@ -12,14 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parsePlatformAdministratorChange, type PlatformAdministrator } from "@/lib/platform-contract";
 
-export function AdministratorIdentityState({ administrator, onChanged }: { administrator: PlatformAdministrator; onChanged: () => void }) {
+export function AdministratorIdentityState({ administrator, onChanged, initialOpen = false, compact = false, onClosed }: { administrator: PlatformAdministrator; onChanged: () => void; initialOpen?: boolean; compact?: boolean; onClosed?: () => void }) {
   const { resolution, csrfToken, refresh } = useSession();
   const disable = administrator.state === "ACTIVE";
   const action = disable ? "DISABLE_IDENTITY" : "REACTIVATE_IDENTITY";
   const allowed = resolution.capabilities.includes(disable ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
@@ -47,7 +45,7 @@ export function AdministratorIdentityState({ administrator, onChanged }: { admin
       if (response.status === 403) { toast.error(submissionErrorMessage(403), { id: "administrator-identity-state" }); return; }
       if (!response.ok) { const fields = await submissionFieldErrors(response, ["reason"] as const); if (fields.reason) setReasonError(fields.reason); else toast.error(submissionErrorMessage(response.status, response.headers.get("retry-after")), { id: "administrator-identity-state" }); return; }
       const change = response.status === 201 ? parsePlatformAdministratorChange(await response.json()) : null;
-      if (!change || change.target_user_id?.toLowerCase() !== administrator.user_id.toLowerCase() || change.action !== action || !["EXECUTED", "PENDING_APPROVAL"].includes(change.state)) {
+      if (!change || change.target_user_id?.toLowerCase() !== administrator.user_id.toLowerCase() || change.action !== action || change.state !== "EXECUTED") {
         toast.error("No outcome is confirmed. Check the current record before retrying.", { id: "administrator-identity-state" }); return;
       }
       retry.current = null;
@@ -55,25 +53,21 @@ export function AdministratorIdentityState({ administrator, onChanged }: { admin
       if (change.state === "EXECUTED") {
         toast.success(disable ? "Administrator disabled and sessions revoked." : "Administrator reactivated. Existing sessions remain invalid.", { id: "administrator-identity-state" });
         onChanged();
-      } else {
-        setPending(true);
-        toast.info("Your request has been submitted. The account is awaiting approval.", { id: "administrator-identity-state" });
       }
     } catch { toast.error(networkSubmissionError, { id: "administrator-identity-state" }); }
     finally { submitting.current = false; setBusy(false); }
   }
 
-  return <section aria-label="Administrator account status" className="space-y-3">
-    <h2 className="text-base font-medium">Account access</h2>
-    <p className="text-sm text-muted-foreground">{disable ? "Disabling an administrator removes sign-in access and revokes their sessions when executed." : "Reactivation permits future sign-in; it does not restore old sessions."} Changes affecting a Platform Owner require a separate reviewer.</p>
-    <AlertDialog open={open} onOpenChange={(value) => { if (!submitting.current) setOpen(value); }}>
-      <AlertDialogTrigger render={<Button type="button" variant={disable ? "destructive" : "outline"} />}>{disable ? "Disable administrator" : "Reactivate administrator"}</AlertDialogTrigger>
+  return <section id="account-access" aria-label="Administrator account status" className="space-y-3">
+    {!compact && <h2 className="text-base font-medium">Account access</h2>}
+    {!compact && <p className="text-sm text-muted-foreground">{disable ? "Disabling an administrator removes sign-in access and revokes their sessions when executed." : "Reactivation permits future sign-in; it does not restore old sessions."} Owner account changes require a recently verified Platform Owner.</p>}
+    <AlertDialog open={open} onOpenChange={(value) => { if (!submitting.current) setOpen(value); if (!value && !submitting.current) onClosed?.(); }}>
+      {!compact && <AlertDialogTrigger render={<Button type="button" variant={disable ? "destructive" : "outline"} />}>{disable ? "Disable administrator" : "Reactivate administrator"}</AlertDialogTrigger>}
       <AlertDialogContent><form onSubmit={(event) => void submit(event)} className="space-y-4">
-        <AlertDialogHeader><AlertDialogTitle>{disable ? "Disable this administrator?" : "Reactivate this administrator?"}</AlertDialogTitle><AlertDialogDescription>Review the selected account and give a reason. You cannot change your own account here. Protected changes remain pending until an eligible checker decides.</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogHeader><AlertDialogTitle>{disable ? "Disable this administrator?" : "Reactivate this administrator?"}</AlertDialogTitle><AlertDialogDescription>Review the selected account and give a reason. You cannot change your own account here. Changes take effect immediately; the last active Owner remains protected.</AlertDialogDescription></AlertDialogHeader>
         <div className="space-y-2"><Label htmlFor="identity-change-reason">Reason</Label><Input aria-invalid={!!reasonError} aria-describedby={reasonError ? "administrator-identity-state-reason-error" : undefined} onChange={() => setReasonError(null)} id="identity-change-reason" name="reason" required maxLength={2000} disabled={busy} />{reasonError && <p role="alert" id="administrator-identity-state-reason-error" className="text-sm text-destructive">{reasonError}</p>}</div>
         <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="submit" variant={disable ? "destructive" : "default"} disabled={busy} aria-busy={busy}>{busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : disable ? <BanIcon aria-hidden="true" /> : <RotateCcwIcon aria-hidden="true" />}{busy ? "Saving…" : disable ? "Disable administrator" : "Reactivate administrator"}</Button></AlertDialogFooter>
       </form></AlertDialogContent>
     </AlertDialog>
-    {pending ? <p role="status" className="text-sm text-muted-foreground"><Link href="/platform/users/approvals" className="text-primary underline">Review pending changes</Link></p> : null}
   </section>;
 }

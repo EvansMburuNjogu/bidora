@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AdministratorApprovals } from "@/components/platform/administrator-approvals";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Approvals" };
-export default function PlatformApprovalsPage() { return <AdministratorApprovals />; }
+export default function PlatformApprovalsPage() { redirect("/platform/users"); }

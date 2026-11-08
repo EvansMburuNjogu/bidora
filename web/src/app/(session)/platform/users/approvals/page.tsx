@@ -1,2 +1,2 @@
-import { AdministratorApprovals } from "@/components/platform/administrator-approvals";
-export default function UserApprovalsPage() { return <AdministratorApprovals />; }
+import { redirect } from "next/navigation";
+export default function UserApprovalsPage() { redirect("/platform/users"); }

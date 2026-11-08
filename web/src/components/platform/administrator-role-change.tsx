@@ -2,7 +2,6 @@
 
 import { PlatformSelect } from "@/components/platform/platform-select";
 import { useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { networkSubmissionError, submissionErrorMessage, submissionFieldErrors } from "@/lib/submission-errors";
 import { useSession } from "@/components/session/session-provider";
@@ -18,7 +17,6 @@ export function AdministratorRoleChange({ administrator, onChanged }: { administ
   const canRevoke = resolution.capabilities.includes("platform.admin.role.revoke");
   const [busy, setBusy] = useState(false);
   const [selectedAction, setSelectedAction] = useState("");
-  const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
@@ -46,7 +44,6 @@ export function AdministratorRoleChange({ administrator, onChanged }: { administ
     const fingerprint = JSON.stringify(body);
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
     submitting.current = true; setReasonError(null); setBusy(true);
-    setPending(false);
     try {
       const response = await fetch("/api/platform/administrator-changes", {
         method: "POST", credentials: "include", cache: "no-store",
@@ -58,27 +55,26 @@ export function AdministratorRoleChange({ administrator, onChanged }: { administ
       if (response.status === 403) { toast.error(submissionErrorMessage(403), { id: "administrator-role-change" }); return; }
       if (!response.ok) { const fields = await submissionFieldErrors(response, ["reason"] as const); if (fields.reason) setReasonError(fields.reason); else toast.error(submissionErrorMessage(response.status, response.headers.get("retry-after")), { id: "administrator-role-change" }); return; }
       const change = response.status === 201 ? parsePlatformAdministratorChange(await response.json()) : null;
-      if (!change || change.target_user_id?.toLowerCase() !== administrator.user_id.toLowerCase() || change.action !== action || change.role_key !== role || !["EXECUTED", "PENDING_APPROVAL"].includes(change.state)) {
+      if (!change || change.target_user_id?.toLowerCase() !== administrator.user_id.toLowerCase() || change.action !== action || change.role_key !== role || change.state !== "EXECUTED") {
         toast.error("No change is confirmed. Refresh before retrying.", { id: "administrator-role-change" }); return;
       }
       retry.current = null;
       if (change.state === "EXECUTED") {
         toast.success("Role change recorded. Current access is being refreshed.", { id: "administrator-role-change" });
         onChanged();
-      } else { setPending(true); toast.info("Your request has been submitted. The role is awaiting approval.", { id: "administrator-role-change" }); }
+      }
     } catch { toast.error(networkSubmissionError, { id: "administrator-role-change" }); }
     finally { submitting.current = false; setBusy(false); }
   }
 
-  return <section aria-label="Manage administrator roles" className="space-y-3">
+  return <section id="roles" aria-label="Manage administrator roles" className="space-y-3">
     <h2 className="text-base font-medium">Manage roles</h2>
-    <p className="text-sm text-muted-foreground">Platform Owner changes require a separate reviewer.</p>
+    <p className="text-sm text-muted-foreground">Changes apply immediately. The last active Platform Owner cannot be removed.</p>
     <form onSubmit={(event) => void submit(event)} className="grid gap-4 border-t pt-4 sm:max-w-2xl sm:grid-cols-2">
       <div className="grid gap-2"><Label htmlFor="role-action">Action <span aria-hidden="true" className="text-destructive">*</span></Label><PlatformSelect id="role-action" name="action" required disabled={busy} value={selectedAction} onChange={(event) => setSelectedAction(event.target.value)}><option value="" disabled>Choose an action</option>{canAssign && administrator.state === "ACTIVE" && addable.length ? <option value="ASSIGN_ROLE">Assign role</option> : null}{canRevoke && active.length ? <option value="REVOKE_ROLE">Revoke role</option> : null}</PlatformSelect></div>
       <div className="grid gap-2"><Label htmlFor="role-key">Role <span aria-hidden="true" className="text-destructive">*</span></Label><PlatformSelect key={selectedAction} id="role-key" name="role_key" required defaultValue="" disabled={!selectedAction || busy}><option value="" disabled>Choose a role</option>{availableRoles.map((role) => <option key={role} value={role}>{platformRoleLabels[role]}</option>)}</PlatformSelect></div>
       <div className="grid gap-2 sm:col-span-2"><Label htmlFor="role-reason">Reason <span aria-hidden="true" className="text-destructive">*</span></Label><Input aria-invalid={!!reasonError} aria-describedby={reasonError ? "administrator-role-change-reason-error" : undefined} onChange={() => setReasonError(null)} id="role-reason" className="h-11 px-3 sm:h-10" name="reason" disabled={busy} required minLength={1} maxLength={2000} />{reasonError && <p role="alert" id="administrator-role-change-reason-error" className="text-sm text-destructive">{reasonError}</p>}</div>
       <div className="flex justify-end sm:col-span-2"><Button type="submit" disabled={busy || !selectedAction} aria-busy={busy}>{busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : <SendIcon aria-hidden="true" />}{busy ? "Submitting…" : "Submit change"}</Button></div>
     </form>
-    {pending && <Link href="/platform/users/approvals" className="text-sm text-primary underline">Review pending changes</Link>}
   </section>;
 }

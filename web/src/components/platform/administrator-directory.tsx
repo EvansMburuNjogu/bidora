@@ -12,6 +12,9 @@ import { AdministratorInvite } from "@/components/platform/administrator-invite"
 import { PlatformStatus } from "@/components/platform/platform-status";
 import { PlatformRowActions } from "@/components/platform/platform-row-actions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { AdministratorRoleChange } from "@/components/platform/administrator-role-change";
+import { AdministratorIdentityState } from "@/components/platform/administrator-identity-state";
 import { parsePlatformAdministratorList, platformRoleLabels, PLATFORM_ROLES, type PlatformAdministratorList, type PlatformRole } from "@/lib/platform-contract";
 
 type State = { kind: "loading" } | { kind: "error"; message: string; denied?: boolean } | { kind: "ready"; value: PlatformAdministratorList };
@@ -24,7 +27,9 @@ export function AdministratorDirectory() {
   const [filterState, setFilterState] = useState<"ACTIVE" | "DISABLED" | "">("");
   const [filterRole, setFilterRole] = useState<PlatformRole | "">("");
   const [search, setSearch] = useState("");
-  const [submittedSearch, setSubmittedSearch] = useState("");
+  const [filters, setFilters] = useState<{ email: string; state: "ACTIVE" | "DISABLED" | ""; role: PlatformRole | "" }>({ email: "", state: "", role: "" });
+  const submittedSearch = filters.email;
+  function clearFilters() { setSearch(""); setFilterRole(""); setFilterState(""); setFilters({ email: "", state: "", role: "" }); }
   const sequence = useRef(0);
   const generation = resolution.platform_context_generation;
 
@@ -38,15 +43,15 @@ export function AdministratorDirectory() {
     if (cursor) setLoadingMore(true);
     else { setState({ kind: "loading" }); setPageError(false); }
     const query = new URLSearchParams();
-    if (filterState) query.set("state", filterState);
-    if (filterRole) query.set("role_key", filterRole);
+    if (filters.state) query.set("state", filters.state);
+    if (filters.role) query.set("role_key", filters.role);
     if (cursor) query.set("cursor", cursor);
     try {
       const response = await fetch(submittedSearch ? "/api/platform/administrators/search" : `/api/platform/administrators${query.size ? `?${query}` : ""}`, {
         method: submittedSearch ? "POST" : "GET", credentials: "include", cache: "no-store",
         headers: submittedSearch ? { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Bidora-Platform-Context-Generation": String(generation) } :
           { Accept: "application/json", "X-Bidora-Platform-Context-Generation": String(generation) },
-        body: submittedSearch ? JSON.stringify({ email: submittedSearch, ...(filterState ? { state: filterState } : {}), ...(filterRole ? { role_key: filterRole } : {}) }) : undefined,
+        body: submittedSearch ? JSON.stringify({ email: submittedSearch, ...(filters.state ? { state: filters.state } : {}), ...(filters.role ? { role_key: filters.role } : {}) }) : undefined,
       });
       if (current !== sequence.current) return;
       if (response.status === 401 || response.status === 409) {
@@ -76,7 +81,7 @@ export function AdministratorDirectory() {
       if (current === sequence.current) { if (cursor) setPageError(true);
       else setState({ kind: "error", message: "Couldn’t load users." }); }
     } finally { if (current === sequence.current) setLoadingMore(false); }
-  }, [generation, filterState, filterRole, submittedSearch, csrfToken, refreshSession]);
+  }, [generation, filters, submittedSearch, csrfToken, refreshSession]);
 
   useEffect(() => {
     const sequenceRef = sequence;
@@ -91,16 +96,17 @@ export function AdministratorDirectory() {
           <h1 className="type-title">Users</h1>
           <p className="type-lead text-muted-foreground">Manage Platform Admin accounts, responsibilities and access.</p>
         </div>
-        <div className="flex flex-wrap gap-2"><AdministratorInvite key={generation ?? "none"} />{resolution.capabilities.includes("platform.governance.approve") || resolution.capabilities.includes("platform.governance.review") ? <Link href="/platform/users/approvals" className="rounded-lg border bg-card px-3 py-2 text-sm text-primary hover:underline">Review approvals</Link> : null}</div>
+        <div className="flex flex-wrap gap-2"><AdministratorInvite key={generation ?? "none"} onCreated={() => void load()} /><Button type="button" variant="outline" disabled={state.kind === "loading" || loadingMore} onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Refresh</Button></div>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); if (search && search === search.trim()) { if (search === submittedSearch) void load(); else setSubmittedSearch(search); } }}><label className="grid gap-1 text-sm">Exact administrator email<div className="relative"><SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" type="email" required maxLength={254} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="admin@example.com" /></div></label><Button type="submit" size="sm" disabled={!csrfToken || !search || search !== search.trim()}><SearchIcon aria-hidden="true" />Search</Button></form>
-        <label htmlFor="user-state" className="flex flex-col gap-1 text-sm font-medium">Status<PlatformSelect id="user-state" value={filterState} onChange={(event) => setFilterState(event.target.value as "ACTIVE" | "DISABLED" | "")}><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="DISABLED">Disabled</option></PlatformSelect></label>
-        <label htmlFor="user-role" className="flex flex-col gap-1 text-sm font-medium">Role<PlatformSelect id="user-role" value={filterRole} onChange={(event) => setFilterRole(event.target.value as PlatformRole | "")}><option value="">All roles</option>{PLATFORM_ROLES.map((role) => <option key={role} value={role}>{platformRoleLabels[role]}</option>)}</PlatformSelect></label>
-        {search || submittedSearch || filterRole || filterState ? <Button type="button" size="sm" variant="outline" onClick={() => { setSearch(""); setSubmittedSearch(""); setFilterRole(""); setFilterState(""); }}>Clear Filters</Button> : null}
-      </div>
-      {submittedSearch && <p className="mb-3 text-xs text-muted-foreground">Showing the exact-email lookup, not a page-only or platform-wide search.</p>}
+      <form className="mb-5 flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); const next = { email: search.trim(), state: filterState, role: filterRole }; if (JSON.stringify(next) === JSON.stringify(filters)) void load(); else setFilters(next); }}>
+        <label className="grid min-w-0 gap-1 text-sm">Email address<div className="relative"><SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" type="email" maxLength={254} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="admin@example.com" /></div></label>
+        <div className="flex flex-col gap-1 text-sm font-medium"><label htmlFor="user-state">Status</label><PlatformSelect id="user-state" value={filterState} onChange={(event) => setFilterState(event.target.value as "ACTIVE" | "DISABLED" | "")}><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="DISABLED">Disabled</option></PlatformSelect></div>
+        <div className="flex flex-col gap-1 text-sm font-medium"><label htmlFor="user-role">Role</label><PlatformSelect id="user-role" value={filterRole} onChange={(event) => setFilterRole(event.target.value as PlatformRole | "")}><option value="">All roles</option>{PLATFORM_ROLES.map((role) => <option key={role} value={role}>{platformRoleLabels[role]}</option>)}</PlatformSelect></div>
+        {search || submittedSearch || filterRole || filterState ? <Button type="button" size="sm" variant="outline" onClick={clearFilters}>Clear filters</Button> : null}
+        <Button type="submit" size="sm" disabled={!csrfToken || state.kind === "loading"}><SearchIcon aria-hidden="true" />Apply filters</Button>
+      </form>
+      <p className="mb-3 text-xs text-muted-foreground">{submittedSearch ? `Matching email: ${submittedSearch}.` : "All Platform Admin users, including disabled accounts. Invited users appear after accepting."} Email matches a full address; filters apply across all pages.</p>
       {state.kind === "loading" ? <DirectoryLoading /> : null}
       {state.kind === "error" ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"><span>{state.message}</span>{!state.denied ? <Button type="button" variant="outline" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button> : null}</div> : null}
       {state.kind === "ready" ? (
@@ -116,39 +122,47 @@ export function AdministratorDirectory() {
             <div className="rounded-lg border border-dashed p-8 text-center">
               <UsersIcon className="mx-auto mb-3 size-5 text-muted-foreground" aria-hidden="true" />
               <h2 className="font-medium">No records found.</h2>
-              {search || submittedSearch || filterRole || filterState ? <Button type="button" variant="link" onClick={() => { setSearch(""); setSubmittedSearch(""); setFilterRole(""); setFilterState(""); }}>Clear Filters</Button> : null}
+              {search || submittedSearch || filterRole || filterState ? <Button type="button" variant="link" onClick={clearFilters}>Clear filters</Button> : null}
             </div>
-          ) : <DirectoryRows value={state.value} />}
+          ) : <><p role="status" className="mb-3 text-sm text-muted-foreground">{state.value.administrators.length} users shown{state.value.next_cursor ? " · More available" : ""}</p><DirectoryRows value={state.value} onChanged={() => void load()} /></>}
           {pageError ? <p role="alert" className="text-sm text-destructive">Couldn’t load more users. Try again.</p> : null}
-          {state.value.next_cursor ? <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void load(state.value.next_cursor ?? undefined)}>{loadingMore ? "Loading…" : "Load more administrators"}</Button> : null}
+          {state.value.next_cursor ? <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void load(state.value.next_cursor ?? undefined)}>{loadingMore ? "Loading…" : "Load more users"}</Button> : null}
         </>
       ) : null}
     </main>
   );
 }
 
-function DirectoryRows({ value }: { value: PlatformAdministratorList }) {
-  return (
-    <section aria-label="Platform administrators" className="overflow-hidden rounded-lg border bg-card">
-      <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1.5fr)_minmax(7rem,.6fr)_minmax(8rem,.7fr)_minmax(4rem,.3fr)] gap-4 border-b bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground sm:grid">
-        <span>Administrator</span><span>Responsibilities</span><span>Status</span><span>Verification</span><span>Actions</span>
-      </div>
-      <div className="divide-y">
-        {value.administrators.map((administrator) => {
-          const roles = administrator.assignments.filter((assignment) => assignment.state === "ACTIVE").map((assignment) => platformRoleLabels[assignment.role_key]);
-          return (
-            <article key={administrator.user_id} className="grid min-w-0 gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1.5fr)_minmax(7rem,.6fr)_minmax(8rem,.7fr)_minmax(4rem,.3fr)] sm:items-center sm:gap-4">
-              <div className="min-w-0"><Link href={`/platform/users/${administrator.user_id}`} className="break-all text-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:underline">{administrator.email}</Link>{administrator.effective_owner ? <p className="mt-1 text-xs text-muted-foreground">Platform owner</p> : null}</div>
-              <div className="flex min-w-0 flex-wrap gap-1.5">{roles.length ? roles.map((label) => <span key={label} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{label}</span>) : <span className="text-sm text-muted-foreground">No active assignment</span>}</div>
-              <div><PlatformStatus value={administrator.state === "ACTIVE" ? "Active" : "Disabled"} /></div>
-              <p className="text-sm text-muted-foreground">Email code required</p>
-              <PlatformRowActions label={administrator.email} actions={[{ label: "View details", href: `/platform/users/${administrator.user_id}` }]} />
-            </article>
-          );
-        })}
-      </div>
+function DirectoryRows({ value, onChanged }: { value: PlatformAdministratorList; onChanged: () => void }) {
+  const { resolution } = useSession();
+  const [selected, setSelected] = useState<{ user: PlatformAdministratorList["administrators"][number]; kind: "roles" | "access" } | null>(null);
+  const can = (capability: string) => resolution.capabilities.includes(capability);
+  function changed() { setSelected(null); onChanged(); }
+  return <>
+    <section aria-label="Platform administrators" className="overflow-x-auto rounded-lg border bg-card">
+      <table className="w-full min-w-[680px] text-left text-sm">
+        <thead className="border-b bg-muted/40 text-xs text-muted-foreground"><tr><th scope="col" className="px-4 py-3">User</th><th scope="col" className="px-4 py-3">Roles</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3 text-right">Actions</th></tr></thead>
+        <tbody className="divide-y">{value.administrators.map(user => {
+          const roles = user.assignments.filter(assignment => assignment.state === "ACTIVE");
+          const href = `/platform/users/${user.user_id}`;
+          const access = can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && !(user.effective_owner && value.effective_owner_count <= 1);
+          return <tr key={user.user_id}>
+            <th scope="row" className="max-w-72 px-4 py-4 font-medium"><Link href={href} className="break-all text-primary hover:underline">{user.email}</Link>{user.effective_owner && <span className="mt-1 block text-xs font-normal text-muted-foreground">Platform owner</span>}</th>
+            <td className="max-w-80 px-4 py-4"><div className="flex flex-wrap gap-1.5">{roles.length ? roles.map(role => <span key={role.id} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{platformRoleLabels[role.role_key]}</span>) : <span className="text-muted-foreground">No active role</span>}</div></td>
+            <td className="px-4 py-4"><PlatformStatus value={user.state === "ACTIVE" ? "Active" : "Disabled"} /></td>
+            <td className="px-4 py-4"><div className="flex justify-end"><PlatformRowActions label={user.email} actions={[
+              { label: "View details", href },
+              ...(can("platform.admin.role.assign") || can("platform.admin.role.revoke") ? [{ label: "Manage roles", onSelect: () => setSelected({ user, kind: "roles" }) }] : []),
+              ...(access ? [{ label: user.state === "ACTIVE" ? "Disable user" : "Reactivate user", destructive: user.state === "ACTIVE", onSelect: () => setSelected({ user, kind: "access" }) }] : []),
+              ...(can("platform.admin.session.revoke") ? [{ label: "Revoke sessions", href: href + "#revoke-sessions", destructive: true }] : []),
+            ]} /></div></td>
+          </tr>;
+        })}</tbody>
+      </table>
     </section>
-  );
+    <Sheet open={selected?.kind === "roles"} onOpenChange={open => { if (!open) setSelected(null); }}><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>Manage roles</SheetTitle><SheetDescription>{selected?.user.email}</SheetDescription></SheetHeader><div className="px-6 pb-6">{selected?.kind === "roles" && <AdministratorRoleChange administrator={selected.user} onChanged={changed} />}</div></SheetContent></Sheet>
+    {selected?.kind === "access" && <AdministratorIdentityState key={selected.user.user_id} administrator={selected.user} onChanged={changed} initialOpen compact onClosed={() => setSelected(null)} />}
+  </>;
 }
 
 function DirectoryLoading() {

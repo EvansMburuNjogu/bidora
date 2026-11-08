@@ -154,10 +154,11 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 			return replayErr
 		}
 		if replayed != nil {
-			state := "EXECUTED"
-			if input.Role == domain.PlatformOwner {
-				state = "PENDING_APPROVAL"
+			stored, readErr := tx.GetIdentityStateChange(txCtx, replayed.TargetID)
+			if readErr != nil {
+				return readErr
 			}
+			state := stored.State
 			result = RoleChangeResult{ChangeID: replayed.TargetID, TargetUserID: input.TargetUserID, AssignmentID: input.AssignmentID, Action: input.Action, Role: input.Role, State: state, Version: 1, Replay: true}
 			return nil
 		}
@@ -208,9 +209,11 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 			return txErr
 		}
 		changeID := ids[0]
+		var ownerGovernance *GovernanceState
 		if input.Role == domain.PlatformOwner {
-			if _, governanceErr := tx.LockGovernance(txCtx); governanceErr != nil {
-				return governanceErr
+			governance, ownerErr := tx.LockGovernance(txCtx)
+			if ownerErr != nil {
+				return ownerErr
 			}
 			ownerIDs, ownerErr := tx.LockActiveOwnerIDs(txCtx)
 			if ownerErr != nil {
@@ -220,7 +223,7 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 			if ownerErr != nil {
 				return ownerErr
 			}
-			if effective < 2 {
+			if effective < 1 {
 				return ErrInvitationConflict
 			}
 			if input.Action == RevokeRole {
@@ -228,26 +231,11 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 				if countErr != nil {
 					return countErr
 				}
-				if targetEffective != 1 || effective <= 1 {
+				if targetEffective == 1 && effective <= 1 {
 					return ErrInvitationConflict
 				}
 			}
-			expires := now.Add(30 * time.Minute)
-			var assignmentID *ID
-			if input.Action == RevokeRole {
-				assignmentID = &input.AssignmentID
-			}
-			if txErr = tx.InsertRoleChange(txCtx, changeID, input, assignmentID, "PENDING_APPROVAL", now, &expires); txErr != nil {
-				return txErr
-			}
-			if txErr = tx.ClaimCommand(txCtx, ids[1], input.ActorID, "ADMINISTRATOR_CHANGE_CREATE", keyHash, requestHash, changeID, 201, now); txErr != nil {
-				return txErr
-			}
-			if txErr = tx.AppendRoleChangeEvidence(txCtx, RoleChangeEvidence{AuditID: ids[2], OutboxID: ids[3], CorrelationID: input.CorrelationID, ActorID: input.ActorID, TargetUserID: input.TargetUserID, ChangeID: changeID, Action: input.Action, Role: input.Role, State: "PENDING_APPROVAL", Version: 1, OccurredAt: now}); txErr != nil {
-				return txErr
-			}
-			result = RoleChangeResult{ChangeID: changeID, TargetUserID: input.TargetUserID, AssignmentID: input.AssignmentID, Action: input.Action, Role: input.Role, State: "PENDING_APPROVAL", Version: 1}
-			return nil
+			ownerGovernance = &governance
 		}
 		assignedID := input.AssignmentID
 		if input.Action == AssignRole {
@@ -267,6 +255,11 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 		revoked, txErr := tx.RevokeSessions(txCtx, identity.UserID, now)
 		if txErr != nil {
 			return txErr
+		}
+		if ownerGovernance != nil {
+			if txErr = tx.AdvanceOwnerGeneration(txCtx, ownerGovernance.Version, now); txErr != nil {
+				return txErr
+			}
 		}
 		assignmentPointer := (*ID)(nil)
 		if input.Action == RevokeRole {

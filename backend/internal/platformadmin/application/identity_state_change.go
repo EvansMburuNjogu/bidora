@@ -79,7 +79,8 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 			result = stored
 			return nil
 		}
-		if _, authErr := requireIdentityStateActor(txCtx, tx, input, now); authErr != nil {
+		actor, authErr := requireIdentityStateActor(txCtx, tx, input, now)
+		if authErr != nil {
 			return authErr
 		}
 		if input.ActorID == input.TargetUserID {
@@ -102,7 +103,7 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		if input.Action == ReactivateAdministrator && !identity.Disabled {
 			return ErrConcurrentChange
 		}
-		_, txErr = tx.LockGovernance(txCtx)
+		governance, txErr := tx.LockGovernance(txCtx)
 		if txErr != nil {
 			return txErr
 		}
@@ -117,34 +118,22 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		}
 		changeID := ids[0]
 		if targetOwner {
+			if !containsRole(actor.Roles, domain.PlatformOwner) {
+				return ErrPlatformAccessForbidden
+			}
 			effective, ownerErr := tx.CountEffectiveOwnerIdentities(txCtx, ownerIDs)
 			if ownerErr != nil {
 				return ownerErr
-			}
-			if effective < 2 {
-				return ErrInvitationConflict
 			}
 			if input.Action == DisableAdministrator {
 				targetEffective, countErr := tx.CountEffectiveOwnerIdentities(txCtx, []ID{input.TargetUserID})
 				if countErr != nil {
 					return countErr
 				}
-				if targetEffective != 1 || effective <= 1 {
+				if targetEffective == 1 && effective <= 1 {
 					return ErrInvitationConflict
 				}
 			}
-			expires := now.Add(30 * time.Minute)
-			if txErr = tx.InsertIdentityStateChange(txCtx, changeID, input, "PENDING_APPROVAL", now, &expires); txErr != nil {
-				return txErr
-			}
-			if txErr = tx.ClaimCommand(txCtx, ids[1], input.ActorID, "ADMINISTRATOR_CHANGE_CREATE", keyHash, requestHash, changeID, 201, now); txErr != nil {
-				return txErr
-			}
-			if txErr = tx.AppendIdentityStateEvidence(txCtx, IdentityStateEvidence{AuditID: ids[2], OutboxID: ids[3], CorrelationID: input.CorrelationID, ActorID: input.ActorID, TargetUserID: input.TargetUserID, ChangeID: changeID, Action: input.Action, State: "PENDING_APPROVAL", Version: 1, OccurredAt: now}); txErr != nil {
-				return txErr
-			}
-			result = IdentityStateChangeResult{ChangeID: changeID, TargetUserID: input.TargetUserID, Action: input.Action, State: "PENDING_APPROVAL"}
-			return nil
 		}
 		if input.Action == DisableAdministrator {
 			txErr = tx.SetAdministratorDisabled(txCtx, identity, now)
@@ -160,6 +149,11 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		revoked, txErr := tx.RevokeSessions(txCtx, identity.UserID, now)
 		if txErr != nil {
 			return txErr
+		}
+		if targetOwner {
+			if txErr = tx.AdvanceOwnerGeneration(txCtx, governance.Version, now); txErr != nil {
+				return txErr
+			}
 		}
 		if txErr = tx.InsertIdentityStateChange(txCtx, changeID, input, "EXECUTED", now, nil); txErr != nil {
 			return txErr

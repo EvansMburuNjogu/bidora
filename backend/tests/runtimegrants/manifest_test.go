@@ -29,7 +29,7 @@ func TestRuntimeGrantManifestsExactlyCoverReviewedQueries(t *testing.T) {
 		plane string
 		dirs  []string
 		count int
-	}{{"control", []string{"control", "identity", "controlplane", "platformadmin", "platformsettings", "commercial", "authorization", "notification"}, 106}, {"tenant", []string{"eventing", "organization", "tenantevidence", "entitlement", "opportunity"}, 61}} {
+	}{{"control", []string{"control", "identity", "controlplane", "platformadmin", "platformsettings", "commercial", "authorization", "notification"}, 107}, {"tenant", []string{"eventing", "organization", "tenantevidence", "entitlement", "opportunity"}, 61}} {
 		t.Run(tc.plane, func(t *testing.T) {
 			manifest, err := runtimegrants.Load(tc.plane)
 			if err != nil {
@@ -59,7 +59,7 @@ func TestRuntimeGrantManifestMetadataIsFixed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtimegrants.Version != 1 || control.CompatibilitySet != "control_registry" || control.CompatibilityVersion != 54 || tenant.CompatibilitySet != "tenant_common+tenant_tenderpreneur" || tenant.CompatibilityVersion != 9_000_034 {
+	if runtimegrants.Version != 1 || control.CompatibilitySet != "control_registry" || control.CompatibilityVersion != 56 || tenant.CompatibilitySet != "tenant_common+tenant_tenderpreneur" || tenant.CompatibilityVersion != 9_000_034 {
 		t.Fatal("runtime grant manifest compatibility metadata drifted")
 	}
 	if _, err = runtimegrants.Load("exchange"); err == nil {
@@ -79,7 +79,7 @@ func TestControlRuntimeGrantsPreserveAuditBoundaryAndRegistration(t *testing.T) 
 	for table, want := range map[string][]runtimegrants.Privilege{
 		"bidora_control_audit.audit_events":               {runtimegrants.Insert},
 		"bidora_control_audit.platform_action_details_v1": {runtimegrants.Select},
-		"bidora_tenancy.tenants":                          {runtimegrants.Select, runtimegrants.Insert},
+		"bidora_tenancy.tenants":                          {runtimegrants.Select, runtimegrants.Insert, runtimegrants.Update},
 		"tenancy.provisioning_jobs":                       {runtimegrants.Insert},
 	} {
 		got := append([]runtimegrants.Privilege(nil), grants[table]...)

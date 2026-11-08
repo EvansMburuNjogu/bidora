@@ -314,6 +314,10 @@ WHERE singleton = true AND first_additional_owner_exception_consumed = false
 SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles AS p
 WHERE (sqlc.narg(filter_user_id)::uuid IS NULL OR p.user_id = sqlc.narg(filter_user_id)::uuid)
+  AND (sqlc.narg(filter_state)::text IS NULL OR EXISTS (
+       SELECT 1 FROM identity.users u WHERE u.id=p.user_id AND u.account_type='PLATFORM_ADMIN'
+       AND ((sqlc.narg(filter_state)::text='ACTIVE' AND u.disabled_at IS NULL)
+         OR (sqlc.narg(filter_state)::text='DISABLED' AND u.disabled_at IS NOT NULL))))
   AND (sqlc.narg(filter_role_key)::text IS NULL OR EXISTS (
        SELECT 1 FROM platform_administration.role_assignments AS r
        WHERE r.user_id = p.user_id AND r.role_key = sqlc.narg(filter_role_key) AND r.state = 'ACTIVE'))

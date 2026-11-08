@@ -768,7 +768,7 @@ func (tx *governanceReadTx) ListAdministratorProfiles(ctx context.Context, filte
 		value := string(*filter.Role)
 		role = &value
 	}
-	rows, err := tx.platform.ListPlatformAdministratorProfiles(ctx, platformsql.ListPlatformAdministratorProfilesParams{FilterUserID: userID, FilterRoleKey: role, BeforeCreatedAt: beforeTime, BeforeUserID: beforeID, PageLimit: page.Limit + 1})
+	rows, err := tx.platform.ListPlatformAdministratorProfiles(ctx, platformsql.ListPlatformAdministratorProfilesParams{FilterUserID: userID, FilterRoleKey: role, FilterState: filter.State, BeforeCreatedAt: beforeTime, BeforeUserID: beforeID, PageLimit: page.Limit + 1})
 	if err != nil {
 		return nil, err
 	}

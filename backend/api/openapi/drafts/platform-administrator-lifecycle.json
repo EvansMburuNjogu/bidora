@@ -3,7 +3,7 @@
   "info": {
     "title": "Bidora Platform Administrator lifecycle",
     "version": "0.7.0-draft",
-    "description": "Approved P1-P6 contract for fixed Platform Admin roles, invitations, administrator lifecycle, owner continuity and exact maker/checker changes. PA-F02 invitations through PA-F07 emergency cross-account session revocation are runtime-composed. Device-level and self-service session administration remain separate identity journeys. Platform authority never grants tenant-private access."
+    "description": "Approved P1-P6 contract for fixed Platform Admin roles, invitations, administrator lifecycle, owner continuity and direct verified-Owner user management. Legacy approval records remain readable without being auto-executed. PA-F02 invitations through PA-F07 emergency cross-account session revocation are runtime-composed. Device-level and self-service session administration remain separate identity journeys. Platform authority never grants tenant-private access."
   },
   "x-status": "pa-f02-through-pa-f07-http-composed-implemented-not-verified",
   "x-ticket": "BID-API-010",
@@ -66,7 +66,7 @@
       "post": {
         "operationId": "issuePlatformAdministratorInvitation",
         "summary": "Invite an administrator into one fixed role",
-        "description": "Requires platform.admin.invite, current Platform Owner status and TOTP AAL2 no older than 15 minutes. The strict JSON body is limited to 4 KiB. One active invitation per normalized email; resend invalidates the former token. A PLATFORM_OWNER invitation either uses the single continuity-increasing first-second-owner exception or creates an exact 30-minute PENDING_APPROVAL change. No usable token is delivered before required approval. Delivery ambiguity never rewrites committed state.",
+        "description": "Requires platform.admin.invite, current Platform Owner status and accepted administrator AAL2 no older than 15 minutes. The strict JSON body is limited to 4 KiB. Every role, including PLATFORM_OWNER, is issued directly as ACTIVE with a 72-hour token. One active invitation per normalized email; replacement invalidates the former token. Delivery ambiguity never rewrites committed state or fabricates recipient delivery. Historical pending requests are not auto-approved.",
         "security": [{"browserSession": [], "csrfCookie": []}],
         "parameters": [
           {"$ref": "#/components/parameters/Origin"},
@@ -76,7 +76,7 @@
         ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IssueInvitationRequest"}}}},
         "responses": {
-          "201": {"description": "Invitation committed as ACTIVE or PENDING_APPROVAL.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InvitationResponse"}}}},
+          "201": {"description": "New invitation committed as ACTIVE; legacy idempotent replay may report PENDING_APPROVAL.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InvitationResponse"}}}},
           "400": {"$ref": "#/components/responses/Failure"},
           "401": {"$ref": "#/components/responses/Failure"},
           "403": {"$ref": "#/components/responses/Failure"},
@@ -237,7 +237,7 @@
       "post": {
         "operationId": "createPlatformAdministratorChange",
         "summary": "Create an exact administrator role or identity-state change",
-        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY requires Platform Owner or Security and Audit authority; REACTIVATE_IDENTITY remains Platform Owner-only. Every action requires TOTP-backed AAL2 no older than 15 minutes and exact target/context versions. Non-owner changes execute atomically, advance the target’s security context and revoke existing sessions. Platform Owner role or identity changes remain PENDING_APPROVAL for 30 minutes and require an eligible distinct checker; final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes are denied and role bundles cannot be edited.",
+        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY permits Platform Owner or Security and Audit authority for non-owner targets; Owner targets and REACTIVATE_IDENTITY require Platform Owner authority. Every action requires accepted administrator AAL2 no older than 15 minutes and exact target/context versions. New changes execute atomically with audit/outbox evidence and no separate checker, advance the target security context and revoke existing sessions. Final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes and self-grants are denied; role bundles cannot be edited. Legacy approval records are never auto-executed.",
         "security": [{"browserSession": [], "csrfCookie": []}],
         "parameters": [
           {"$ref": "#/components/parameters/Origin"},
@@ -247,7 +247,7 @@
         ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeRequest"}}}},
         "responses": {
-          "201": {"description": "Immutable change created as EXECUTED or PENDING_APPROVAL.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeResponse"}}}},
+          "201": {"description": "New change committed as EXECUTED; legacy replay may report an existing pending record.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AdministratorChangeResponse"}}}},
           "400": {"$ref": "#/components/responses/Failure"},
           "401": {"$ref": "#/components/responses/Failure"},
           "403": {"$ref": "#/components/responses/Failure"},
@@ -432,16 +432,16 @@
   },
   "x-invariants": [
     "PLATFORM_ADMIN account type and role labels never independently authorize",
-    "every operation rechecks verified/enabled identity, ACTIVE assignment, exact capability, platform context generation, auth_epoch, ACTIVE TOTP and required AAL2",
+    "every operation rechecks verified/enabled identity, ACTIVE assignment, exact capability, platform context generation, auth_epoch and required administrator AAL2 (EMAIL_OTP or TOTP)",
     "all mutation bodies are strict UTF-8 application/json limited to 4 KiB and reject duplicate or unknown members",
     "mutations require exact approved HTTPS Origin, matching session-bound CSRF and UUID idempotency",
     "role, identity and invitation activation effects commit with minimal audit and outbox facts in one control transaction",
     "privilege changes advance target context generation and auth_epoch and revoke target sessions",
     "custom roles, self-grant, account-type conversion and tenant authority are absent",
     "final-effective-owner checks serialize and leave at least one effective owner",
-    "owner changes bind an exact immutable proposal and expire after 30 minutes",
-    "maker and checker are distinct and the affected administrator cannot check",
-    "the first-second-owner exception is invitation-only, continuity-increasing, single-use and never reopens",
+    "new owner invitations and owner-impacting user changes are direct recently verified Owner actions, with no invented checker",
+    "historical maker/checker requests remain immutable and are never automatically approved by the new workflow",
+    "historical first-second-owner exception evidence is retained but is not used for new invitations",
     "platform roles never select tenant databases or bypass membership or scoped support authorization"
   ],
   "x-safe-error-codes": [

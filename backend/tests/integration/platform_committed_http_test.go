@@ -399,8 +399,8 @@ func TestLivePlatformCommittedRealTOTPHTTPMakerChecker(t *testing.T) {
 		t.Fatalf("maker create status %d response=%v", status, change)
 	}
 	data, ok := change["data"].(map[string]any)
-	if !ok || data["state"] != "PENDING_APPROVAL" {
-		t.Fatal("owner proposal not pending", change)
+	if !ok || data["state"] != "EXECUTED" {
+		t.Fatal("direct owner assignment not executed", change)
 	}
 	changeID, ok := data["id"].(string)
 	if !ok {
@@ -410,27 +410,15 @@ func TestLivePlatformCommittedRealTOTPHTTPMakerChecker(t *testing.T) {
 	if status != 201 || headers.Get("Idempotency-Replayed") != "true" {
 		t.Fatal("proposal replay failed", status)
 	}
-	status, _, _ = call(maker, "POST", "/v1/platform/administrator-changes/"+changeID+"/approve", map[string]any{"expected_change_version": 1, "reason": "Maker cannot check"}, uuid.New(), maker.login.CSRF.RevealForBootstrap())
-	if status != 403 {
-		t.Fatal("maker self-approval not denied", status)
-	}
-	status, _, _ = call(checker, "POST", "/v1/platform/administrator-changes/"+changeID+"/approve", map[string]any{"expected_change_version": 1, "reason": "Independent checker"}, uuid.New(), "bad-csrf")
+	status, _, _ = call(checker, "POST", "/v1/platform/administrator-changes", body, uuid.New(), "bad-csrf")
 	if status != 403 {
 		t.Fatal("CSRF denial missing", status)
-	}
-	status, approved, _ := call(checker, "POST", "/v1/platform/administrator-changes/"+changeID+"/approve", map[string]any{"expected_change_version": 1, "reason": "Independent checker"}, uuid.New(), checker.login.CSRF.RevealForBootstrap())
-	if status != 200 {
-		t.Fatalf("checker approval status %d response=%v", status, approved)
-	}
-	final, ok := approved["data"].(map[string]any)
-	if !ok || final["state"] != "EXECUTED" {
-		t.Fatal("owner role not executed", approved)
 	}
 	var roleCount, auditCount, outboxCount int64
 	e = observer.WithinReadOnlyTransaction(context.Background(), func(ctx context.Context, db postgres.DBTX) error {
 		return db.QueryRow(ctx, `SELECT (SELECT count(*) FROM platform_administration.role_assignments WHERE user_id=$1 AND role_key='PLATFORM_OWNER' AND state='ACTIVE'),(SELECT count(*) FROM bidora_control_audit.audit_events WHERE target_id=$2),(SELECT count(*) FROM bidora_control_eventing.outbox_events WHERE aggregate_id=$2)`, paUUID(target.id), changeID).Scan(&roleCount, &auditCount, &outboxCount)
 	})
-	if e != nil || roleCount != 1 || auditCount < 2 || outboxCount < 2 {
+	if e != nil || roleCount != 1 || auditCount < 1 || outboxCount < 1 {
 		t.Fatalf("committed role/audit/outbox mismatch: role=%d audit=%d outbox=%d err=%v", roleCount, auditCount, outboxCount, e)
 	}
 	_ = paSessionID(t, control, maker.login.Session)

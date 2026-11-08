@@ -100,7 +100,7 @@ export function AdministratorDetail({ userId }: { userId: string }) {
       <div><h3 className="text-sm font-medium">Current responsibilities</h3>{state.value.assignments.some((assignment) => assignment.state === "ACTIVE") ? <ul className="mt-2 list-inside list-disc text-sm">{state.value.assignments.filter((assignment) => assignment.state === "ACTIVE").map((assignment) => <li key={assignment.role_key}>{platformRoleLabels[assignment.role_key]}</li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">No active roles assigned.</p>}</div>
       {state.value.effective_owner ? <p className="text-sm text-muted-foreground">Counts toward Platform Owner continuity.</p> : null}
       {resolution.capabilities.includes("platform.admin.session.revoke") ? <AlertDialog open={dialogOpen} onOpenChange={(value) => { if (!submitting.current) setDialogOpen(value); }}>
-        <AlertDialogTrigger render={<Button type="button" variant="destructive" />}><ShieldOffIcon aria-hidden="true" />Revoke sessions</AlertDialogTrigger>
+        <AlertDialogTrigger render={<Button id="revoke-sessions" type="button" variant="destructive" />}><ShieldOffIcon aria-hidden="true" />Revoke sessions</AlertDialogTrigger>
         <AlertDialogContent>
           <form onSubmit={(event) => void revokeSessions(event)} className="space-y-4">
             <AlertDialogHeader><AlertDialogTitle>Revoke administrator sessions?</AlertDialogTitle><AlertDialogDescription>This signs the administrator out of all sessions. Their account and role assignments remain unchanged. You cannot revoke your own sessions here.</AlertDialogDescription></AlertDialogHeader>

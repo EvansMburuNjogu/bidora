@@ -2,6 +2,7 @@
   "status": "pre-release-reviewed-slice",
   "algorithm": "sha256",
   "files": {
+    "migrations/control/00056_direct_administrator_invitations.sql": "74d65acde63b6dd28f6e995f543aecb314d23ec4c4da2e2c3f8bb150804ecf15",
     "queries/platformsettings/pending_change.sql": "e441555f69072e7d431aee9a7ca4fcaf51e8b883666172f84371a1ff8f923035",
     "migrations/control/00055_platform_tenant_lifecycle.sql": "9cdc3bea99d75a915ca9cbdb4f07f84969f6bac2daa95ddeb6a533dda6a5133d",
     "queries/control/platform_tenant_lifecycle.sql": "53a59b7de177e6bf688d050b51e1c2d69170d364a1349bd42435c5bb900069b8",
@@ -188,7 +189,7 @@
     "queries/opportunity/technical_response.sql": "7384aaa62c92cb105a24a7594d088c052cce9df8e0cd3b37d5fcf9aac9562289",
     "queries/opportunity/workspace.sql": "93eb96e7ef3100ac83e0f856ed3d5856c10275302080dcace21536362b795a41",
     "queries/organization/profile_letterhead.sql": "d75841f6bca25a314ce610eda11abe08d8be20c1f5376df4c57f4ff4c732cf75",
-    "queries/platformadmin/lifecycle.sql": "e307c47ef1c2df4ab30fb55a55dd48907c2ddad5edaf35c865489318f1339161",
+    "queries/platformadmin/lifecycle.sql": "73b4ad3fc6565b53401e1d20d0f2fda2cf3da5f360581e1d8c1c7219eba155b8",
     "queries/platformsettings/integration.sql": "772fa0608b5a738b5829469e894f08ea83fcdaabe93e671b4eccf956e40fdfab",
     "queries/platformsettings/secrets.sql": "b3221892c0c038e6de67fb8475bba1d4817170818f3696048d38542fbeadca93",
     "queries/tenantevidence/evidence.sql": "c2066fe1d705e2e34a572cd293492de8a0da286f7040d3f0aae426bf64677e4f",

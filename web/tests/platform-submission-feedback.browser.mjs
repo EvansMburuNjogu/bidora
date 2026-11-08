@@ -107,7 +107,7 @@ test("Google pending and JWKS results never become credential-success toasts", {
     await expect(page.locator('[data-sonner-toast][data-type="success"]')).toHaveCount(0);
   } finally { await browser.close(); }
 });
-test("administrator modal preserves failed input and reports maker/checker requests as pending", { timeout: 45000 }, async () => {
+test("administrator modal preserves failed input and confirms direct access changes only after execution", { timeout: 45000 }, async () => {
   const { browser, page } = await open({ width: 1280, height: 850 });
   const target = "11111111-1111-4111-8111-111111111111", change = "22222222-2222-4222-8222-222222222222", maker = "33333333-3333-4333-8333-333333333333";
   const meta = { trace_id: "synthetic", next_cursor: null }; let status = 503, calls = 0;
@@ -116,7 +116,7 @@ test("administrator modal preserves failed input and reports maker/checker reque
     await page.route("**/api/platform/administrator-changes", (route) => {
       calls++;
       if (status !== 201) return fulfill(route, failure, status);
-      return fulfill(route, { data: { id: change, action: "DISABLE_IDENTITY", target_user_id: target, invitation_id: null, role_key: null, assignment_id: null, expected_user_version: 2, expected_target_context_generation: 3, expected_assignment_version: null, reason: "Synthetic access review", decision_reason: null, state: "PENDING_APPROVAL", version: 1, maker_id: maker, checker_id: null, created_at: "2026-10-31T12:00:00Z", expires_at: "2030-01-01T12:30:00Z", decided_at: null, sessions_revoked: false }, meta }, 201);
+      return fulfill(route, { data: { id: change, action: "DISABLE_IDENTITY", target_user_id: target, invitation_id: null, role_key: null, assignment_id: null, expected_user_version: 2, expected_target_context_generation: 3, expected_assignment_version: null, reason: "Synthetic access review", decision_reason: null, state: "EXECUTED", version: 1, maker_id: maker, checker_id: null, created_at: "2026-10-31T12:00:00Z", expires_at: null, decided_at: "2026-10-31T12:00:00Z", sessions_revoked: true }, meta }, 201);
     });
     await page.goto(origin + `/platform/users/${target}`);
     await page.getByRole("button", { name: "Disable administrator", exact: true }).click();
@@ -130,8 +130,8 @@ test("administrator modal preserves failed input and reports maker/checker reque
     await expect(dialog).toBeVisible(); await expect(dialog.getByRole("textbox", { name: "Reason", exact: true })).toHaveValue("Synthetic access review");
     status = 201; await dialog.getByRole("button", { name: "Disable administrator", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.locator('[data-sonner-toast][data-type="info"]')).toContainText("awaiting approval");
-    await expect(page.locator('[data-sonner-toast][data-type="success"]')).toHaveCount(0);
+    await expect(page.locator('[data-sonner-toast][data-type="success"]')).toContainText("disabled and sessions revoked");
+    await expect(page.getByRole("link", { name: "Review pending changes" })).toHaveCount(0);
     assert.equal(calls, 2);
   } finally { await browser.close(); }
 });

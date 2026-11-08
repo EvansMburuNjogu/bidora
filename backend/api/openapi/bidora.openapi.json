@@ -11330,7 +11330,7 @@
         "x-source-status": "pa-f02-through-pa-f07-http-composed-implemented-not-verified"
       },
       "post": {
-        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY requires Platform Owner or Security and Audit authority; REACTIVATE_IDENTITY remains Platform Owner-only. Every action requires TOTP-backed AAL2 no older than 15 minutes and exact target/context versions. Non-owner changes execute atomically, advance the target’s security context and revoke existing sessions. Platform Owner role or identity changes remain PENDING_APPROVAL for 30 minutes and require an eligible distinct checker; final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes are denied and role bundles cannot be edited.",
+        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY permits Platform Owner or Security and Audit authority for non-owner targets; Owner targets and REACTIVATE_IDENTITY require Platform Owner authority. Every action requires accepted administrator AAL2 no older than 15 minutes and exact target/context versions. New changes execute atomically with audit/outbox evidence and no separate checker, advance the target security context and revoke existing sessions. Final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes and self-grants are denied; role bundles cannot be edited. Legacy approval records are never auto-executed.",
         "operationId": "createPlatformAdministratorChange",
         "parameters": [
           {
@@ -11365,7 +11365,7 @@
                 }
               }
             },
-            "description": "Immutable change created as EXECUTED or PENDING_APPROVAL."
+            "description": "New change committed as EXECUTED; legacy replay may report an existing pending record."
           },
           "400": {
             "$ref": "#/components/responses/platform_administrator_lifecycle__Failure"
@@ -11678,7 +11678,7 @@
         "x-source-status": "pa-f02-through-pa-f07-http-composed-implemented-not-verified"
       },
       "post": {
-        "description": "Requires platform.admin.invite, current Platform Owner status and TOTP AAL2 no older than 15 minutes. The strict JSON body is limited to 4 KiB. One active invitation per normalized email; resend invalidates the former token. A PLATFORM_OWNER invitation either uses the single continuity-increasing first-second-owner exception or creates an exact 30-minute PENDING_APPROVAL change. No usable token is delivered before required approval. Delivery ambiguity never rewrites committed state.",
+        "description": "Requires platform.admin.invite, current Platform Owner status and accepted administrator AAL2 no older than 15 minutes. The strict JSON body is limited to 4 KiB. Every role, including PLATFORM_OWNER, is issued directly as ACTIVE with a 72-hour token. One active invitation per normalized email; replacement invalidates the former token. Delivery ambiguity never rewrites committed state or fabricates recipient delivery. Historical pending requests are not auto-approved.",
         "operationId": "issuePlatformAdministratorInvitation",
         "parameters": [
           {
@@ -11713,7 +11713,7 @@
                 }
               }
             },
-            "description": "Invitation committed as ACTIVE or PENDING_APPROVAL."
+            "description": "New invitation committed as ACTIVE; legacy idempotent replay may report PENDING_APPROVAL."
           },
           "400": {
             "$ref": "#/components/responses/platform_administrator_lifecycle__Failure"
