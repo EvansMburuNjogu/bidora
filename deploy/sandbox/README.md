@@ -23,7 +23,15 @@ docker compose -f deploy/sandbox/compose.yml up -d backend web
 docker compose -f deploy/sandbox/compose.yml ps
 ```
 
-## Current Users rollout — schema 56
+## Current Users follow-up — schema 57
+
+Backend/web run **`01d71ed`**. Users now has named invitations (first/last names, email, role, reason), a permanent table with cursor Previous/Next pagination, no Refresh control or requested explanatory copy, and guarded disable/remove actions. Removal archives access and revokes sessions without deleting identity/audit history; database guards prevent ordinary reactivation. Terminal/single-record Platform responses now include `next_cursor: null`, fixing strict-client rejection of valid invitations and final Users pages. Empty results say No data found; failed/denied reads remain distinguishable and do not fabricate empty success.
+
+Schema/ledger **57**, grant manifest v1/107 relations. Go builds/vet and eight affected race suites passed; TypeScript/lint, ten frontend contracts/security tests and five desktop/mobile Users regressions passed. Those five browser tests also passed against the deployed bundle with APIs intercepted. Private DB/environment backup and rolled-back actual runtime-role name/removal/directory SQL proofs passed; zero proof identities persisted and raw audit SELECT stays denied. Both containers healthy, zero restarts. No real invitation or account change was used for verification. The separate session-security audit is unfinished and not deployed in this release.
+
+**Schema-57-compatible rollback:** backend `bidora-sandbox/backend:users57-rollback`, source **`49c8f06`**, branch `sandbox-users57-rollback`, with web `bidora-sandbox/web:before-users57` (source `5547a11`). It passed readiness in an unpublished container at schema 57. Apply its `grant-runtime -plane control -manifest-version 1` with private migrator environment/TLS mount, retag and recreate backend/web while keeping schema 57 and all data. Unmodified schema-56 images must not start at 57. Rollback retains the nullable-cursor repair and database archive guards; legacy audit readers omit unsupported removal actions without erasing their evidence. Private backup/build/deployment/proof logs are under `/opt/bidora-sandbox/verification/users57*` and `build-users57-*`.
+
+## Historical Users rollout — schema 56 (not a schema-57 rollback)
 
 Backend runs **`5771301`** and web **`5547a11`**. Users has all Platform Admin accounts, table actions, private combined filters and a direct verified-Owner invitation/account/role workflow. Review approvals UI is removed; historical requests are not automatically executed. Last-Owner, self-change, session revocation, audit and tenant safeguards remain. Financial/provider approvals are unchanged.
 
