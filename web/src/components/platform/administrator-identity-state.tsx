@@ -15,7 +15,8 @@ export function AdministratorIdentityState({ administrator, onChanged, initialOp
   const { resolution, csrfToken, refresh } = useSession();
   const disable = administrator.state === "ACTIVE";
   const action = disable ? "DISABLE_IDENTITY" : "REACTIVATE_IDENTITY";
-  const allowed = resolution.capabilities.includes(disable ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate");
+  const ownerAccount = administrator.assignments.some(assignment => assignment.state === "ACTIVE" && assignment.role_key === "PLATFORM_OWNER");
+  const allowed = resolution.capabilities.includes(disable ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || resolution.capabilities.includes("platform.governance.approve"));
   const [open, setOpen] = useState(initialOpen);
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
