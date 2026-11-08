@@ -6,6 +6,7 @@ import { Loader2Icon, PlugIcon, RotateCcwIcon, SaveIcon } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeNumericInput } from "@/lib/numeric-input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Label } from "@/components/ui/label";
 import { parseSMTPVersion, parseSMTPVersions, type SMTPVersion, type SMTPVersionPage } from "@/lib/platform-smtp-contract";
@@ -170,7 +171,7 @@ export function SMTPConfiguration() {
       <fieldset disabled={busy || status.kind === "loading" || status.kind === "error" || !canSave} aria-busy={status.kind === "loading"} className="space-y-6">
       <section aria-labelledby="email-server-heading" className="space-y-4"><h2 id="email-server-heading" className="text-base font-semibold">Email Server</h2><div className="grid gap-4 sm:grid-cols-2">
         <Field label="Server" name="host" value={draft.host} onChange={(event) => editDraft("host", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, host: true }))} maxLength={253} autoCapitalize="none" spellCheck={false} placeholder="smtp.example.com" error={fieldError("host")} />
-        <Field label="Port" name="port" type="number" value={draft.port} onChange={(event) => editDraft("port", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, port: true }))} min={1} max={65535} step={1} error={fieldError("port")} />
+        <Field label="Port" name="port" type="number" value={draft.port} onChange={(event) => editDraft("port", normalizeNumericInput(event.target.value))} onBlur={() => setTouched((old) => ({ ...old, port: true }))} min={1} max={65535} step={1} error={fieldError("port")} />
         <Field label="Username" name="username" value={draft.username} onChange={(event) => editDraft("username", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, username: true }))} autoComplete="username" maxLength={256} error={fieldError("username")} />
         <Field label="Password" name="password" type="password" value={draft.password} onChange={(event) => editDraft("password", event.target.value)} onBlur={() => setTouched((old) => ({ ...old, password: true }))} autoComplete="new-password" maxLength={1024} required={!canKeepPassword} placeholder={hasSavedPassword ? "•••••••• (saved)" : "Enter password"} error={fieldError("password")} />
       </div><p className="text-xs text-muted-foreground">{hasSavedPassword ? "Password saved securely. Leave it blank to keep the current password, or enter a new one to replace it. Changing the server, port or username requires a new password." : "Enter your SMTP username and password. Passwords are stored securely and never displayed."}</p></section>

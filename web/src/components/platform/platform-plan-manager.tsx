@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeNumericInput } from "@/lib/numeric-input";
 import { useSession } from "@/components/session/session-provider";
 import { parseManagedPlans, parsePlanReceipt, type ManagedPlanItem } from "@/lib/platform-plan-management-contract";
 
@@ -31,7 +32,7 @@ function PlanEditor({ item, manage, publish, generation, csrf, reload }: { item:
     finally { locked.current = false; setBusy(false); }
   }
   return <section className="space-y-3 rounded-lg border bg-card p-4" aria-label={`${item.plan_key} management`}><div><h3 className="font-semibold">{item.plan_key}</h3><p className="text-xs text-muted-foreground">Published v{item.active_version} · Head {item.head_version}{item.draft ? ` · Latest draft v${item.draft.version}` : " · No draft"}</p></div>
-    {manage && <div className="grid gap-3 sm:grid-cols-2">{fields.map(([name, label]) => <label key={name} className="grid gap-1 text-sm">{label}<Input disabled={busy} value={values[name]} onChange={(event) => { key.current = null; setValues((previous) => ({ ...previous, [name]: event.target.value })); }} /></label>)}</div>}
+    {manage && <div className="grid gap-3 sm:grid-cols-2">{fields.map(([name, label]) => <label key={name} className="grid gap-1 text-sm">{label}<Input inputMode={name.includes("price") ? "decimal" : "numeric"} disabled={busy} value={values[name]} onChange={(event) => { key.current = null; setValues((previous) => ({ ...previous, [name]: normalizeNumericInput(event.target.value) })); }} /></label>)}</div>}
     <div className="flex flex-wrap gap-2">{manage && <Button type="button" disabled={busy || !csrf} onClick={() => void submit("drafts")}>Save new draft</Button>}{publish && item.draft && <Button type="button" variant="outline" disabled={busy || !csrf} onClick={() => void submit("publish")}>Publish draft v{item.draft.version}</Button>}</div>
     {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
   </section>;

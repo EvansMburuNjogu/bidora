@@ -28,6 +28,26 @@ test("security controls save canonical values, persist after reload and fit mobi
  await page.reload();await expect(page.getByLabel("Minimum password length in bytes")).toHaveValue("20");await expect(page.getByLabel("Allow multiple active sessions")).not.toBeChecked();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  }finally{await browser.close()}
 });
+test("every numeric security field stays empty when cleared and types 60 without a leading zero",{timeout:60000},async()=>{
+ const {browser,page,state}=await open();try{
+  await page.goto(origin+"/platform/settings/security");
+  const fields=["Maximum failed password attempts","Failed attempt window in minutes","Account lockout duration in minutes","Minimum password length in bytes","Administrator inactivity timeout in minutes","Administrator maximum session duration in minutes","Password reset expiry in minutes"];
+  await expect(page.getByLabel(fields[0],{exact:true})).toHaveValue("5");
+  for(const label of fields){
+   const field=page.getByLabel(label,{exact:true}),original=await field.inputValue();
+   await field.fill("");await expect(field).toHaveValue("");
+   await expect(page.getByRole("button",{name:"Save Changes",exact:true})).toBeDisabled();
+   await field.pressSequentially("60");await expect(field).toHaveValue("60");
+   await field.fill("00060");await expect(field).toHaveValue("60");
+   await field.fill("0");await expect(field).toHaveValue("0");
+   await expect(page.getByRole("button",{name:"Save Changes",exact:true})).toBeDisabled();
+   await page.getByRole("button",{name:"Cancel",exact:true}).click();await expect(field).toHaveValue(original);
+  }
+  const length=page.getByLabel("Minimum password length in bytes");
+  await length.press("ArrowUp");await expect(length).toHaveValue("13");
+  assert.equal(state.writes.length,0);
+ }finally{await browser.close()}
+});
 test("failed saves retain inputs and retry key; cancel and invalid ranges do not write",{timeout:60000},async()=>{
  const{browser,page,state}=await open();try{await page.goto(origin+"/platform/settings/security");await expect(page.getByLabel("Minimum password length in bytes")).toHaveValue("12");await page.getByLabel("Minimum password length in bytes").fill("10");await expect(page.getByRole("button",{name:"Save Changes",exact:true})).toBeDisabled();await page.getByRole("button",{name:"Cancel",exact:true}).click();await expect(page.getByLabel("Minimum password length in bytes")).toHaveValue("12");
  await page.getByLabel("Minimum password length in bytes").fill("24");state.writeStatus=503;await page.getByRole("button",{name:"Save Changes",exact:true}).click();const dialog=page.getByRole("alertdialog");await dialog.getByRole("button",{name:"Save Changes",exact:true}).click();await expect(dialog.getByRole("alert")).toBeVisible();await expect(page.getByLabel("Minimum password length in bytes")).toHaveValue("24");const key=state.writes[0].headers["idempotency-key"];state.writeStatus=200;await dialog.getByRole("button",{name:"Save Changes",exact:true}).click();await expect(dialog).toHaveCount(0);assert.equal(state.writes[1].headers["idempotency-key"],key);

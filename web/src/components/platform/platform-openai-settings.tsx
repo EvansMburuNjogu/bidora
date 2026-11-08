@@ -6,6 +6,7 @@ import { Loader2Icon, PlugIcon, SaveIcon } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeNumericInput } from "@/lib/numeric-input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { PlatformSelect } from "@/components/platform/platform-select";
 import { SettingsField, SettingsSwitch, settingsStateLabel } from "@/components/platform/settings-draft-controls";
@@ -117,7 +118,7 @@ function OpenAIConfiguration() {
 <div className="grid gap-5 sm:grid-cols-2">
 <SettingsField id="openai-key" label="API Key" hint={active?"Leave blank to keep the current key.":undefined}><PasswordInput id="openai-key" autoComplete="new-password" value={draft.apiKey} onChange={e=>edit("apiKey",e.target.value)} maxLength={1024} aria-invalid={touched&&!!errors.apiKey}/>{touched&&errors.apiKey&&<p role="alert" className="text-sm text-destructive">{errors.apiKey}</p>}</SettingsField>
 <SettingsField id="openai-model" label="Model"><PlatformSelect id="openai-model" value={draft.model} onChange={e=>edit("model",e.target.value)}>{!draft.model&&<option value="">Choose a model</option>}{models.map(model=><option key={model} value={model}>{model}</option>)}</PlatformSelect>{touched&&errors.model&&<p role="alert" className="text-sm text-destructive">{errors.model}</p>}</SettingsField>
-<SettingsField id="openai-concurrency" label="Concurrent requests" hint="Other usage limits follow your subscription."><Input id="openai-concurrency" type="number" min={1} max={100} value={draft.concurrency} onChange={e=>edit("concurrency",e.target.value)} aria-invalid={touched&&!!errors.concurrency}/>{touched&&errors.concurrency&&<p role="alert" className="text-sm text-destructive">{errors.concurrency}</p>}</SettingsField>
+<SettingsField id="openai-concurrency" label="Concurrent requests" hint="Other usage limits follow your subscription."><Input id="openai-concurrency" type="number" min={1} max={100} value={draft.concurrency} onChange={e=>edit("concurrency",normalizeNumericInput(e.target.value))} aria-invalid={touched&&!!errors.concurrency}/>{touched&&errors.concurrency&&<p role="alert" className="text-sm text-destructive">{errors.concurrency}</p>}</SettingsField>
 </div></fieldset>
 <p className="text-xs text-muted-foreground">Changes need a successful test and another Owner’s approval before use.</p>
 <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-5">

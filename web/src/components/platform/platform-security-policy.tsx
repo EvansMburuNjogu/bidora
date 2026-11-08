@@ -9,6 +9,7 @@ import type { SessionInventoryResponse } from "@/contracts/auth.generated";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeNumericInput } from "@/lib/numeric-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/components/session/session-provider";
 import { revokeSession } from "@/lib/session-administration-client";
@@ -44,6 +45,7 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
   const generation = resolution.platform_context_generation;
   const [policy, setPolicy] = useState<PlatformSessionPolicy | null>(null);
   const [draft, setDraft] = useState<PlatformSessionPolicy | null>(null);
+  const [numericText, setNumericText] = useState<Partial<Record<Exclude<keyof SecurityControls, "allow_multiple_sessions">, string>>>({});
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
         const value = response.ok ? parsePlatformSessionPolicy(await response.json()) : null;
         if (controller.signal.aborted) return;
         if (!value) { setMessage(submissionErrorMessage(response.status)); return; }
-        setPolicy(value); setDraft(clonePolicy(value)); receipt.current = null; setMessage(null);
+        setPolicy(value); setDraft(clonePolicy(value)); setNumericText({}); receipt.current = null; setMessage(null);
       } catch { if (!controller.signal.aborted) setMessage("Security settings could not be loaded. Please retry."); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     })();
@@ -89,13 +91,13 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
       const value = response.ok ? parsePlatformSessionPolicy(await response.json()) : null;
       if (!mounted.current) return;
       if (!value) { const error = response.status === 409 ? "Saved settings changed. Refresh this page to review the latest values before saving." : submissionErrorMessage(response.status, response.headers.get("retry-after")); setMessage(error); toast.error(error, { id: "session-policy" }); return; }
-      setPolicy(value); setDraft(clonePolicy(value)); setDialog(null); receipt.current = null; toast.success("Security settings saved. Other sessions were signed out.", { id: "session-policy" }); onSaved(); refresh();
+      setPolicy(value); setDraft(clonePolicy(value)); setNumericText({}); setDialog(null); receipt.current = null; toast.success("Security settings saved. Other sessions were signed out.", { id: "session-policy" }); onSaved(); refresh();
     } catch { if (mounted.current) { setMessage(networkSubmissionError); toast.error(networkSubmissionError, { id: "session-policy" }); } }
     finally { submitting.current = false; if (mounted.current) setBusy(false); }
   }
   if (!draft || !policy) return <div className="space-y-3 py-6"><p role="status" className="text-sm text-muted-foreground">{loading ? "Loading security settings…" : message ?? "Security settings are unavailable."}</p>{!loading && <Button variant="outline" onClick={reload}><RotateCcwIcon aria-hidden="true" />Retry security settings</Button>}</div>;
   const disabled = !canSave || busy || loading;
-  const number = (label: string, key: Exclude<keyof SecurityControls, "allow_multiple_sessions">, min: number, max: number, unit = 1) => <Input type="number" inputMode="numeric" aria-label={label} value={draft.security[key] / unit} min={min} max={max} step={1} required disabled={disabled} onChange={event => change(key, Number(event.target.value) * unit)} />;
+  const number = (label: string, key: Exclude<keyof SecurityControls, "allow_multiple_sessions">, min: number, max: number, unit = 1) => <Input type="number" inputMode="numeric" aria-label={label} value={numericText[key] ?? String(draft.security[key] / unit)} min={min} max={max} step={1} required disabled={disabled} onChange={event => { const text = normalizeNumericInput(event.target.value); setNumericText(current => ({ ...current, [key]: text })); change(key, text === "" ? NaN : Number(text) * unit); }} />;
   return <>
     <form onSubmit={event => { event.preventDefault(); if (valid && dirty && canSave) setDialog("save"); }}>
       <section aria-labelledby="login-security-heading" className="space-y-5 py-6"><h2 id="login-security-heading" className="text-base font-semibold">Login Security</h2>
@@ -115,7 +117,7 @@ function SessionPolicyFields({ onSaved }: { onSaved: () => void }) {
       {!canSave && <p className="mb-3 text-sm text-muted-foreground">Only the Platform Owner can change security settings.</p>}
       {message && <p role="alert" className="mb-3 text-sm text-destructive">{message}</p>}
       {!valid && <p role="alert" className="mb-3 text-sm text-destructive">Check the allowed ranges. Maximum session durations must not be shorter than inactivity timeouts.</p>}
-      <div className="flex flex-wrap justify-end gap-3 pb-6"><Button type="button" variant="outline" disabled={busy || !dirty} onClick={() => { setDraft(clonePolicy(policy)); setMessage(null); }}>Cancel</Button><Button type="submit" disabled={disabled || !csrfToken || !dirty || !valid}><SaveIcon aria-hidden="true" />Save Changes</Button></div>
+      <div className="flex flex-wrap justify-end gap-3 pb-6"><Button type="button" variant="outline" disabled={busy || !dirty} onClick={() => { setDraft(clonePolicy(policy)); setNumericText({}); setMessage(null); }}>Cancel</Button><Button type="submit" disabled={disabled || !csrfToken || !dirty || !valid}><SaveIcon aria-hidden="true" />Save Changes</Button></div>
     </form>
     <AlertDialog open={dialog !== null} onOpenChange={open => { if (!open && !busy) setDialog(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Update security settings?</AlertDialogTitle><AlertDialogDescription>Other sessions will be signed out. Your session may also end if it no longer meets the new limits. Password and lockout rules apply to new attempts and requests.</AlertDialogDescription></AlertDialogHeader>{message && <p role="alert" className="text-sm text-destructive">{message}</p>}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="button" disabled={busy} aria-busy={busy} onClick={() => void save()}>{busy && <Loader2Icon aria-hidden="true" className="animate-spin" />}{busy ? "Saving…" : "Save Changes"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </>;

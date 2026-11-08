@@ -138,6 +138,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Numeric input editing — BID-MVP-03 / BID-MVP-04
+
+- Audited numeric inputs across Security, SMTP, OpenAI, Operational Policies, plan pricing/limits, credit amounts and the UI preview. Security fields now retain empty text while editing instead of coercing it to zero; invalid/empty values cannot save. Quantity/money inputs normalize integer-prefix zeros without rounding decimal values. Real zero values, ranges, native stepping, unit conversion, Cancel/reset, permissions and confirmation/idempotency flows remain. Verification codes, phone numbers and identifiers are deliberately untouched.
+- Implementation complete. TypeScript, affected ESLint, two normalization tests and seven intercepted browser regressions passed. Desktop/mobile checked all 11 numeric settings fields, clearing, sequential typing, pasted leading zeros, canonical save payloads, invalid input rejection and Cancel/reload. No actual settings or financial actions were submitted.
+
 ## Account Security display cleanup — BID-MVP-03
 
 - Removed Email Verification and Google sign-in/linking sections from Account Security, their unreferenced frontend components, and Verify account again from the Platform sidebar account menu. Password changes, Active Sessions, Account security navigation and Sign out remain. Mandatory emailed sign-in verification, Google sign-in/backend linking protections and permissions are unchanged.

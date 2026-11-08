@@ -9,6 +9,7 @@ import { PlatformMetricCard } from "@/components/platform/platform-metric-card";
 import { DemoTrendChart } from "@/components/platform/platform-demo-workspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeNumericInput } from "@/lib/numeric-input";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { demoAIUsage, demoNotifications, demoRows, demoTickets, platformDemoEnabled, type DemoModule, type DemoRow } from "@/lib/platform-demo-data";
@@ -91,7 +92,7 @@ export function PlatformUIPreview({ module }: { module: Module }) {
       {module === "reports" || module === "ai" ? <p className="text-sm text-muted-foreground">{module === "reports" ? `${category}${period ? ` · From ${period}` : ""}${endDate ? ` · To ${endDate}` : ""}. No report is available to download.` : "No usage file is available."}</p> : <>
         <label className="grid gap-1 text-sm">{module === "plans" ? "Plan name" : "Subject"}<Input value={draftName} onChange={(event) => setDraftName(event.target.value)} maxLength={100} placeholder={module === "plans" ? "Plan name" : "Ticket subject"} /></label>
         <label className="grid gap-1 text-sm">{module === "plans" ? "Price" : "Description"}<Input type={module === "plans" ? "number" : "text"} inputMode={module === "plans" ? "decimal" : "text"} min={module === "plans" ? 0 : undefined} step={module === "plans" ? "0.01" : undefined} value={draftDetail} onChange={(event) => setDraftDetail(event.target.value)} placeholder={module === "plans" ? "Amount" : "What needs help?"} /></label>
-        {module === "plans" ? <><label className="grid gap-1 text-sm">Billing period<PlatformSelect><option>Monthly</option><option>Annual</option></PlatformSelect></label><label className="grid gap-1 text-sm">Usage limit<Input type="number" min="0" placeholder="Optional" /></label><label className="grid gap-1 text-sm">Status<PlatformSelect><option>Inactive</option><option>Active</option></PlatformSelect></label></> : null}
+        {module === "plans" ? <><label className="grid gap-1 text-sm">Billing period<PlatformSelect><option>Monthly</option><option>Annual</option></PlatformSelect></label><label className="grid gap-1 text-sm">Usage limit<Input type="number" min="0" placeholder="Optional" onChange={event => { event.currentTarget.value = normalizeNumericInput(event.currentTarget.value); }} /></label><label className="grid gap-1 text-sm">Status<PlatformSelect><option>Inactive</option><option>Active</option></PlatformSelect></label></> : null}
       </>}
     </div><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button type="button" disabled>{module === "reports" ? <FileChartColumnIcon aria-hidden="true" /> : module === "ai" ? <DownloadIcon aria-hidden="true" /> : <SaveIcon aria-hidden="true" />}{module === "reports" ? "Generate Report" : module === "ai" ? "Export" : "Save"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </main>;
