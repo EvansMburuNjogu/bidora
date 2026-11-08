@@ -145,7 +145,8 @@ function DirectoryRows({ value, onChanged }: { value: PlatformAdministratorList;
         <tbody className="divide-y">{value.administrators.map(user => {
           const roles = user.assignments.filter(assignment => assignment.state === "ACTIVE");
           const href = `/platform/users/${user.user_id}`;
-          const access = can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && !(user.effective_owner && value.effective_owner_count <= 1);
+          const ownerAccount = roles.some(role => role.role_key === "PLATFORM_OWNER");
+          const access = can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || can("platform.governance.approve")) && !(user.effective_owner && value.effective_owner_count <= 1);
           return <tr key={user.user_id}>
             <th scope="row" className="max-w-72 px-4 py-4 font-medium"><Link href={href} className="break-all text-primary hover:underline">{user.email}</Link>{user.effective_owner && <span className="mt-1 block text-xs font-normal text-muted-foreground">Platform owner</span>}</th>
             <td className="max-w-80 px-4 py-4"><div className="flex flex-wrap gap-1.5">{roles.length ? roles.map(role => <span key={role.id} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{platformRoleLabels[role.role_key]}</span>) : <span className="text-muted-foreground">No active role</span>}</div></td>

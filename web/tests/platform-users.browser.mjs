@@ -8,20 +8,20 @@ const wrap=(data,next_cursor=null)=>({data,meta:{trace_id:id(99),next_cursor}});
 const assignment=(n,role_key)=>({id:id(n+10),role_key,state:"ACTIVE",version:1,assigned_by:id(1),assigned_at:at,revoked_by:null,revoked_at:null,reason:"Synthetic assignment",revocation_reason:null});
 const user=(n,email,role,state="ACTIVE")=>({user_id:id(n),email,state,user_version:1,platform_context_generation:1,totp_enrolled:false,assignments:[assignment(n,role)],effective_owner:role==="PLATFORM_OWNER",created_at:at,updated_at:at});
 const caps=["platform.admin.read","platform.admin.invite","platform.admin.role.assign","platform.admin.role.revoke","platform.admin.identity.disable","platform.admin.identity.reactivate","platform.admin.session.revoke","platform.governance.approve"];
-async function open(viewport,reader=false){
+async function open(viewport,reader=false,grants=caps){
  const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport});
- const state={users:[user(1,"owner@example.test","PLATFORM_OWNER"),user(2,"billing@example.test","BILLING_ADMINISTRATOR","DISABLED"),user(3,"support@example.test","SUPPORT_ADMINISTRATOR")],requests:[],writes:[],invitationStatus:201,denied:false};
+ const state={users:[user(1,"owner@example.test","PLATFORM_OWNER"),user(2,"billing@example.test","BILLING_ADMINISTRATOR","DISABLED"),user(3,"support@example.test","SUPPORT_ADMINISTRATOR")],requests:[],writes:[],invitationStatus:201,denied:false,ownerCount:1};
  await page.route("**/api/**",async route=>{
   const req=route.request(),url=new URL(req.url()),p=url.pathname;state.requests.push({method:req.method(),url:req.url()});let data,status=200;
   if(p==="/api/session/bootstrap")data={data:{csrf_token:"A".repeat(43)},meta:{trace_id:id(99)}};
-  else if(p==="/api/session/me")data={data:{account_type:"PLATFORM_ADMIN",portal:{key:"PLATFORM_ADMIN",path:"/platform"},platform_context_generation:1,capabilities:reader?["platform.admin.read"]:caps,required_actions:[],session:{assurance_level:"AAL2",idle_expires_at:new Date(Date.now()+3600000).toISOString(),absolute_expires_at:new Date(Date.now()+3600000).toISOString()}},meta:{trace_id:id(99)}};
+  else if(p==="/api/session/me")data={data:{account_type:"PLATFORM_ADMIN",portal:{key:"PLATFORM_ADMIN",path:"/platform"},platform_context_generation:1,capabilities:reader?["platform.admin.read"]:grants,required_actions:[],session:{assurance_level:"AAL2",idle_expires_at:new Date(Date.now()+3600000).toISOString(),absolute_expires_at:new Date(Date.now()+3600000).toISOString()}},meta:{trace_id:id(99)}};
   else if(p==="/api/session/availability")data={data:{maintenance_active:false,maintenance_message:""},meta:{trace_id:id(99)}};
   else if(p==="/api/platform/administrators"||p==="/api/platform/administrators/search"){
    if(state.denied){status=403;data={error:{code:"FORBIDDEN"}};}
    else{const body=req.method()==="POST"?req.postDataJSON():{},filter={state:body.state??url.searchParams.get("state"),role:body.role_key??url.searchParams.get("role_key"),email:body.email};
    const rows=state.users.filter(u=>(!filter.state||u.state===filter.state)&&(!filter.role||u.assignments.some(a=>a.state==="ACTIVE"&&a.role_key===filter.role))&&(!filter.email||u.email.toLowerCase()===filter.email.toLowerCase()));
    const more=!filter.email&&!filter.state&&!filter.role&&!url.searchParams.has("cursor")&&rows.length>2;
-   data=wrap({administrators:url.searchParams.has("cursor")?rows.slice(1):more?rows.slice(0,2):rows,effective_owner_count:1,continuity_warning:true},more?"next-page":null);}
+   data=wrap({administrators:url.searchParams.has("cursor")?rows.slice(1):more?rows.slice(0,2):rows,effective_owner_count:state.ownerCount,continuity_warning:state.ownerCount<2},more?"next-page":null);}
   }else if(p==="/api/platform/administrator-invitations"&&req.method()==="POST"){
    const body=req.postDataJSON();state.writes.push({path:p,body,headers:req.headers()});status=state.invitationStatus;
    data=status===201?wrap({id:id(50),email:body.email,role_key:body.role_key,state:"ACTIVE",version:1,created_at:at,expires_at:"2026-11-11T12:00:00Z",delivery_state:"ACCEPTED_FOR_DELIVERY",governance_change_id:null}):{error:{code:"UNAVAILABLE"}};
@@ -52,6 +52,11 @@ test("Invite user validates, retains retry identity and issues a direct Owner in
  const{browser,page,state}=await open({width:390,height:844});try{
   await page.goto(origin+"/platform/users");await page.getByRole("button",{name:"Invite User",exact:true}).click();const dialog=page.getByRole("alertdialog");await dialog.getByLabel("Email address",{exact:true}).fill("invalid");await dialog.getByLabel("Role",{exact:true}).selectOption("PLATFORM_OWNER");await dialog.getByLabel("Reason",{exact:true}).fill("Synthetic invitation");await expect(dialog.getByRole("button",{name:"Issue invitation",exact:true})).toBeDisabled();
   await dialog.getByLabel("Email address",{exact:true}).fill("new@example.test");state.invitationStatus=503;await dialog.getByRole("button",{name:"Issue invitation",exact:true}).click();await expect(dialog.getByRole("status")).toContainText("unavailable");const key=state.writes[0].headers["idempotency-key"];state.invitationStatus=201;await dialog.getByRole("button",{name:"Issue invitation",exact:true}).click();await expect(dialog.getByRole("status")).toContainText("accepted for delivery");assert.equal(state.writes[1].headers["idempotency-key"],key);assert.equal(state.writes[1].body.role_key,"PLATFORM_OWNER");await expect(dialog.getByText(/approval|reviewer|checker/i)).toHaveCount(0);await dialog.getByRole("button",{name:"Close",exact:true}).click();assert.equal(state.writes.length,2);
+ }finally{await browser.close()}
+});
+test("Security and Audit can disable ordinary admins but never an Owner directly",{timeout:60000},async()=>{
+ const{browser,page,state}=await open(undefined,false,["platform.admin.read","platform.admin.identity.disable","platform.admin.session.revoke","platform.governance.review"]);try{
+  state.ownerCount=2;await page.goto(origin+"/platform/users");await page.getByRole("button",{name:"Actions for owner@example.test",exact:true}).click();await expect(page.getByRole("menuitem",{name:"View details",exact:true})).toBeVisible();await expect(page.getByRole("menuitem",{name:"Disable user",exact:true})).toHaveCount(0);await page.keyboard.press("Escape");await expect(page.getByRole("menu")).toHaveCount(0);await page.getByRole("button",{name:"Load more users",exact:true}).click();await page.getByRole("button",{name:"Actions for support@example.test",exact:true}).click();await expect(page.getByRole("menuitem",{name:"Disable user",exact:true})).toBeVisible();assert.equal(state.writes.length,0);
  }finally{await browser.close()}
 });
 test("Readers cannot invite or mutate users and forbidden directory reads fail closed",{timeout:60000},async()=>{
