@@ -1,5 +1,6 @@
 "use client";
 import {useCallback,useEffect,useState,useRef} from "react";
+import {toast} from "sonner";
 import {useSession} from "@/components/session/session-provider";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
@@ -12,7 +13,7 @@ import {PlatformStatus} from "@/components/platform/platform-status";
 export function AdministratorInvitations({revision}:{revision:number}){
  const {resolution,csrfToken,refresh}=useSession(),generation=resolution.platform_context_generation;
  const [data,setData]=useState<ReturnType<typeof parseInvitationsForReissue>>(null),[error,setError]=useState(""),[loading,setLoading]=useState(true);
- const [cursors,setCursors]=useState<(string|null)[]>([null]),[page,setPage]=useState(0),[local,setLocal]=useState(0),[selected,setSelected]=useState<ReissuableInvitation|null>(null),[reason,setReason]=useState(""),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState("");
+ const [cursors,setCursors]=useState<(string|null)[]>([null]),[page,setPage]=useState(0),[local,setLocal]=useState(0),[selected,setSelected]=useState<ReissuableInvitation|null>(null),[reason,setReason]=useState(""),[busy,setBusy]=useState(false);
  const [fetchedAt,setFetchedAt]=useState(0);
  const cursor=cursors[page],retry=useRef<{fingerprint:string;key:string}|null>(null);
  const load=useCallback(async()=>{
@@ -26,18 +27,17 @@ export function AdministratorInvitations({revision}:{revision:number}){
  },[generation,cursor,refresh]);
  useEffect(()=>{const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer)},[load,revision,local]);
  async function reissue(){
-  if(!selected||busy||!reason.trim())return;setBusy(true);setFeedback("");
+  if(!selected||busy||!reason.trim())return;setBusy(true);const toastID=toast.loading("Reissuing invitation…");
   const fingerprint=selected.id+"/"+selected.version+"/"+reason.trim();if(retry.current?.fingerprint!==fingerprint)retry.current={fingerprint,key:crypto.randomUUID()};
   try{
    const response=await fetch("/api/platform/administrator-invitations/"+selected.id+"/reissue",{method:"POST",credentials:"include",cache:"no-store",headers:{"Content-Type":"application/json","X-CSRF-Token":csrfToken,"X-Bidora-Platform-Context-Generation":String(generation),"Idempotency-Key":retry.current.key},body:JSON.stringify({expected_version:selected.version,reason:reason.trim()})});
-   if(response.status===201&&parsePlatformInvitationReceipt(await response.json())){retry.current=null;setSelected(null);setPage(0);setCursors([null]);setLocal(n=>n+1);setFeedback("Invitation reissued. The previous link is invalid. Check delivery in Communications.")}
-   else setFeedback("The invitation could not be reissued. Check your access and verify for this sensitive action if required.");
-  }catch{setFeedback("Reissue could not be confirmed. Check the invitation before retrying.")}finally{setBusy(false)}
+   if(response.status===201&&parsePlatformInvitationReceipt(await response.json())){retry.current=null;setSelected(null);setPage(0);setCursors([null]);setLocal(n=>n+1);toast.success("Invitation reissued. Check delivery in Communications.",{id:toastID})}
+   else toast.error("The invitation could not be reissued. Check your access and verify for this sensitive action if required.",{id:toastID});
+  }catch{toast.error("Reissue could not be confirmed. Check the invitation before retrying.",{id:toastID})}finally{setBusy(false)}
  }
- return <section className="mt-8 space-y-4" aria-label="Invited users"><h2 className="text-lg font-semibold">Invitations</h2>
- {feedback&&<p role="status" className="text-sm">{feedback}</p>}
+ return <section className="space-y-4" aria-label="Invited users"><h2 className="text-lg font-semibold">Invitations</h2>
  <div className="overflow-x-auto rounded-lg border bg-card"><table className="w-full min-w-[680px] text-left text-sm"><thead className="border-b bg-muted/40 text-xs text-muted-foreground"><tr>{["Invited user","Role","Status","Expires","Actions"].map(label=><th key={label} scope="col" className="px-4 py-3">{label}</th>)}</tr></thead><tbody className="divide-y">
- {!error&&(data?.invitations??[]).map(row=><tr key={row.id}><th scope="row" className="px-4 py-4 font-medium"><span>{[row.first_name,row.last_name].filter(Boolean).join(" ")||row.email}</span>{(row.first_name||row.last_name)&&<span className="block break-all text-xs font-normal text-muted-foreground">{row.email}</span>}</th><td className="px-4 py-4">{platformRoleLabels[row.role_key]}</td><td className="px-4 py-4"><PlatformStatus value={row.state==="PENDING_APPROVAL"?"Awaiting approval":row.expires_at&&Date.parse(row.expires_at)<=fetchedAt?"Expired":"Invited"}/></td><td className="px-4 py-4">{row.expires_at?new Date(row.expires_at).toLocaleDateString():"—"}</td><td className="px-4 py-4">{row.state==="ACTIVE"&&resolution.capabilities.includes("platform.admin.invite")&&<Button size="sm" variant="outline" onClick={()=>{setSelected(row);setReason("");setFeedback("")}}>Reissue invitation</Button>}</td></tr>)}
+ {!error&&(data?.invitations??[]).map(row=><tr key={row.id}><th scope="row" className="px-4 py-4 font-medium"><span>{[row.first_name,row.last_name].filter(Boolean).join(" ")||row.email}</span>{(row.first_name||row.last_name)&&<span className="block break-all text-xs font-normal text-muted-foreground">{row.email}</span>}</th><td className="px-4 py-4">{platformRoleLabels[row.role_key]}</td><td className="px-4 py-4"><PlatformStatus value={row.state==="PENDING_APPROVAL"?"Awaiting approval":row.expires_at&&Date.parse(row.expires_at)<=fetchedAt?"Expired":"Invited"}/></td><td className="px-4 py-4">{row.expires_at?new Date(row.expires_at).toLocaleDateString():"—"}</td><td className="px-4 py-4">{row.state==="ACTIVE"&&resolution.capabilities.includes("platform.admin.invite")&&<Button size="sm" variant="outline" onClick={()=>{setSelected(row);setReason("")}}>Reissue invitation</Button>}</td></tr>)}
  {(error||!data?.invitations.length)&&<tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{loading?"Loading invitations…":error||"No data found."}</td></tr>}
  </tbody></table></div>
  {error&&<Button variant="outline" onClick={()=>void load()}>Retry invitations</Button>}

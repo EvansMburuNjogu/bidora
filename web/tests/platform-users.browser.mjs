@@ -90,18 +90,22 @@ test("Invite User includes names, validates, retains retry identity and accepts 
   await dialog.getByLabel("Last name",{exact:true}).fill("Njoroge");
   await dialog.getByLabel("Email address",{exact:true}).fill("invalid");
   await dialog.getByLabel("Role",{exact:true}).selectOption("PLATFORM_OWNER");
-  await dialog.getByLabel("Reason",{exact:true}).fill("Synthetic invitation");
+  await expect(dialog.getByLabel("Reason",{exact:true})).toHaveCount(0);
   await expect(dialog.getByRole("button",{name:"Issue invitation",exact:true})).toBeDisabled();
   await dialog.getByLabel("Email address",{exact:true}).fill("new@example.test");
   state.invitationStatus=503;await dialog.getByRole("button",{name:"Issue invitation",exact:true}).click();
-  await expect(dialog.getByRole("status")).toContainText("unavailable");
+  await expect(page.locator("[data-sonner-toast]").filter({hasText:"unavailable"})).toBeVisible();
+  await expect(dialog.getByRole("status")).toHaveCount(0);
   const key=state.writes[0].headers["idempotency-key"];state.invitationStatus=201;
   await dialog.getByRole("button",{name:"Issue invitation",exact:true}).click();
-  await expect(dialog.getByRole("status")).toContainText("accepted for delivery");
+  await expect(page.locator("[data-sonner-toast]").filter({hasText:"accepted for delivery"})).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("navigation",{name:"User views"}).getByRole("button",{name:"Invitations",exact:true})).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByRole("region",{name:"Platform administrators"})).toBeHidden();
   assert.equal(state.writes[1].headers["idempotency-key"],key);
   assert.equal(state.writes[1].body.first_name,"Amina");assert.equal(state.writes[1].body.last_name,"Njoroge");
   await expect(dialog.getByText(/outcome could not be confirmed/)).toHaveCount(0);
-  await dialog.getByRole("button",{name:"Close",exact:true}).click();
+  assert.equal(state.writes[1].body.reason,"Administrator invitation");
  }finally{await browser.close()}
 });
 test("No data is shown in the table only for an actual empty result; denied reads remain distinguishable",{timeout:60000},async()=>{
@@ -135,8 +139,13 @@ test("Invited users appear with names and own-account revocation is never offere
   state.invitations=[{id:id(80),email:"amina@example.test",first_name:"Amina",last_name:"Njoroge",role_key:"PLATFORM_OWNER",state:"ACTIVE",version:1,created_at:at,expires_at:new Date(Date.now()+86400000).toISOString(),delivery_state:"ACCEPTED_FOR_DELIVERY",governance_change_id:null}];
   await page.goto(origin+"/platform/users");
   const invited=page.getByRole("region",{name:"Invited users"});
+  await expect(invited).toBeHidden();
+  await page.getByRole("navigation",{name:"User views"}).getByRole("button",{name:"Invitations",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Platform administrators"})).toBeHidden();
   await expect(invited.getByRole("row").filter({hasText:"amina@example.test"})).toContainText("Amina Njoroge");
   await expect(invited.getByRole("row").filter({hasText:"amina@example.test"})).toContainText("Invited");
+  await page.getByRole("navigation",{name:"User views"}).getByRole("button",{name:"Users",exact:true}).click();
+  await expect(invited).toBeHidden();
   await page.getByRole("button",{name:"Actions for owner@example.test",exact:true}).click();
   await expect(page.getByRole("menuitem",{name:"View details",exact:true})).toBeVisible();
   for(const name of ["Revoke sessions","Remove user","Disable user","Manage roles"])await expect(page.getByRole("menuitem",{name,exact:true})).toHaveCount(0);

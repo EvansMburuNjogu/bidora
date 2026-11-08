@@ -23,6 +23,7 @@ export function AdministratorDirectory(){
  const {resolution,csrfToken,refresh}=useSession(),generation=resolution.platform_context_generation;
  const [draft,setDraft]=useState<Filters>(empty),[filters,setFilters]=useState<Filters>(empty),[state,setState]=useState<State>({kind:"loading"});
  const [cursors,setCursors]=useState<(string|null)[]>([null]),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(10),[revision,setRevision]=useState(0);
+ const [view,setView]=useState<"users"|"invitations">("users");
  const sequence=useRef(0),cursor=cursors[page];
  function firstPage(){setPage(0);setCursors([null]);}
  function changed(){firstPage();setRevision(value=>value+1);}
@@ -49,7 +50,9 @@ export function AdministratorDirectory(){
  useEffect(()=>{const ref=sequence,timer=window.setTimeout(()=>void load(),0);return()=>{window.clearTimeout(timer);ref.current++;};},[load,revision]);
  const value=state.kind==="ready"?state.value:null;
  return <main className="app-page">
-  <div className="app-page-header flex-row items-start justify-between gap-4"><div><h1 className="type-title">Users</h1><p className="type-lead text-muted-foreground">Manage Platform Admin users.</p></div><AdministratorInvite key={generation??"none"} onCreated={changed}/></div>
+  <div className="app-page-header flex-row items-start justify-between gap-4"><div><h1 className="type-title">Users</h1><p className="type-lead text-muted-foreground">Manage Platform Admin users.</p></div><AdministratorInvite key={generation??"none"} onCreated={()=>{changed();setView("invitations")}}/></div>
+  <nav aria-label="User views" className="mb-5 flex gap-2">{(["users","invitations"] as const).map(item=><Button key={item} type="button" variant={view===item?"secondary":"ghost"} className="rounded-full" aria-pressed={view===item} aria-controls={`platform-${item}-panel`} onClick={()=>setView(item)}>{item==="users"?"Users":"Invitations"}</Button>)}</nav>
+  <div id="platform-users-panel" hidden={view!=="users"}>
   <form className="mb-5 flex flex-wrap items-end gap-3" onSubmit={event=>{event.preventDefault();firstPage();setFilters({...draft,email:draft.email.trim()});}}>
    <label className="grid min-w-0 gap-1 text-sm">Email address<div className="relative"><SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input type="email" maxLength={254} className="pl-9" value={draft.email} placeholder="user@example.com" onChange={event=>setDraft({...draft,email:event.target.value})}/></div></label>
    <div className="grid gap-1 text-sm"><label htmlFor="users-status">Status</label><PlatformSelect id="users-status" value={draft.state} onChange={event=>setDraft({...draft,state:event.target.value as Filters["state"]})}><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="DISABLED">Disabled</option></PlatformSelect></div>
@@ -63,7 +66,8 @@ export function AdministratorDirectory(){
    <div className="flex items-center gap-2 text-sm"><label htmlFor="users-per-page">Rows per page</label><PlatformSelect id="users-per-page" value={pageSize} onChange={event=>{setPageSize(Number(event.target.value));firstPage();}}>{[10,25,50,100].map(size=><option key={size} value={size}>{size}</option>)}</PlatformSelect></div>
    <div className="flex items-center gap-3"><Button variant="outline" disabled={state.kind!=="ready"||page===0} onClick={()=>setPage(value=>value-1)}>Previous</Button><span className="text-sm">Page {page+1}</span><Button variant="outline" disabled={!value?.next_cursor} onClick={()=>{if(value?.next_cursor){setCursors(old=>[...old.slice(0,page+1),value.next_cursor]);setPage(value=>value+1);}}}>Next</Button></div>
   </nav>
-  <AdministratorInvitations key={revision} revision={revision}/>
+  </div>
+  <div id="platform-invitations-panel" hidden={view!=="invitations"}><AdministratorInvitations key={revision} revision={revision}/></div>
  </main>;
 }
 function DirectoryRows({ value, onChanged, loading, error }: { value: PlatformAdministratorList | null; onChanged: () => void; loading: boolean; error: string | null }) {

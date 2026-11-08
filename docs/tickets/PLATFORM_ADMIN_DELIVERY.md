@@ -138,6 +138,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Users navigation and invite feedback — BID-MVP-03 (local)
+
+- Implementation: Users/Invitations navigation pills show separate tables, preserving Users filters/pagination. Successful invitation creation selects Invitations and reloads its records. New/reissued invitation loading and results use Sonner, not inline success messages. Invite User has first name, last name, email and role only; a standard internal audit description preserves the existing audited API contract. Retry idempotency, delivery uncertainty and self/Owner guards remain unchanged.
+- Validation: changed-component ESLint and all six focused desktop/mobile Users browser cases passed with APIs intercepted, including pill/table isolation, Sonner feedback, absent Reason field and retry-key preservation. No backend, schema or provider changes. Not deployed; prior live release remains unchanged.
+
 ## Administrator invitation onboarding — BID-MVP-03 / BID-MVP-05 (deployed)
 
 - Implemented: secure invitation landing link → new-account password setup → canonical email-code MFA → Platform Admin Portal. Opening/previewing a link does not consume it. Explicit password submission uses the emailed invitation as mailbox proof; it does not grant an authenticated session or MFA assurance. Password credentials, pinned recipient/names/role, invitation acceptance and audit/outbox share a transaction. Existing accounts must use their existing password and authenticated acceptance; no password reset, tenant conversion, reactivation or role override through setup.
