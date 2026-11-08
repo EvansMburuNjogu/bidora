@@ -138,6 +138,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Login-code Back to sign in correction — BID-MVP-03 / BID-MVP-05
+
+- Confirmed cancellation reached the backend without ingress client-address context and failed `AUDIT_CONTEXT_UNAVAILABLE`; the same request with trusted context returned 204. The dedicated cancel BFF now uses the shared trusted audit-context forwarder, retaining Origin/body/query checks and backend challenge invalidation before clearing only the challenge cookie.
+- Two focused BFF regressions passed: trusted IP/browser/cookie forwarding, no session-cookie clearing, idempotent missing challenge, rejected foreign Origin/body/query and fail-closed upstream/context failures. TypeScript and affected lint passed. No real email or authenticated Owner session was used.
+
 ## Platform operational deployment — BID-MVP-04 / BID-MVP-05
 
 - Source **`0e2f0fe`** committed/pushed and deployed to sandbox backend/web; migration/ledger **55** and manifest v1/107 relations applied. Private pre-change backup retained; migration rehearsed with rollback before application. Current environment and active integration metadata unchanged.

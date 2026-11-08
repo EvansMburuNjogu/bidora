@@ -15,6 +15,8 @@ let apiOrigin;
 let webOrigin;
 let forwarded = [];
 let loginAuditContext = null;
+let cancelAuditContext = null;
+let cancelStatus = 204;
 let googleRedirect = "valid";
 let logs = "";
 const platformRequests = [];
@@ -288,6 +290,14 @@ test.before(async () => {
   webOrigin = `http://127.0.0.1:${webPort}`;
   backend = http.createServer((request, response) => {
     forwarded.push(request.headers["x-forwarded-for"] ?? null);
+    if (request.url === "/v1/auth/login-code/cancel") {
+      cancelAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"], cookie: request.headers.cookie, origin: request.headers.origin };
+      const status = request.headers["x-forwarded-for"] ? cancelStatus : 503;
+      if (status === 204) response.writeHead(204);
+      else response.writeHead(status, { "Content-Type": "application/json" });
+      response.end(status === 204 ? undefined : jsonError("AUDIT_CONTEXT_UNAVAILABLE"));
+      return;
+    }
     if (request.url === "/v1/auth/login-code/verify") loginAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"] };
     if (request.url === "/v1/auth/password-policy") { response.writeHead(200, { "Content-Type": "application/json" }); response.end(JSON.stringify({data:{minimum_password_bytes:publicMinimum,maximum_password_bytes:128},meta:{trace_id:"synthetic-policy"}})); return; }
     if (request.url === "/v1/auth/google/start") {
@@ -416,6 +426,44 @@ test("email-code completion forwards ingress IP and browser and rejects missing 
   assert.equal((await fetch(url, { method: "POST", headers: { ...headers, "X-Bidora-Client-IP": "192.0.2.20" }, body })).status, 401);
   assert.deepEqual(loginAuditContext, { ip: "192.0.2.20", browser: headers["User-Agent"] });
   assert.deepEqual(forwarded, ["192.0.2.20"]);
+});
+
+test("login-code cancellation forwards trusted audit context and clears only its challenge cookie", async () => {
+  cancelAuditContext = null; cancelStatus = 204;
+  const url = webOrigin + "/api/auth/login-code/cancel";
+  const headers = { Origin: webOrigin, "X-Bidora-Client-IP": "192.0.2.24", "X-Forwarded-For": "198.51.100.99", "User-Agent": "Mozilla/5.0 Firefox/123", Cookie: "__Host-bidora_login_code=synthetic-challenge; __Host-bidora_session=synthetic-session" };
+  assert.equal((await fetch(url, { method: "POST", headers: { ...headers, Origin: "https://foreign.invalid" } })).status, 403);
+  assert.equal(cancelAuditContext, null);
+  assert.equal((await fetch(url + "?unexpected=1", { method: "POST", headers })).status, 400);
+  assert.equal((await fetch(url, { method: "POST", headers, body: "{}" })).status, 400);
+  assert.equal(cancelAuditContext, null);
+  const response = await fetch(url, { method: "POST", headers });
+  assert.equal(response.status, 204);
+  assert.deepEqual(cancelAuditContext, { ip: "192.0.2.24", browser: headers["User-Agent"], cookie: headers.Cookie, origin: webOrigin });
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  const cookies = response.headers.getSetCookie();
+  assert.equal(cookies.length, 1);
+  assert.match(cookies[0], /^__Host-bidora_login_code=;/);
+  assert.match(cookies[0], /Max-Age=0/);
+  assert.match(cookies[0], /Secure/);
+  assert.match(cookies[0], /HttpOnly/);
+  assert.doesNotMatch(cookies[0], /__Host-bidora_session=/);
+});
+
+test("login-code cancellation remains idempotent without a challenge and fails closed on unavailable context", async () => {
+  const url = webOrigin + "/api/auth/login-code/cancel";
+  const headers = { Origin: webOrigin, "X-Bidora-Client-IP": "192.0.2.24" };
+  cancelStatus = 204;
+  assert.equal((await fetch(url, { method: "POST", headers })).status, 204);
+  const missingContext = await fetch(url, { method: "POST", headers: { Origin: webOrigin, "X-Forwarded-For": "198.51.100.99" } });
+  assert.equal(missingContext.status, 503);
+  assert.equal(missingContext.headers.getSetCookie().length, 0);
+  cancelStatus = 503;
+  try {
+    const unavailable = await fetch(url, { method: "POST", headers });
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.headers.getSetCookie().length, 0);
+  } finally { cancelStatus = 204; }
 });
 
 test("authentication BFF maps an unexpectedly unmounted known route to unavailable", async () => {
