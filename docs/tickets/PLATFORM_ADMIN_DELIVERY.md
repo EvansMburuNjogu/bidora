@@ -138,6 +138,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Communications replacement-invitation panel removal — BID-MVP-04
+
+- Removed the replacement-invitation panel and its unused component from Communications. Invitation selection, reason/acknowledgement inputs and invitation-load errors no longer appear or trigger invitation-directory requests. Existing protected invitation APIs and normal administrator invitations are unchanged.
+- TypeScript/affected lint and the intercepted desktop/mobile Communications browser regression passed, including an account with invitation permissions, no invitation requests, private recipient search, filters, pagination, message previews and denied access. No message or invitation was sent.
+
 ## Integration settings form cleanup — BID-MVP-03
 
 - Removed SMTP’s non-editable Connection security selector; STARTTLS, certificate verification and deployment trust remain mandatory in the adapter. Removed OpenAI/PesaPal’s manual Review an approval/reference-entry sections and reference display. Their existing pending requests are discoverable through the saved version’s View action, using authorized pending-change metadata instead of copied identifiers. Maker/checker, recent verification, explicit provider-test consent and activation rules are unchanged; this is not removal of backend approval policy.
