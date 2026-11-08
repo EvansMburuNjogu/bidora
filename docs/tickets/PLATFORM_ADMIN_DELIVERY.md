@@ -142,6 +142,7 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 
 - Confirmed cancellation reached the backend without ingress client-address context and failed `AUDIT_CONTEXT_UNAVAILABLE`; the same request with trusted context returned 204. The dedicated cancel BFF now uses the shared trusted audit-context forwarder, retaining Origin/body/query checks and backend challenge invalidation before clearing only the challenge cookie.
 - Two focused BFF regressions passed: trusted IP/browser/cookie forwarding, no session-cookie clearing, idempotent missing challenge, rejected foreign Origin/body/query and fail-closed upstream/context failures. TypeScript and affected lint passed. No real email or authenticated Owner session was used.
+- Frontend-only source **`2ea9b6c`** deployed healthy with zero restarts; backend remains `0e2f0fe`, schema 55 unchanged. Live empty/synthetic missing challenge cancellation returns 204, foreign Origin 403 and body 400. An isolated live browser clicked Back to sign in and reached `/login`; no real code/email/sign-in requested. Prior frontend retained as `before-login-code-cancel`.
 
 ## Platform operational deployment — BID-MVP-04 / BID-MVP-05
 
