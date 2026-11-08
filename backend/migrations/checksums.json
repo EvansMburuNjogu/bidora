@@ -27,7 +27,7 @@
     "migrations/control/00038_platform_identity_and_session_policy.sql": "db1214f0b79b04f2ae97ae409f68de722261bf214a94c5f299af305610ae5063",
     "queries/platformsettings/session_policy.sql": "14f01c418cc75d839e44fa4c79e3b64c6a5a6336d15127aaf50191076c1e52ab",
     "queries/platformsettings/information.sql": "c822fa18cf313ed7e81a44a8fc61e0a3498f2aa695c44221999d5c9b09d4f47d",
-    "queries/controlplane/platform_audit_read.sql": "d7484386fa1107ec350c53e73c4f29acfdf9efc217a7d18757110b3ff9c73191",
+    "queries/controlplane/platform_audit_read.sql": "8a4c21edb1c312374cfec96a130ab09496eb4eee632d67e805dab293595d9784",
     "queries/notification/platform_history.sql": "daa5812b4f446c0abe5b59984ffbbdb3cdd72508ced09b0df18515d3c4ee6d56",
     "migrations/control/00001_tenant_registry.sql": "b92357c4fb2d24427df693ca5bbc9048138c82007d57537998d91679b9c5a0e0",
     "migrations/control/00002_audit_outbox.sql": "163765203db99fb12e882f82c097432943feee0085bc3739d76ffc746e65cf42",
@@ -186,7 +186,8 @@
     "queries/tenantevidence/evidence.sql": "c2066fe1d705e2e34a572cd293492de8a0da286f7040d3f0aae426bf64677e4f",
     "schema/option-a-tables.json": "8218bc457147e93399982b8f11c4aad69b1e09645a02a3c7c9dd3a2390edb375",
     "sqlc.yaml": "45448fac895b066092c35c2c9396e276ae8df42dbec87bd410c675871316e28f",
-    "migrations/control/00043_platform_email_login_assurance.sql": "b0dc6aa6242b23ae73f0293becabcf67e4ec7278f03554ff9f2b0cabc3ce7965"
+    "migrations/control/00043_platform_email_login_assurance.sql": "b0dc6aa6242b23ae73f0293becabcf67e4ec7278f03554ff9f2b0cabc3ce7965",
+    "migrations/control/00055_platform_tenant_lifecycle.sql": "9cdc3bea99d75a915ca9cbdb4f07f84969f6bac2daa95ddeb6a533dda6a5133d"
   },
   "note": "Update only through explicit pre-release review. Released migrations are immutable; add a new migration instead."
 }

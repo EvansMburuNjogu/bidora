@@ -3,7 +3,7 @@ SELECT id,actor_id,action,occurred_at,module,affected_record_id,result,administr
  CASE WHEN sqlc.arg(include_metadata)::boolean THEN coalesce(host(ip_address),'') ELSE '' END::text AS ip_address,
  CASE WHEN sqlc.arg(include_metadata)::boolean THEN coalesce(browser,'') ELSE '' END::text AS browser
 FROM bidora_control_audit.platform_action_details_v1
-WHERE (sqlc.narg(actor_filter)::uuid IS NULL OR actor_id=sqlc.narg(actor_filter)::uuid)
+WHERE action NOT IN ('PlatformTenantSuspended','PlatformTenantReactivated') AND (sqlc.narg(actor_filter)::uuid IS NULL OR actor_id=sqlc.narg(actor_filter)::uuid)
  AND (sqlc.narg(action_filter)::text IS NULL OR action=sqlc.narg(action_filter)::text)
  AND (sqlc.narg(module_filter)::text IS NULL OR module=sqlc.narg(module_filter)::text)
  AND (sqlc.narg(result_filter)::text IS NULL OR result=sqlc.narg(result_filter)::text)
@@ -29,7 +29,7 @@ LIMIT sqlc.arg(page_limit);
 SELECT id,actor_id,action,occurred_at,module,affected_record_id,result,administrator_name,affected_record_name,changes::jsonb AS changes,
  CASE WHEN sqlc.arg(include_metadata)::boolean THEN coalesce(host(ip_address),'') ELSE '' END::text AS ip_address,
  CASE WHEN sqlc.arg(include_metadata)::boolean THEN coalesce(browser,'') ELSE '' END::text AS browser
-FROM bidora_control_audit.platform_action_details_v1 WHERE id=sqlc.arg(id);
+FROM bidora_control_audit.platform_action_details_v1 WHERE id=sqlc.arg(id) AND action NOT IN ('PlatformTenantSuspended','PlatformTenantReactivated');
 
 -- name: InsertPlatformAuditExport :exec
 INSERT INTO bidora_control_audit.audit_events
