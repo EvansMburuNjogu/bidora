@@ -56,15 +56,16 @@ type AdministratorView struct {
 	EffectiveOwner bool
 }
 type InvitationView struct {
-	ID                 ID
-	Email              string
-	Role               domain.Role
-	State              string
-	Version            int64
-	CreatedAt          time.Time
-	ExpiresAt          *time.Time
-	Delivery           DeliveryState
-	GovernanceChangeID *ID
+	FirstName, LastName string
+	ID                  ID
+	Email               string
+	Role                domain.Role
+	State               string
+	Version             int64
+	CreatedAt           time.Time
+	ExpiresAt           *time.Time
+	Delivery            DeliveryState
+	GovernanceChangeID  *ID
 }
 type ChangeView struct {
 	ID                                                                                 ID

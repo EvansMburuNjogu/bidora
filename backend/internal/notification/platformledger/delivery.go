@@ -53,7 +53,7 @@ func (d *Delivery) DeliverPlatformInvitationWithEvidence(ctx context.Context, re
 	if err != nil {
 		return err
 	}
-	return d.send(ctx, sendRequest{SourceID: request.InvitationID, ActorID: request.ActorID, CorrelationID: request.CorrelationID, Recipient: request.Recipient, Category: "PLATFORM_INVITATION", SourceType: "PLATFORM_INVITATION", TemplateKey: "platform.invitation.issued", Values: map[string]string{"role": string(request.Role), "token": request.Token.RevealForDelivery(), "expires_at": request.ExpiresAt.UTC().Format(time.RFC3339)}, Message: message})
+	return d.send(ctx, sendRequest{SourceID: request.InvitationID, ActorID: request.ActorID, CorrelationID: request.CorrelationID, Recipient: request.Recipient, Category: "PLATFORM_INVITATION", SourceType: "PLATFORM_INVITATION", TemplateKey: "platform.invitation.issued", Values: map[string]string{"role": emailtemplate.RoleLabel(request.Role), "token": request.Token.RevealForDelivery(), "expires_at": request.ExpiresAt.UTC().Format(time.RFC3339)}, Message: message})
 }
 
 func (d *Delivery) DeliverPlatformSessionRevocation(ctx context.Context, request platformapp.PlatformSecurityDeliveryRequest) error {

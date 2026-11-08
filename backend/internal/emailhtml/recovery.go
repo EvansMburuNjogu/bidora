@@ -22,7 +22,22 @@ func RecoveryAction(origin, userID, code string) Action {
 	return Action{Label: "Reset password", URL: u.String()}
 }
 
+func InvitationAction(origin, code string) Action {
+	return contentAction(Content{Origin: origin, Code: code, Key: "platform.invitation.issued"})
+}
+
 func contentAction(c Content) Action {
+	if c.Key == "platform.invitation.issued" {
+		action := QuickAction(c.Origin, c.Key)
+		decoded, e := base64.RawURLEncoding.Strict().DecodeString(c.Code)
+		if action.URL == "" || e != nil || len(decoded) != 32 {
+			return Action{}
+		}
+		u, _ := url.Parse(action.URL)
+		u.Path = "/administrator-invitation"
+		u.Fragment = "code=" + url.QueryEscape(c.Code)
+		return Action{Label: "Accept invitation", URL: u.String()}
+	}
 	if c.Key == "identity.password_recovery" && c.RecoveryUserID != "" {
 		return RecoveryAction(c.Origin, c.RecoveryUserID, c.Code)
 	}

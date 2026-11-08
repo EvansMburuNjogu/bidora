@@ -842,7 +842,7 @@ func (tx *governanceReadTx) ListInvitations(ctx context.Context, page platformap
 		if row.State == "PENDING_APPROVAL" {
 			delivery = platformapp.DeliveryNotReady
 		}
-		result[i] = platformapp.InvitationView{ID: platformAppID(row.ID), Email: row.Email, Role: role, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), ExpiresAt: platformTimePointer(row.ExpiresAt), Delivery: delivery, GovernanceChangeID: platformIDPointer(row.GovernanceChangeID)}
+		result[i] = platformapp.InvitationView{FirstName: row.FirstName, LastName: row.LastName, ID: platformAppID(row.ID), Email: row.Email, Role: role, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), ExpiresAt: platformTimePointer(row.ExpiresAt), Delivery: delivery, GovernanceChangeID: platformIDPointer(row.GovernanceChangeID)}
 	}
 	return result, nil
 }

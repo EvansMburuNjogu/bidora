@@ -17,6 +17,7 @@ export const platformRoleLabels: Record<PlatformRole, string> = {
   SECURITY_AUDIT_ADMINISTRATOR: "Security and Audit Administrator",
 };
 export type PlatformAdministrator = {
+  is_current_user?: boolean;
   user_id: string;
   user_version: number;
   platform_context_generation: number;
@@ -180,7 +181,7 @@ function parseChange(raw: unknown): PlatformAdministratorChange | null {
 
 function parseAdministratorItem(raw: unknown): PlatformAdministrator | null {
     const item = object(raw);
-    if (!item || !exactWithoutNames(item, ["user_id", "email", "state", "user_version", "platform_context_generation", "totp_enrolled", "assignments", "effective_owner", "created_at", "updated_at"]) ||
+    if (!item || !(item.is_current_user===undefined||typeof item.is_current_user==="boolean") || !exactWithoutNames(Object.fromEntries(Object.entries(item).filter(([key])=>key!=="is_current_user")), ["user_id", "email", "state", "user_version", "platform_context_generation", "totp_enrolled", "assignments", "effective_owner", "created_at", "updated_at"]) ||
         typeof item.user_id !== "string" || !uuid.test(item.user_id) ||
         typeof item.email !== "string" || item.email.length < 3 || item.email.length > 254 ||
         (item.state !== "ACTIVE" && item.state !== "DISABLED" && item.state !== "REMOVED") || !Number.isInteger(item.user_version) || Number(item.user_version) < 1 ||
@@ -195,7 +196,7 @@ function parseAdministratorItem(raw: unknown): PlatformAdministrator | null {
       assignmentIDs.add(assignment.id);
       assignments.push({ id: assignment.id, version: assignment.version, role_key: assignment.role_key, state: assignment.state });
     }
-    return { first_name:typeof item.first_name==="string"?item.first_name:"",last_name:typeof item.last_name==="string"?item.last_name:"",user_id: item.user_id, user_version: Number(item.user_version), platform_context_generation: Number(item.platform_context_generation), email: item.email, state: item.state, totp_enrolled: item.totp_enrolled, assignments, effective_owner: item.effective_owner };
+    return { is_current_user:item.is_current_user===true,first_name:typeof item.first_name==="string"?item.first_name:"",last_name:typeof item.last_name==="string"?item.last_name:"",user_id: item.user_id, user_version: Number(item.user_version), platform_context_generation: Number(item.platform_context_generation), email: item.email, state: item.state, totp_enrolled: item.totp_enrolled, assignments, effective_owner: item.effective_owner };
 }
 
 function parseRoleAssignment(raw: unknown): PlatformRoleAssignment | null {

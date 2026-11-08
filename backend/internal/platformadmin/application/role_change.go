@@ -171,7 +171,7 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 		if _, authErr := requireRoleChangeOwner(txCtx, tx, input, capability, now); authErr != nil {
 			return authErr
 		}
-		if input.ActorID == input.TargetUserID && (input.Action != RevokeRole || input.Role != domain.PlatformOwner) {
+		if input.ActorID == input.TargetUserID {
 			return ErrPlatformAccessForbidden
 		}
 		profile, txErr := tx.LockAdministratorProfile(txCtx, input.TargetUserID)

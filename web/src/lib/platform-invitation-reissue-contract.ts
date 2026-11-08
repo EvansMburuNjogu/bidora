@@ -1,6 +1,6 @@
 import type { PlatformRole } from "./platform-contract";
 const PLATFORM_ROLES: PlatformRole[] = ["PLATFORM_OWNER", "OPERATIONS_ADMINISTRATOR", "BILLING_ADMINISTRATOR", "INTEGRATION_ADMINISTRATOR", "SUPPORT_ADMINISTRATOR", "SECURITY_AUDIT_ADMINISTRATOR"];
-export type ReissuableInvitation = { id: string; email: string; role_key: PlatformRole; state: string; version: number; expires_at: string | null; delivery_state: string };
+export type ReissuableInvitation = { first_name?:string;last_name?:string; id: string; email: string; role_key: PlatformRole; state: string; version: number; expires_at: string | null; delivery_state: string };
 const uuid = /^[a-f\d]{8}-[a-f\d]{4}-[1-5][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i;
 function record(v: unknown): Record<string, unknown> | null { return v !== null && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null; }
 export function parseInvitationsForReissue(v: unknown): { invitations: ReissuableInvitation[]; next: string | null } | null {

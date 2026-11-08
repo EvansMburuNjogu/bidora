@@ -1,0 +1,162 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora administrator invitation onboarding",
+    "version": "0.1.0",
+    "description": "Password setup and email-MFA entry point for Owner-issued administrator invitations."
+  },
+  "x-status": "implemented-local-http-verified",
+  "x-approval": {
+    "owner": "requesting user",
+    "evidence": "Administrator invitation links must lead to password setup, email verification/MFA and the Platform Admin Portal."
+  },
+  "paths": {
+    "/v1/auth/administrator-invitation/preview": {
+      "post": {
+        "operationId": "previewAdministratorInvitation",
+        "summary": "Inspect an emailed invitation without accepting it",
+        "description": "Approved Origin and trusted-network/identity attempt budgets are required. The one-time invitation capability is sent only in a bounded JSON body, never a query. Preview never consumes the invitation. Setup pins mailbox, names and role to the active unexpired record, creates credentials and consumes the invitation atomically with audit evidence; it never resets or converts an existing identity. Explicit submission of the emailed capability proves the mailbox. No authenticated session or MFA assurance is granted until the ordinary email-OTP sign-in completes. Tenant ties, cancellation, expiry, token rotation and single use remain enforced.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated invitation preview without token or credentials"
+          },
+          "400": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "403": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "409": {
+            "description": "Existing identity must sign in; password never overwritten"
+          },
+          "429": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "503": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          }
+        }
+      }
+    },
+    "/v1/auth/administrator-invitation/setup": {
+      "post": {
+        "operationId": "setUpInvitedAdministratorAccount",
+        "summary": "Set password for a new invited administrator and begin canonical email MFA",
+        "description": "Approved Origin and trusted-network/identity attempt budgets are required. The one-time invitation capability is sent only in a bounded JSON body, never a query. Preview never consumes the invitation. Setup pins mailbox, names and role to the active unexpired record, creates credentials and consumes the invitation atomically with audit evidence; it never resets or converts an existing identity. Explicit submission of the emailed capability proves the mailbox. No authenticated session or MFA assurance is granted until the ordinary email-OTP sign-in completes. Tenant ties, cancellation, expiry, token rotation and single use remain enforced.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Password accepted; only HttpOnly email-MFA challenge cookie is issued, not a session"
+          },
+          "400": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "403": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "409": {
+            "description": "Existing identity must sign in; password never overwritten"
+          },
+          "429": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "503": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InvitationPreviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "writeOnly": true
+          }
+        }
+      },
+      "InvitationSetupRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "password"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "writeOnly": true
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "format": "password",
+            "writeOnly": true
+          },
+          "first_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      }
+    }
+  }
+}

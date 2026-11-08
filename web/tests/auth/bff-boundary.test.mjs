@@ -26,6 +26,7 @@ let platformError = "PLATFORM_SETTING_NOT_FOUND";
 let sessionMutation = null;
 let bootstrapMounted = true;
 let publicMinimum = 20;
+const onboardingRequests=[];
 
 async function freePort() {
   const server = net.createServer();
@@ -290,6 +291,14 @@ test.before(async () => {
   webOrigin = `http://127.0.0.1:${webPort}`;
   backend = http.createServer((request, response) => {
     forwarded.push(request.headers["x-forwarded-for"] ?? null);
+    if(request.url.startsWith("/v1/auth/administrator-invitation/")||request.url==="/v1/platform/administrator-invitations/accept"){
+      let body="";request.on("data",chunk=>body+=chunk);request.on("end",()=>{
+        onboardingRequests.push({path:request.url,body:JSON.parse(body),headers:request.headers});
+        if(request.url.endsWith("/preview")){response.writeHead(200,{"Content-Type":"application/json"});response.end(JSON.stringify({data:{email:"amina@example.test",first_name:"Amina",last_name:"Njoroge",role_key:"PLATFORM_OWNER",account_exists:false,expires_at:new Date(Date.now()+3600000).toISOString()}}));return}
+        if(request.url.endsWith("/setup")){response.writeHead(202,{"Content-Type":"application/json","X-Bidora-Challenge-Expires-At":new Date(Date.now()+300000).toISOString(),"Set-Cookie":"__Host-bidora_login_code="+"B".repeat(43)+"; Path=/; Secure; HttpOnly; SameSite=Lax"});response.end(JSON.stringify({data:{mfa_required:true,expires_at:new Date(Date.now()+300000).toISOString()}}));return}
+        response.writeHead(204);response.end();
+      });return;
+    }
     if (request.url === "/v1/auth/login-code/cancel") {
       cancelAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"], cookie: request.headers.cookie, origin: request.headers.origin };
       const status = request.headers["x-forwarded-for"] ? cancelStatus : 503;
@@ -298,7 +307,10 @@ test.before(async () => {
       response.end(status === 204 ? undefined : jsonError("AUDIT_CONTEXT_UNAVAILABLE"));
       return;
     }
-    if (request.url === "/v1/auth/login-code/verify") loginAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"] };
+    if (request.url === "/v1/auth/login-code/verify") {
+      loginAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"] };
+      if(request.headers.cookie?.includes("__Host-bidora_login_code=onboarding-verified")){response.writeHead(204);response.end();return;}
+    }
     if (request.url === "/v1/auth/password-policy") { response.writeHead(200, { "Content-Type": "application/json" }); response.end(JSON.stringify({data:{minimum_password_bytes:publicMinimum,maximum_password_bytes:128},meta:{trace_id:"synthetic-policy"}})); return; }
     if (request.url === "/v1/auth/google/start") {
       response.writeHead(303, { Location: googleRedirect === "valid" ? "https://accounts.google.com/o/oauth2/v2/auth?client_id=synthetic&state=opaque" : "https://attacker.invalid/oauth?state=opaque" });
@@ -540,4 +552,20 @@ test("Google initiation accepts only the fixed authorization endpoint", async ()
   response = await fetch(webOrigin + "/api/auth/google-start", { method: "POST", redirect: "manual", headers: { Origin: webOrigin } });
   assert.equal(response.status, 303);
   assert.equal(new URL(response.headers.get("location"), webOrigin).pathname, "/auth/google/failed");
+});
+test("Invitation BFF holds the emailed capability in an HttpOnly cookie and preserves MFA and CSRF boundaries",async()=>{
+ const token="A".repeat(43),common={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Client-IP":"192.0.2.10"};
+ const post=(operation,body,extra={})=>fetch(webOrigin+"/api/auth/administrator-invitation/"+operation,{method:"POST",headers:{...common,...extra},body:JSON.stringify(body)});
+ let response=await post("preview",{token},{Origin:"https://attacker.invalid"});assert.equal(response.status,403);
+ response=await post("preview",{token});assert.equal(response.status,200);const cookie=response.headers.getSetCookie().find(v=>/^(?:__Host-bidora_administrator_invite|bidora_dev_administrator_invite)=/.test(v));assert.ok(cookie);assert.match(cookie,/HttpOnly/i);assert.match(cookie,/SameSite=Lax/i);assert.equal(JSON.stringify(await response.json()).includes(token),false);
+ const credential=cookie.split(";")[0];
+ let verified=await fetch(webOrigin+"/api/auth/login-code",{method:"POST",headers:{...common,Cookie:"__Host-bidora_login_code=onboarding-verified; "+credential},body:JSON.stringify({code:"123456",method:"EMAIL_OTP"})});assert.equal(verified.status,204);assert.equal(verified.headers.get("x-bidora-invitation-pending"),"1");
+ verified=await fetch(webOrigin+"/api/auth/login-code",{method:"POST",headers:{...common,Cookie:"__Host-bidora_login_code=onboarding-verified; bidora_dev_administrator_invite="+token},body:JSON.stringify({code:"123456",method:"EMAIL_OTP"})});assert.equal(verified.status,204);assert.equal(verified.headers.get("x-bidora-invitation-pending"),null);
+ response=await post("preview",{},{Cookie:credential});assert.equal(response.status,200);assert.equal(onboardingRequests.at(-1).body.token,token);
+ response=await post("setup",{password:"Synthetic-password-123456",first_name:"Amina",last_name:"Njoroge",token:"C".repeat(43)},{Cookie:credential});assert.equal(response.status,400);
+ response=await post("setup",{password:"Synthetic-password-123456",first_name:"Amina",last_name:"Njoroge"},{Cookie:credential});assert.equal(response.status,202);assert.equal(onboardingRequests.at(-1).body.token,token);assert.equal(onboardingRequests.at(-1).headers.cookie,undefined);assert.ok(response.headers.get("x-bidora-challenge-expires-at"));const issued=response.headers.getSetCookie().join(";");assert.match(issued,/(?:bidora_dev_login_code|__Host-bidora_login_code)=/);assert.match(issued,/(?:bidora_dev_administrator_invite|__Host-bidora_administrator_invite)=;/);assert.doesNotMatch(issued,/(?:bidora_dev_session|__Host-bidora_session)=/);
+ response=await post("accept",{},{Cookie:credential,"Idempotency-Key":crypto.randomUUID()});assert.equal(response.status,403);
+ response=await post("accept",{},{Cookie:credential,"X-CSRF-Token":"C".repeat(43),"Idempotency-Key":crypto.randomUUID()});assert.equal(response.status,204);assert.equal(onboardingRequests.at(-1).body.token,token);assert.equal(onboardingRequests.at(-1).headers["x-csrf-token"],"C".repeat(43));
+ response=await post("setup",{password:"Synthetic-password-123456",first_name:"Amina",last_name:"Njoroge"});assert.equal(response.status,400);
+ response=await post("setup",{password:"Synthetic-password-123456"},{Cookie:"bidora_dev_administrator_invite="+token});assert.equal(response.status,400);
 });

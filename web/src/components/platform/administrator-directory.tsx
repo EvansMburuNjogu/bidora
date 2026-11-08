@@ -7,6 +7,7 @@ import { PlatformSelect } from "@/components/platform/platform-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSession } from "@/components/session/session-provider";
+import { AdministratorInvitations } from "@/components/platform/administrator-invitations";
 import { AdministratorInvite } from "@/components/platform/administrator-invite";
 import { AdministratorRoleChange } from "@/components/platform/administrator-role-change";
 import { AdministratorIdentityState } from "@/components/platform/administrator-identity-state";
@@ -62,6 +63,7 @@ export function AdministratorDirectory(){
    <div className="flex items-center gap-2 text-sm"><label htmlFor="users-per-page">Rows per page</label><PlatformSelect id="users-per-page" value={pageSize} onChange={event=>{setPageSize(Number(event.target.value));firstPage();}}>{[10,25,50,100].map(size=><option key={size} value={size}>{size}</option>)}</PlatformSelect></div>
    <div className="flex items-center gap-3"><Button variant="outline" disabled={state.kind!=="ready"||page===0} onClick={()=>setPage(value=>value-1)}>Previous</Button><span className="text-sm">Page {page+1}</span><Button variant="outline" disabled={!value?.next_cursor} onClick={()=>{if(value?.next_cursor){setCursors(old=>[...old.slice(0,page+1),value.next_cursor]);setPage(value=>value+1);}}}>Next</Button></div>
   </nav>
+  <AdministratorInvitations key={revision} revision={revision}/>
  </main>;
 }
 function DirectoryRows({ value, onChanged, loading, error }: { value: PlatformAdministratorList | null; onChanged: () => void; loading: boolean; error: string | null }) {
@@ -77,17 +79,17 @@ function DirectoryRows({ value, onChanged, loading, error }: { value: PlatformAd
           const roles = user.assignments.filter(assignment => assignment.state === "ACTIVE");
           const href = `/platform/users/${user.user_id}`;
           const ownerAccount = roles.some(role => role.role_key === "PLATFORM_OWNER");
-          const access = can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || can("platform.governance.approve")) && !(user.effective_owner && (value?.effective_owner_count ?? 0) <= 1);
+          const access = !user.is_current_user && can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || can("platform.governance.approve")) && !(user.effective_owner && (value?.effective_owner_count ?? 0) <= 1);
           return <tr key={user.user_id}>
-            <th scope="row" className="max-w-72 px-4 py-4 font-medium"><Link href={href} className="break-all text-primary hover:underline">{[user.first_name,user.last_name].filter(Boolean).join(" ") || user.email}</Link>{(user.first_name || user.last_name) && <span className="mt-1 block break-all text-xs font-normal text-muted-foreground">{user.email}</span>}{user.effective_owner && <span className="mt-1 block text-xs font-normal text-muted-foreground">Platform owner</span>}</th>
+            <th scope="row" className="max-w-72 px-4 py-4 font-medium"><Link href={href} className="break-all text-primary hover:underline">{[user.first_name,user.last_name].filter(Boolean).join(" ") || user.email}</Link>{(user.first_name || user.last_name) && <span className="mt-1 block break-all text-xs font-normal text-muted-foreground">{user.email}</span>}{user.is_current_user && <span className="ml-2 text-xs text-muted-foreground">(You)</span>}{user.effective_owner && <span className="mt-1 block text-xs font-normal text-muted-foreground">Platform owner</span>}</th>
             <td className="max-w-80 px-4 py-4"><div className="flex flex-wrap gap-1.5">{roles.length ? roles.map(role => <span key={role.id} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{platformRoleLabels[role.role_key]}</span>) : <span className="text-muted-foreground">No active role</span>}</div></td>
             <td className="px-4 py-4"><PlatformStatus value={user.state === "ACTIVE" ? "Active" : "Disabled"} /></td>
             <td className="px-4 py-4"><div className="flex justify-end"><PlatformRowActions label={user.email} actions={[
               { label: "View details", href },
-              ...(can("platform.admin.role.assign") || can("platform.admin.role.revoke") ? [{ label: "Manage roles", onSelect: () => setSelected({ user, kind: "roles" }) }] : []),
+              ...(!user.is_current_user && (can("platform.admin.role.assign") || can("platform.admin.role.revoke")) ? [{ label: "Manage roles", onSelect: () => setSelected({ user, kind: "roles" }) }] : []),
               ...(access ? [{ label: user.state === "ACTIVE" ? "Disable user" : "Reactivate user", destructive: user.state === "ACTIVE", onSelect: () => setSelected({ user, kind: "access" }) }] : []),
-              ...(can("platform.governance.approve") && !(user.effective_owner && (value?.effective_owner_count ?? 0)<=1) ? [{ label: "Remove user", destructive:true,onSelect:()=>setSelected({user,kind:"remove"}) }] : []),
-              ...(can("platform.admin.session.revoke") ? [{ label: "Revoke sessions", href: href + "#revoke-sessions", destructive: true }] : []),
+              ...(!user.is_current_user && can("platform.governance.approve") && !(user.effective_owner && (value?.effective_owner_count ?? 0)<=1) ? [{ label: "Remove user", destructive:true,onSelect:()=>setSelected({user,kind:"remove"}) }] : []),
+              ...(!user.is_current_user && can("platform.admin.session.revoke") ? [{ label: "Revoke sessions", href: href + "#revoke-sessions", destructive: true }] : []),
             ]} /></div></td>
           </tr>;
         })}{!(value?.administrators.length) && <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">{loading ? <span role="status">Loading users…</span> : error ? <span role="alert">{error}</span> : "No data found."}</td></tr>}</tbody>

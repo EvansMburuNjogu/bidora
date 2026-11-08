@@ -1,6 +1,7 @@
 import "server-only";
 
 const names = new Map([
+  ["__Host-bidora_administrator_invite","bidora_dev_administrator_invite"],
   ["__Host-bidora_session", "bidora_dev_session"],
   ["__Host-bidora_csrf", "bidora_dev_csrf"],
   ["__Host-bidora_login_code", "bidora_dev_login_code"],

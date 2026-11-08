@@ -23,6 +23,74 @@
     {
       "item": [
         {
+          "description": "`previewAdministratorInvitation` — source: `api/openapi/drafts/administrator-invitation-onboarding.json`",
+          "name": "Inspect an emailed invitation without accepting it",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"token\": \"{{recovery_token}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/administrator-invitation/preview"
+            }
+          }
+        },
+        {
+          "description": "`setUpInvitedAdministratorAccount` — source: `api/openapi/drafts/administrator-invitation-onboarding.json`",
+          "name": "Set password for a new invited administrator and begin canonical email MFA",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"token\": \"{{recovery_token}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/administrator-invitation/setup"
+            }
+          }
+        },
+        {
           "description": "`startGoogleAuthentication` — source: `api/openapi/drafts/google-auth.json`",
           "name": "Create a single-use Google authorization transaction",
           "request": {

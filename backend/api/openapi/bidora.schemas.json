@@ -1,5 +1,50 @@
 {
   "$defs": {
+    "administrator_invitation_onboarding__InvitationPreviewRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "maxLength": 43,
+          "minLength": 43,
+          "type": "string",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token"
+      ],
+      "type": "object"
+    },
+    "administrator_invitation_onboarding__InvitationSetupRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "first_name": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "last_name": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "password": {
+          "format": "password",
+          "maxLength": 128,
+          "type": "string",
+          "writeOnly": true
+        },
+        "token": {
+          "maxLength": 43,
+          "minLength": 43,
+          "type": "string",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token",
+        "password"
+      ],
+      "type": "object"
+    },
     "ai_requirement_review__ErrorResponse": {
       "type": "object"
     },
@@ -3161,6 +3206,10 @@
           "maxLength": 100,
           "type": "string"
         },
+        "is_current_user": {
+          "description": "Derived from the authenticated caller. Self role/access/session revocation is not permitted.",
+          "type": "boolean"
+        },
         "last_name": {
           "maxLength": 100,
           "type": "string"
@@ -3676,6 +3725,10 @@
             "null"
           ]
         },
+        "first_name": {
+          "maxLength": 100,
+          "type": "string"
+        },
         "governance_change_id": {
           "format": "uuid",
           "type": [
@@ -3685,6 +3738,10 @@
         },
         "id": {
           "format": "uuid",
+          "type": "string"
+        },
+        "last_name": {
+          "maxLength": 100,
           "type": "string"
         },
         "role_key": {

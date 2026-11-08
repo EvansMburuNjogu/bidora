@@ -51,6 +51,7 @@ type identityComposition struct {
 	templates                *notificationapp.TemplateService
 	templateRenderer         notificationapp.TemplateRenderer
 	hasher                   *password.Hasher
+	attempts                 identityapp.AttemptController
 	deriver                  *attempt.Deriver
 	protection               *browser.Protection
 	ipResolver               *browser.ClientIPResolver
@@ -151,7 +152,7 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err != nil {
 		return nil, err
 	}
-	result := &identityComposition{hasher: hasher, deriver: deriver, protection: protection, ipResolver: ipResolver, passwordReader: passwordReader, authenticator: authenticator, rehasher: rehasher, loginCommitter: loginCommitter, mfaStore: mfaStore, mfaService: mfaService, login: loginHandler}
+	result := &identityComposition{attempts: attempts, hasher: hasher, deriver: deriver, protection: protection, ipResolver: ipResolver, passwordReader: passwordReader, authenticator: authenticator, rehasher: rehasher, loginCommitter: loginCommitter, mfaStore: mfaStore, mfaService: mfaService, login: loginHandler}
 	if err = composeManagedConfiguration(config, control, result); err != nil {
 		return nil, err
 	}
@@ -668,6 +669,9 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 		return fail(err)
 	}
 	if composition.delivery != nil {
+		if err = httpapi.RegisterPlatformInvitationOnboarding(app, platformModule, composition.login, composition.hasher, composition.attempts, composition.deriver); err != nil {
+			return fail(err)
+		}
 		if err = httpapi.RegisterPlatformInvitationRoutes(app, browserMiddleware, platformAdministrationHandler); err != nil {
 			return fail(err)
 		}

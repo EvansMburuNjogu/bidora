@@ -44,6 +44,10 @@ func Render(c Content) string {
 	if expiry, err := time.Parse(time.RFC3339, c.Expiry); err == nil {
 		c.Expiry = expiry.UTC().Format("2 Jan 2006, 15:04 UTC")
 	}
+	action := contentAction(c)
+	if c.Key == "platform.invitation.issued" {
+		c.Code = ""
+	}
 	logoURL, fontURL := "", ""
 	if action := QuickAction(c.Origin, c.Key); action.URL != "" {
 		u, _ := url.Parse(action.URL)
@@ -59,7 +63,7 @@ func Render(c Content) string {
 		LogoURL string
 		FontURL string
 		Safety  string
-	}{c, strings.Split(c.Body, "\n"), contentAction(c), logoURL, fontURL, SafetyNote(c.Key)}
+	}{c, strings.Split(c.Body, "\n"), action, logoURL, fontURL, SafetyNote(c.Key)}
 	var out bytes.Buffer
 	if err := layout.Execute(&out, data); err != nil {
 		return ""
@@ -88,6 +92,7 @@ var layout = template.Must(template.New("notification").Parse(`<!doctype html>
 <tr><td style="padding:28px;font-family:'Manrope',Arial,Helvetica,sans-serif"><h1 style="margin:0 0 10px;font-size:22px;line-height:30px;font-weight:650;letter-spacing:-.5px;color:#17212b">{{.Title}}</h1>
 {{range .Lines}}{{if .}}<p style="margin:0 0 12px;font-size:14px;line-height:23px;color:#52636b;overflow-wrap:anywhere;word-break:break-word">{{.}}</p>{{end}}{{end}}
 {{if .Code}}<div style="margin:24px 0;padding:20px 16px;background:#e4f0ed;border-radius:8px;text-align:center"><div style="font-family:'Manrope',Arial,Helvetica,sans-serif;font-size:{{if le (len .Code) 6}}32{{else}}14{{end}}px;line-height:{{if le (len .Code) 6}}44{{else}}24{{end}}px;font-weight:650;letter-spacing:{{if le (len .Code) 6}}6{{else}}.4{{end}}px;font-variant-numeric:tabular-nums;word-break:break-all;color:#173b3d">{{.Code}}</div>{{if .Expiry}}<p style="margin:10px 0 0;font-size:12px;line-height:20px;color:#52636b">Expires {{.Expiry}}</p>{{end}}</div>{{end}}
+{{if and (not .Code) .Expiry}}<p style="font-size:12px;color:#52636b">Expires {{.Expiry}}</p>{{end}}
 {{if .Action.URL}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0 0"><tr><td bgcolor="#0f766e" style="border-radius:6px;text-align:center"><a href="{{.Action.URL}}" style="display:inline-block;padding:12px 20px;font-family:'Manrope',Arial,Helvetica,sans-serif;color:#ffffff;text-decoration:none;font-size:14px;line-height:22px;font-weight:600">{{.Action.Label}}</a></td></tr></table>{{end}}
 </td></tr></table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px"><tr><td style="padding:18px 12px 0;text-align:center;font-family:'Manrope',Arial,Helvetica,sans-serif;font-size:11px;line-height:19px;color:#6b777b">{{.Safety}}{{if .SupportEmail}}<br><a href="mailto:{{.SupportEmail}}" style="color:#52636b;text-decoration:underline">Contact support</a>{{end}}</td></tr></table>

@@ -306,7 +306,7 @@ var minimalSeedCopy = map[string]struct{ legacy, plain, intro string }{
 	"identity.password_recovery":   {"Use this password recovery token: {{token}}. Expires: {{expires_at}}.", "Recovery code: {{token}}\nExpires {{expires_at}}.", ""},
 	"identity.login_code":          {"Your sign-in code is {{code}}. Expires: {{expires_at}}.", "Sign-in code: {{code}}\nExpires {{expires_at}}.", "Enter this code to sign in."},
 	"tenant.invitation":            {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Enter this code to accept."},
-	"platform.invitation.issued":   {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Enter this code to accept."},
+	"platform.invitation.issued":   {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Accept your invitation, choose a password and verify your email to finish sign-in."},
 	"platform.invitation.reminder": {"Your {{role}} administrator invitation is awaiting acceptance. Expires: {{expires_at}}.", "Your {{role}} invitation is awaiting acceptance. Expires {{expires_at}}.", ""},
 	"platform.session_revocation":  {"Your administrator sessions were revoked at {{occurred_at}}. Sign in again and complete TOTP. Contact an authorised Platform Owner if unexpected.", "Your sessions were signed out at {{occurred_at}}. Sign in again.", ""},
 	"platform.identity_state":      {"Your administrator access was {{action}} at {{occurred_at}}. Contact an authorised Platform Owner if unexpected.", "Administrator access {{action}} at {{occurred_at}}.", ""},
@@ -367,6 +367,9 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 	}
 	body += "\n\n" + emailhtml.SafetyNote(t.Key)
 	action := emailhtml.QuickAction(values["web_origin"], t.Key)
+	if t.Key == "platform.invitation.issued" {
+		action = emailhtml.InvitationAction(values["web_origin"], values["token"])
+	}
 	if t.Key == "identity.password_recovery" && values["user_id"] != "" {
 		action = emailhtml.RecoveryAction(values["web_origin"], values["user_id"], values["token"])
 	}

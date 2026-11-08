@@ -1166,6 +1166,9 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 		return fail(err)
 	}
 	if identity.delivery != nil {
+		if err = httpapi.RegisterPlatformInvitationOnboarding(app, platformModule, loginHandler, hasher, identity.attempts, deriver); err != nil {
+			return fail(err)
+		}
 		if err = httpapi.RegisterPlatformInvitationRoutes(app, browserMiddleware, platformAdministrationHandler); err != nil {
 			return fail(err)
 		}

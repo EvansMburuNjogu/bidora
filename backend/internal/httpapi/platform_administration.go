@@ -196,7 +196,7 @@ func (h *PlatformAdministrationHandler) administrators(c fiber.Ctx) error {
 	}
 	items := make([]any, len(result.Administrators))
 	for i, row := range result.Administrators {
-		items[i] = administratorJSON(row)
+		items[i] = administratorJSON(row, auth.ActorID)
 	}
 	return platformJSON(c, 200, map[string]any{"administrators": items, "effective_owner_count": result.EffectiveOwnerCount, "continuity_warning": result.ContinuityWarning}, result.NextCursor)
 }
@@ -238,7 +238,7 @@ func (h *PlatformAdministrationHandler) searchAdministrators(c fiber.Ctx) error 
 	}
 	items := make([]any, len(result.Administrators))
 	for i, row := range result.Administrators {
-		items[i] = administratorJSON(row)
+		items[i] = administratorJSON(row, auth.ActorID)
 	}
 	return platformJSON(c, 200, map[string]any{"administrators": items, "effective_owner_count": result.EffectiveOwnerCount, "continuity_warning": result.ContinuityWarning}, nil)
 }
@@ -255,7 +255,7 @@ func (h *PlatformAdministrationHandler) administrator(c fiber.Ctx) error {
 	if err != nil {
 		return platformFailure(c, err)
 	}
-	return platformJSON(c, 200, administratorJSON(row), nil)
+	return platformJSON(c, 200, administratorJSON(row, auth.ActorID), nil)
 }
 func (h *PlatformAdministrationHandler) invitations(c fiber.Ctx) error {
 	auth, ok := h.readAuthority(c)
@@ -272,7 +272,7 @@ func (h *PlatformAdministrationHandler) invitations(c fiber.Ctx) error {
 	}
 	items := make([]any, len(result.Invitations))
 	for i, row := range result.Invitations {
-		items[i] = invitationJSON(row)
+		items[i] = invitationJSON(row, true)
 	}
 	return platformJSON(c, 200, map[string]any{"invitations": items}, result.NextCursor)
 }
@@ -874,7 +874,7 @@ func platformFailure(c fiber.Ctx, err error) error {
 	}
 }
 
-func administratorJSON(row platformapp.AdministratorView) any {
+func administratorJSON(row platformapp.AdministratorView, actor platformapp.ID) any {
 	assignments := make([]any, len(row.Assignments))
 	for i, a := range row.Assignments {
 		assignments[i] = assignmentJSON(a)
@@ -886,13 +886,18 @@ func administratorJSON(row platformapp.AdministratorView) any {
 	if row.Profile.Removed {
 		state = "REMOVED"
 	}
-	return map[string]any{"user_id": uuid.UUID(row.Profile.UserID).String(), "email": row.Identity.Email, "first_name": row.Identity.FirstName, "last_name": row.Identity.LastName, "state": state, "user_version": row.Profile.Version, "platform_context_generation": row.Profile.ContextGeneration, "totp_enrolled": row.Identity.TOTPEnrolled, "assignments": assignments, "effective_owner": row.EffectiveOwner, "created_at": row.Profile.CreatedAt, "updated_at": row.Profile.UpdatedAt}
+	return map[string]any{"is_current_user": row.Profile.UserID == actor, "user_id": uuid.UUID(row.Profile.UserID).String(), "email": row.Identity.Email, "first_name": row.Identity.FirstName, "last_name": row.Identity.LastName, "state": state, "user_version": row.Profile.Version, "platform_context_generation": row.Profile.ContextGeneration, "totp_enrolled": row.Identity.TOTPEnrolled, "assignments": assignments, "effective_owner": row.EffectiveOwner, "created_at": row.Profile.CreatedAt, "updated_at": row.Profile.UpdatedAt}
 }
 func assignmentJSON(row platformapp.AssignmentView) any {
 	return map[string]any{"id": uuid.UUID(row.ID).String(), "role_key": row.Role, "state": row.State, "version": row.Version, "assigned_by": platformOptionalID(row.AssignedBy), "assigned_at": row.AssignedAt, "revoked_by": platformOptionalID(row.RevokedBy), "revoked_at": row.RevokedAt, "reason": row.Reason, "revocation_reason": row.RevocationReason}
 }
-func invitationJSON(row platformapp.InvitationView) any {
-	return map[string]any{"id": uuid.UUID(row.ID).String(), "email": row.Email, "role_key": row.Role, "state": row.State, "version": row.Version, "created_at": row.CreatedAt, "expires_at": row.ExpiresAt, "delivery_state": row.Delivery, "governance_change_id": platformOptionalID(row.GovernanceChangeID)}
+func invitationJSON(row platformapp.InvitationView, names ...bool) any {
+	value := map[string]any{"id": uuid.UUID(row.ID).String(), "email": row.Email, "role_key": row.Role, "state": row.State, "version": row.Version, "created_at": row.CreatedAt, "expires_at": row.ExpiresAt, "delivery_state": row.Delivery, "governance_change_id": platformOptionalID(row.GovernanceChangeID)}
+	if len(names) > 0 && names[0] {
+		value["first_name"] = row.FirstName
+		value["last_name"] = row.LastName
+	}
+	return value
 }
 func changeJSON(row platformapp.ChangeView) any {
 	var role any

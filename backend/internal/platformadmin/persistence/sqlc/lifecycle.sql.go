@@ -1003,7 +1003,7 @@ func (q *Queries) ListPlatformAdministratorProfiles(ctx context.Context, arg Lis
 }
 
 const listPlatformInvitations = `-- name: ListPlatformInvitations :many
-SELECT i.id, i.email, i.role_key, i.state, i.invited_by, i.reason, i.created_at, i.activated_at,
+SELECT i.first_name,i.last_name,i.id, i.email, i.role_key, i.state, i.invited_by, i.reason, i.created_at, i.activated_at,
        i.expires_at, i.accepted_by, i.accepted_at, i.cancelled_at, i.replaced_at, i.version,
        (SELECT c.id FROM platform_administration.administrator_changes AS c
         WHERE c.invitation_id = i.id AND c.action = 'ACTIVATE_OWNER_INVITATION'
@@ -1023,6 +1023,8 @@ type ListPlatformInvitationsParams struct {
 }
 
 type ListPlatformInvitationsRow struct {
+	FirstName          string
+	LastName           string
 	ID                 pgtype.UUID
 	Email              string
 	RoleKey            string
@@ -1050,6 +1052,8 @@ func (q *Queries) ListPlatformInvitations(ctx context.Context, arg ListPlatformI
 	for rows.Next() {
 		var i ListPlatformInvitationsRow
 		if err := rows.Scan(
+			&i.FirstName,
+			&i.LastName,
 			&i.ID,
 			&i.Email,
 			&i.RoleKey,

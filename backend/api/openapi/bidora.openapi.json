@@ -1484,6 +1484,51 @@
       }
     },
     "schemas": {
+      "administrator_invitation_onboarding__InvitationPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "maxLength": 43,
+            "minLength": 43,
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "administrator_invitation_onboarding__InvitationSetupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "first_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "password": {
+            "format": "password",
+            "maxLength": 128,
+            "type": "string",
+            "writeOnly": true
+          },
+          "token": {
+            "maxLength": 43,
+            "minLength": 43,
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "type": "object"
+      },
       "ai_requirement_review__ErrorResponse": {
         "type": "object"
       },
@@ -4645,6 +4690,10 @@
             "maxLength": 100,
             "type": "string"
           },
+          "is_current_user": {
+            "description": "Derived from the authenticated caller. Self role/access/session revocation is not permitted.",
+            "type": "boolean"
+          },
           "last_name": {
             "maxLength": 100,
             "type": "string"
@@ -5160,6 +5209,10 @@
               "null"
             ]
           },
+          "first_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
           "governance_change_id": {
             "format": "uuid",
             "type": [
@@ -5169,6 +5222,10 @@
           },
           "id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
             "type": "string"
           },
           "role_key": {
@@ -9000,6 +9057,114 @@
         ],
         "x-source-contract": "api/openapi/health.json",
         "x-source-status": "source-status-unspecified"
+      }
+    },
+    "/v1/auth/administrator-invitation/preview": {
+      "post": {
+        "description": "Approved Origin and trusted-network/identity attempt budgets are required. The one-time invitation capability is sent only in a bounded JSON body, never a query. Preview never consumes the invitation. Setup pins mailbox, names and role to the active unexpired record, creates credentials and consumes the invitation atomically with audit evidence; it never resets or converts an existing identity. Explicit submission of the emailed capability proves the mailbox. No authenticated session or MFA assurance is granted until the ordinary email-OTP sign-in completes. Tenant ties, cancellation, expiry, token rotation and single use remain enforced.",
+        "operationId": "previewAdministratorInvitation",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/administrator_invitation_onboarding__InvitationPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Validated invitation preview without token or credentials"
+          },
+          "400": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "403": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "409": {
+            "description": "Existing identity must sign in; password never overwritten"
+          },
+          "429": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "503": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          }
+        },
+        "security": [],
+        "summary": "Inspect an emailed invitation without accepting it",
+        "tags": [
+          "Authentication"
+        ],
+        "x-source-contract": "api/openapi/drafts/administrator-invitation-onboarding.json",
+        "x-source-status": "implemented-local-http-verified"
+      }
+    },
+    "/v1/auth/administrator-invitation/setup": {
+      "post": {
+        "description": "Approved Origin and trusted-network/identity attempt budgets are required. The one-time invitation capability is sent only in a bounded JSON body, never a query. Preview never consumes the invitation. Setup pins mailbox, names and role to the active unexpired record, creates credentials and consumes the invitation atomically with audit evidence; it never resets or converts an existing identity. Explicit submission of the emailed capability proves the mailbox. No authenticated session or MFA assurance is granted until the ordinary email-OTP sign-in completes. Tenant ties, cancellation, expiry, token rotation and single use remain enforced.",
+        "operationId": "setUpInvitedAdministratorAccount",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/administrator_invitation_onboarding__InvitationSetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Password accepted; only HttpOnly email-MFA challenge cookie is issued, not a session"
+          },
+          "400": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "403": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "409": {
+            "description": "Existing identity must sign in; password never overwritten"
+          },
+          "429": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          },
+          "503": {
+            "description": "Invalid, denied, throttled or unavailable request"
+          }
+        },
+        "security": [],
+        "summary": "Set password for a new invited administrator and begin canonical email MFA",
+        "tags": [
+          "Authentication"
+        ],
+        "x-source-contract": "api/openapi/drafts/administrator-invitation-onboarding.json",
+        "x-source-status": "implemented-local-http-verified"
       }
     },
     "/v1/auth/google/callback": {
@@ -27295,9 +27460,10 @@
   "x-contract-status": "IMPLEMENTED_NOT_VERIFIED",
   "x-generation": {
     "command": "cd backend && python3 api/openapi/generate.py",
-    "source_count": 69,
+    "source_count": 70,
     "sources": [
       "api/openapi/health.json",
+      "api/openapi/drafts/administrator-invitation-onboarding.json",
       "api/openapi/drafts/ai-proposal-writing.json",
       "api/openapi/drafts/ai-requirement-review.json",
       "api/openapi/drafts/ai-response-drafts.json",

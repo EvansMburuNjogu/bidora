@@ -68,6 +68,8 @@ func RenderPlatformInvitation(input PlatformInvitationInput) (Message, error) {
 	return Message{Subject: subject, Text: text, HTML: html.String()}, nil
 }
 
+func RoleLabel(role domain.Role) string { return roleLabel(role) }
+
 func roleLabel(role domain.Role) string {
 	switch role {
 	case domain.PlatformOwner:

@@ -6,6 +6,9 @@ import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-
 import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 
 const operations = {
+  "administrator-invitation-preview": {path:"/v1/auth/administrator-invitation/preview",body:true,cookie:false,csrf:false},
+  "administrator-invitation-setup": {path:"/v1/auth/administrator-invitation/setup",body:true,cookie:false,csrf:false},
+  "administrator-invitation-accept": {path:"/v1/platform/administrator-invitations/accept",body:true,cookie:true,csrf:true},
   login: { path: "/v1/auth/login", body: true, cookie: false, csrf: false },
   register: { path: "/v1/auth/register", body: true, cookie: false, csrf: false },
   "password-recovery": { path: "/v1/auth/password-recovery", body: true, cookie: false, csrf: false },
@@ -122,6 +125,10 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
     if (cookie) headers.set("Cookie", cookie);
   }
+  if(operation==="administrator-invitation-accept"){
+    const key=request.headers.get("idempotency-key");if(!key||!/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(key))return safeFailure(400);
+    headers.set("Idempotency-Key",key);
+  }
   if (contract.csrf) {
     const csrf = request.headers.get("x-csrf-token");
     if (!csrf || !/^[A-Za-z0-9_-]{43}$/.test(csrf)) return safeFailure(403);
@@ -151,12 +158,12 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     if (value) responseHeaders.set(name, value);
   }
   const challengeExpiry = upstream.headers.get("x-bidora-challenge-expires-at");
-  if (upstream.status === 202 && (operation === "login" || operation === "login-code-resend") && challengeExpiry && Number.isFinite(Date.parse(challengeExpiry))) {
+  if (upstream.status === 202 && (operation === "login" || operation === "administrator-invitation-setup" || operation === "login-code-resend") && challengeExpiry && Number.isFinite(Date.parse(challengeExpiry))) {
     responseHeaders.set("X-Bidora-Challenge-Expires-At", new Date(challengeExpiry).toISOString());
   }
   for (const value of upstream.headers.getSetCookie()) {
     responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
-    if (upstream.status === 202 && (operation === "login" || operation === "login-code-resend") && value.startsWith("__Host-bidora_login_code=")) {
+    if (upstream.status === 202 && (operation === "login" || operation === "administrator-invitation-setup" || operation === "login-code-resend") && value.startsWith("__Host-bidora_login_code=")) {
       const expiry = value.match(/;\s*Expires=([^;]+)/i)?.[1];
       if (!responseHeaders.has("X-Bidora-Challenge-Expires-At") && expiry && Number.isFinite(Date.parse(expiry))) responseHeaders.set("X-Bidora-Challenge-Expires-At", new Date(expiry).toISOString());
     }
@@ -179,6 +186,8 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
       return googleFailureRedirect(responseHeaders);
     }
   }
+
+  if(upstream.status===204 && (operation==="login-code"||operation==="login") && /(?:^|;\s*)__Host-bidora_administrator_invite=[A-Za-z0-9_-]{43}(?:;|$)/.test(backendCookieHeader(request.headers.get("cookie"),browser)??""))responseHeaders.set("X-Bidora-Invitation-Pending","1");
 
   // These commands deliberately return a generic, bodyless acknowledgement.
   // Fiber's SendStatus(202) can carry text/plain "Accepted", not JSON.

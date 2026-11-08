@@ -26,7 +26,7 @@ func TestMigrationAndGenerationInputsMatchReviewedChecksums(t *testing.T) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 198 {
+	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 199 {
 		t.Fatal("unexpected manifest scope")
 	}
 	for name, want := range manifest.Files {

@@ -92,7 +92,7 @@ func (d *Delivery) DeliverPlatformInvitation(ctx context.Context, recipient emai
 	if err != nil {
 		return err
 	}
-	return d.configured(ctx, recipient, "platform.invitation.issued", map[string]string{"role": string(role), "token": token.RevealForDelivery(), "expires_at": expiresAt.UTC().Format(time.RFC3339)}, message)
+	return d.configured(ctx, recipient, "platform.invitation.issued", map[string]string{"role": emailtemplate.RoleLabel(role), "token": token.RevealForDelivery(), "expires_at": expiresAt.UTC().Format(time.RFC3339)}, message)
 }
 
 func (d *Delivery) DeliverPlatformSessionRevocation(ctx context.Context, recipient email.Address, occurredAt time.Time) error {

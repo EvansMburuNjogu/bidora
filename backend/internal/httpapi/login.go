@@ -104,6 +104,10 @@ func (h *LoginHandler) Handle(c fiber.Ctx) error {
 	if err != nil {
 		return loginFailure(c, err)
 	}
+	return writeLoginResult(c, result)
+}
+
+func writeLoginResult(c fiber.Ctx, result identityapp.LoginResult) error {
 	if result.MFARequired {
 		c.Cookie(&fiber.Cookie{Name: "__Host-bidora_login_code", Value: result.MFAToken, Path: "/", Expires: result.MFAExpiresAt.Add(identityapp.EmailLoginResendGrace), Secure: true, HTTPOnly: true, SameSite: "Lax"})
 		c.Set("X-Bidora-Challenge-Expires-At", result.MFAExpiresAt.UTC().Format(time.RFC3339Nano))

@@ -61,7 +61,7 @@ export function AdministratorDetail({ userId }: { userId: string }) {
 
   async function revokeSessions(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current || revoking || state.kind !== "ready" || !generation || !resolution.capabilities.includes("platform.admin.session.revoke")) return;
+    if (submitting.current || revoking || state.kind !== "ready" || state.value.is_current_user || !generation || !resolution.capabilities.includes("platform.admin.session.revoke")) return;
     const reason = String(new FormData(event.currentTarget).get("reason") ?? "");
     if (reason !== reason.trim() || new TextEncoder().encode(reason).byteLength < 1 || new TextEncoder().encode(reason).byteLength > 2000) {
       setReasonError("Enter a reason of at most 2,000 bytes without surrounding spaces."); return;
@@ -99,7 +99,7 @@ export function AdministratorDetail({ userId }: { userId: string }) {
       <div><h2 className="break-all font-medium">{state.value.email}</h2><p className="text-sm text-muted-foreground">{state.value.state === "ACTIVE" ? "Active account" : "Disabled account"} · Email code required</p></div>
       <div><h3 className="text-sm font-medium">Current responsibilities</h3>{state.value.assignments.some((assignment) => assignment.state === "ACTIVE") ? <ul className="mt-2 list-inside list-disc text-sm">{state.value.assignments.filter((assignment) => assignment.state === "ACTIVE").map((assignment) => <li key={assignment.role_key}>{platformRoleLabels[assignment.role_key]}</li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">No active roles assigned.</p>}</div>
       {state.value.effective_owner ? <p className="text-sm text-muted-foreground">Counts toward Platform Owner continuity.</p> : null}
-      {resolution.capabilities.includes("platform.admin.session.revoke") ? <AlertDialog open={dialogOpen} onOpenChange={(value) => { if (!submitting.current) setDialogOpen(value); }}>
+      {!state.value.is_current_user && resolution.capabilities.includes("platform.admin.session.revoke") ? <AlertDialog open={dialogOpen} onOpenChange={(value) => { if (!submitting.current) setDialogOpen(value); }}>
         <AlertDialogTrigger render={<Button id="revoke-sessions" type="button" variant="destructive" />}><ShieldOffIcon aria-hidden="true" />Revoke sessions</AlertDialogTrigger>
         <AlertDialogContent>
           <form onSubmit={(event) => void revokeSessions(event)} className="space-y-4">
@@ -109,6 +109,6 @@ export function AdministratorDetail({ userId }: { userId: string }) {
           </form>
         </AlertDialogContent>
       </AlertDialog> : null}
-    </section><AdministratorRoleChange administrator={state.value} onChanged={() => setRevision((value) => value + 1)} /><AdministratorIdentityState administrator={state.value} onChanged={() => setRevision((value) => value + 1)} /><AdministratorAssignmentHistory key={revision} userId={userId} /></> : null}
+    </section>{!state.value.is_current_user && <><AdministratorRoleChange administrator={state.value} onChanged={() => setRevision((value) => value + 1)} /><AdministratorIdentityState administrator={state.value} onChanged={() => setRevision((value) => value + 1)} /></>}<AdministratorAssignmentHistory key={revision} userId={userId} /></> : null}
   </main>;
 }

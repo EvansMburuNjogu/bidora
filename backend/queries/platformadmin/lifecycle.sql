@@ -157,7 +157,7 @@ WHERE id = sqlc.arg(id) AND state = 'ACTIVE' AND version = sqlc.arg(expected_ver
   AND expires_at > sqlc.arg(at);
 
 -- name: ListPlatformInvitations :many
-SELECT i.id, i.email, i.role_key, i.state, i.invited_by, i.reason, i.created_at, i.activated_at,
+SELECT i.first_name,i.last_name,i.id, i.email, i.role_key, i.state, i.invited_by, i.reason, i.created_at, i.activated_at,
        i.expires_at, i.accepted_by, i.accepted_at, i.cancelled_at, i.replaced_at, i.version,
        (SELECT c.id FROM platform_administration.administrator_changes AS c
         WHERE c.invitation_id = i.id AND c.action = 'ACTIVATE_OWNER_INVITATION'
