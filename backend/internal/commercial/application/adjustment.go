@@ -49,6 +49,7 @@ type AdjustmentStored struct {
 	CreditNumber                                 string
 	CurrentInvoiceVersion, CurrentPaymentVersion int64
 	InvoiceTotalMinor, PriorCreditMinor          int64
+	PaymentSettledAt                             time.Time // authoritative immutable settlement effect, never client input
 }
 type AdjustmentDecision struct {
 	ChangeID, TenantID, CheckerUserID, DecisionID, CreditNoteID, RefundID, CommandID domain.ID
@@ -106,7 +107,7 @@ type AdjustmentService struct {
 }
 
 func NewAdjustmentService(uow AdjustmentUnitOfWork, ids InvoiceIDGenerator, clock InvoiceClock, policy AdjustmentPolicy) (*AdjustmentService, error) {
-	if uow == nil || ids == nil || clock == nil || policy.RefundRequestWindow <= 0 || policy.RefundRequestWindow > domain.RefundEligibilityWindow {
+	if uow == nil || ids == nil || clock == nil || policy.RefundRequestWindow < 0 || policy.RefundRequestWindow > domain.RefundEligibilityWindow {
 		return nil, errors.New("commercial_adjustment_service_invalid")
 	}
 	z, e := time.LoadLocation("Africa/Nairobi")
@@ -168,6 +169,12 @@ func (s *AdjustmentService) Propose(ctx context.Context, in ProposeAdjustmentInp
 			out.Proposal.Version = cmd.Version
 			out.CheckerUserID, out.CreditNoteID, out.RefundID, out.CreditNumber = domain.ID{}, domain.ID{}, domain.ID{}, ""
 			return nil
+		}
+		// A zero window disables new refund proposals until the provider-contract
+		// window and production commercial policy are explicitly approved.
+		// Existing commands may still replay their immutable receipt above.
+		if in.Action == "REQUEST_REFUND" && s.policy.RefundRequestWindow == 0 {
+			return ErrAdjustmentNotPermitted
 		}
 		authHash, x := domain.AdjustmentAuthorityHash(auth.UserID, auth.ContextGeneration, auth.AdministratorVersion, "BILLING_ADMINISTRATOR", "platform.billing.adjustment.request", auth.AssuranceMethod, auth.AssuredAt)
 		if x != nil {
@@ -270,6 +277,16 @@ func (s *AdjustmentService) Decide(ctx context.Context, in DecideAdjustmentInput
 		}
 		if stored.State != "PENDING_APPROVAL" || stored.Proposal.Version != in.ExpectedVersion || stored.Proposal.MakerUserID == in.Actor.UserID || at.After(stored.Proposal.ExpiresAt) {
 			return ErrAdjustmentApprovalRequired
+		}
+		if in.Decision == "APPROVED" && stored.Proposal.Action == "REQUEST_REFUND" {
+			if s.policy.RefundRequestWindow == 0 {
+				return ErrAdjustmentNotPermitted
+			}
+			// A proposal made just before the contract deadline is not permission
+			// to approve after it. Recheck the immutable settlement under the lock.
+			if stored.PaymentSettledAt.IsZero() || at.Before(stored.PaymentSettledAt) || at.After(stored.PaymentSettledAt.Add(s.policy.RefundRequestWindow)) {
+				return ErrAdjustmentApprovalRequired
+			}
 		}
 		if in.Decision == "APPROVED" && (stored.InvoiceState != "PAID" || stored.PaymentState != "SETTLED" || stored.CurrentInvoiceVersion != stored.Proposal.ExpectedInvoiceVersion || stored.CurrentPaymentVersion != stored.Proposal.ExpectedPaymentVersion || stored.PriorCreditMinor < 0 || stored.Proposal.AmountMinorUnits > stored.InvoiceTotalMinor-stored.PriorCreditMinor) {
 			return ErrAdjustmentConflict

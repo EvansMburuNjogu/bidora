@@ -49,7 +49,7 @@ func (r *SessionReader) GetSession(ctx context.Context, tokenHash [32]byte, obse
 		if len(row.CsrfHash) != 32 {
 			return errors.New("session_csrf_hash_invalid")
 		}
-		result = identityapp.SessionRecord{SessionID: identityapp.ID(row.ID.Bytes), UserID: identityapp.ID(row.UserID.Bytes), AuthEpoch: row.AuthEpoch, IdleExpiresAt: row.IdleExpiresAt.Time.UTC(), AbsoluteExpiresAt: row.AbsoluteExpiresAt.Time.UTC(), AssuranceLevel: row.AssuranceLevel, AssuranceMethod: row.AssuranceMethod, AssuredAt: row.AssuredAt.Time.UTC()}
+		result = identityapp.SessionRecord{AuthenticatedAt: row.AuthenticatedAt.Time.UTC(), SessionID: identityapp.ID(row.ID.Bytes), UserID: identityapp.ID(row.UserID.Bytes), AuthEpoch: row.AuthEpoch, IdleExpiresAt: row.IdleExpiresAt.Time.UTC(), AbsoluteExpiresAt: row.AbsoluteExpiresAt.Time.UTC(), AssuranceLevel: row.AssuranceLevel, AssuranceMethod: row.AssuranceMethod, AssuredAt: row.AssuredAt.Time.UTC()}
 		copy(result.CSRFHash[:], row.CsrfHash)
 		return nil
 	})

@@ -29,7 +29,7 @@ func TestRuntimeGrantManifestsExactlyCoverReviewedQueries(t *testing.T) {
 		plane string
 		dirs  []string
 		count int
-	}{{"control", []string{"control", "identity", "controlplane", "platformadmin", "platformsettings", "commercial", "authorization", "notification"}, 98}, {"tenant", []string{"eventing", "organization", "tenantevidence", "entitlement", "opportunity"}, 61}} {
+	}{{"control", []string{"control", "identity", "controlplane", "platformadmin", "platformsettings", "commercial", "authorization", "notification"}, 106}, {"tenant", []string{"eventing", "organization", "tenantevidence", "entitlement", "opportunity"}, 61}} {
 		t.Run(tc.plane, func(t *testing.T) {
 			manifest, err := runtimegrants.Load(tc.plane)
 			if err != nil {
@@ -77,10 +77,10 @@ func TestControlRuntimeGrantsPreserveAuditBoundaryAndRegistration(t *testing.T) 
 		grants[grant.Table] = grant.Privileges
 	}
 	for table, want := range map[string][]runtimegrants.Privilege{
-		"bidora_control_audit.audit_events":             {runtimegrants.Insert},
+		"bidora_control_audit.audit_events":               {runtimegrants.Insert},
 		"bidora_control_audit.platform_action_details_v1": {runtimegrants.Select},
-		"bidora_tenancy.tenants":                        {runtimegrants.Select, runtimegrants.Insert},
-		"tenancy.provisioning_jobs":                     {runtimegrants.Insert},
+		"bidora_tenancy.tenants":                          {runtimegrants.Select, runtimegrants.Insert},
+		"tenancy.provisioning_jobs":                       {runtimegrants.Insert},
 	} {
 		got := append([]runtimegrants.Privilege(nil), grants[table]...)
 		sort.Slice(got, func(i, j int) bool { return got[i] < got[j] })

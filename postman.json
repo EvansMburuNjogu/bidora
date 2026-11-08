@@ -1419,8 +1419,8 @@
                 "value": "{{csrf_token}}"
               },
               {
-                "key": "X-Bidora-Context-Generation",
-                "value": "{{context_generation}}"
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
               },
               {
                 "key": "Idempotency-Key",
@@ -1465,8 +1465,8 @@
                 "value": "{{csrf_token}}"
               },
               {
-                "key": "X-Bidora-Context-Generation",
-                "value": "{{context_generation}}"
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
               },
               {
                 "key": "Idempotency-Key",
@@ -2323,6 +2323,26 @@
                   "disabled": true,
                   "key": "cursor",
                   "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "tenant_id",
+                  "value": "{{tenant_id}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "kind",
+                  "value": "{{kind}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "from",
+                  "value": "{{from}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "to",
+                  "value": "{{to}}"
                 }
               ],
               "raw": "{{base_url}}/v1/platform/commercial/ai-usage"
@@ -3052,6 +3072,52 @@
           }
         },
         {
+          "description": "`postPlatformAdministratorInvitationsInvitationIdReissue` — source: `api/openapi/drafts/platform-invitation-reissue.json`",
+          "name": "Explicitly revoke an active invitation and issue a fresh token",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 1,\n  \"reason\": \"replace-with-synthetic-value\"\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/administrator-invitations/{{invitation_id}}/reissue"
+            }
+          }
+        },
+        {
           "description": "`postPlatformNotificationsAttemptsSearch` — source: `api/openapi/drafts/platform-notification-history.json`",
           "name": "Filter communications by exact recipient email without including personal data in URLs",
           "request": {
@@ -3390,6 +3456,267 @@
               "path": [],
               "query": [],
               "raw": "{{base_url}}/v1/platform/notification-templates/{{template_key}}/test"
+            }
+          }
+        },
+        {
+          "description": "`getPlatformOperationalOverview` — source: `api/openapi/drafts/platform-operational-workflows.json`",
+          "name": "Read permission-scoped operational totals",
+          "request": {
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/overview"
+            }
+          }
+        },
+        {
+          "description": "`lookupPlatformOperationalReferences` — source: `api/openapi/drafts/platform-operational-workflows.json`",
+          "name": "Search organisations or eligible support assignees",
+          "request": {
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "search",
+                  "value": "{{search}}"
+                }
+              ],
+              "raw": "{{base_url}}/v1/platform/references/{{kind}}"
+            }
+          }
+        },
+        {
+          "description": "`suspendPlatformTenant` — source: `api/openapi/drafts/platform-operational-workflows.json`",
+          "name": "Suspend organisation access",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 1,\n  \"reason\": \"replace-with-synthetic-value\"\n}"
+            },
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/tenants/{{tenant_id}}/suspend"
+            }
+          }
+        },
+        {
+          "description": "`reactivatePlatformTenant` — source: `api/openapi/drafts/platform-operational-workflows.json`",
+          "name": "Reactivate a suspended organisation",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 1,\n  \"reason\": \"replace-with-synthetic-value\"\n}"
+            },
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/tenants/{{tenant_id}}/reactivate"
+            }
+          }
+        },
+        {
+          "description": "`getPlatformCommercialPlansManagement` — source: `api/openapi/drafts/platform-plan-management.json`",
+          "name": "Audited published and latest draft plans",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/commercial/plans/management"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformCommercialPlansPlanKeyDrafts` — source: `api/openapi/drafts/platform-plan-management.json`",
+          "name": "Create immutable versioned paid plan draft",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_head_version\": 1,\n  \"monthly_price\": {\n    \"currency\": \"KES\",\n    \"amount\": \"replace-with-synthetic-value\"\n  },\n  \"annual_price\": {\n    \"currency\": \"KES\",\n    \"amount\": \"replace-with-synthetic-value\"\n  },\n  \"additional_licence_monthly_price\": {\n    \"currency\": \"KES\",\n    \"amount\": \"replace-with-synthetic-value\"\n  },\n  \"bid_workspaces\": 1,\n  \"included_licences\": 1,\n  \"storage_bytes\": 1,\n  \"document_versions\": 1,\n  \"ai_credits\": 1,\n  \"concurrent_ai_jobs\": 1\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/commercial/plans/{{plan_key}}/drafts"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformCommercialPlansPlanKeyPublish` — source: `api/openapi/drafts/platform-plan-management.json`",
+          "name": "Publish an immutable plan version",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_head_version\": 1,\n  \"version\": 2\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/commercial/plans/{{plan_key}}/publish"
             }
           }
         },
@@ -3737,6 +4064,413 @@
               "path": [],
               "query": [],
               "raw": "{{base_url}}/v1/platform/security/session-policy"
+            }
+          }
+        },
+        {
+          "description": "`getPlatformCommercialSubscriptions` — source: `api/openapi/drafts/platform-subscriptions.json`",
+          "name": "Bounded audited Platform subscription inventory",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "cursor",
+                  "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "state",
+                  "value": "{{google_state}}"
+                }
+              ],
+              "raw": "{{base_url}}/v1/platform/commercial/subscriptions"
+            }
+          }
+        },
+        {
+          "description": "`getPlatformCommercialSubscriptionsTenantId` — source: `api/openapi/drafts/platform-subscriptions.json`",
+          "name": "Audit a control-owned tenant subscription term",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/commercial/subscriptions/{{tenant_id}}"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformCommercialSubscriptionsTenantIdCancellation` — source: `api/openapi/drafts/platform-subscriptions.json`",
+          "name": "Schedule subscription cancellation at term boundary",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/commercial/subscriptions/{{tenant_id}}/cancellation"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformCommercialSubscriptionsTenantIdCancellationWithdraw` — source: `api/openapi/drafts/platform-subscriptions.json`",
+          "name": "Withdraw a scheduled cancellation before its boundary",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/commercial/subscriptions/{{tenant_id}}/cancellation/withdraw"
+            }
+          }
+        },
+        {
+          "description": "`getPlatformSupportCases` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "List control-owned support cases",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "cursor",
+                  "value": "{{cursor}}"
+                }
+              ],
+              "raw": "{{base_url}}/v1/platform/support/cases"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformSupportCases` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "Create a support case for a registered tenant",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"tenant_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"title\": \"replace-with-synthetic-value\",\n  \"description\": \"replace-with-synthetic-value\"\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/support/cases"
+            }
+          }
+        },
+        {
+          "description": "`getPlatformSupportCasesCaseId` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "Read a support case and at most 100 immutable replies",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/support/cases/{{case_id}}"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformSupportCasesCaseIdAssign` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "Assign an active Support Administrator",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"assignee_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"expected_version\": 1\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/support/cases/{{case_id}}/assign"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformSupportCasesCaseIdReply` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "Append a support reply (up to 100)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"message\": \"replace-with-synthetic-value\",\n  \"expected_version\": 1\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/support/cases/{{case_id}}/reply"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformSupportCasesCaseIdResolve` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "Resolve an open support case",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 1\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/support/cases/{{case_id}}/resolve"
+            }
+          }
+        },
+        {
+          "description": "`postPlatformSupportCasesCaseIdReopen` — source: `api/openapi/drafts/platform-support-cases.json`",
+          "name": "Reopen a resolved support case",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 1\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/support/cases/{{case_id}}/reopen"
             }
           }
         },
@@ -7413,6 +8147,10 @@
       "value": "00000000-0000-0000-0000-000000000000"
     },
     {
+      "key": "case_id",
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
       "key": "category",
       "value": ""
     },
@@ -7493,6 +8231,10 @@
       "value": "00000000-0000-0000-0000-000000000000"
     },
     {
+      "key": "kind",
+      "value": ""
+    },
+    {
       "key": "limit",
       "value": ""
     },
@@ -7534,6 +8276,10 @@
     },
     {
       "key": "payment_id",
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "key": "plan_key",
       "value": "00000000-0000-0000-0000-000000000000"
     },
     {

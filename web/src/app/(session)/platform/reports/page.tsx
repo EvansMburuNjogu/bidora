@@ -1,2 +1,2 @@
-import { PlatformUIPreview } from "@/components/platform/platform-ui-preview";
-export default function Page() { return <PlatformUIPreview module="reports" />; }
+import { PlatformReportsAudit } from "@/components/platform/platform-reports-audit";
+export default function Page() { return <PlatformReportsAudit />; }

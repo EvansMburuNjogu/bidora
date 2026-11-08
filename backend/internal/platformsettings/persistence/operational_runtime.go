@@ -35,20 +35,14 @@ func (s *RegionalPolicyStore) UploadLimit(ctx context.Context) (int64, error) {
 	return p.MaxDocumentBytes, nil
 }
 func (s *RegionalPolicyStore) Gate(ctx context.Context, path string) error {
-	if !strings.HasPrefix(path, "/v1/tenderpreneur/") && !strings.HasPrefix(path, "/v1/shared/invitations") {
+	if !app.OperationalBusinessPath(path) {
 		return nil
 	}
 	p, e := s.CurrentPolicy(ctx)
 	if e != nil {
 		return e
 	}
-	if p.UnderMaintenance(time.Now().UTC()) {
-		return app.OperationalUnavailable{Message: p.MaintenanceMessage}
-	}
-	if strings.Contains(path, "/uploads") && !p.UploadsEnabled || path == "/v1/tenderpreneur/organizations" && !p.RegistrationEnabled {
-		return app.ErrInformationUnavailable
-	}
-	return nil
+	return p.EnforceBusinessPath(path,time.Now().UTC())
 }
 
 // Observation captures authenticated Platform activity only using trusted-peer

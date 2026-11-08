@@ -66,7 +66,7 @@ func (tx *trialTx) ListPlatformInvoices(ctx context.Context, limit int32, cursor
 		if !r.ID.Valid || !r.TenantID.Valid || !r.SubscriptionID.Valid || r.InvoiceNumber == "" || r.State == "" || r.Version < 1 || r.Currency != domain.CurrencyKES || r.TotalMinorUnits < 1 || r.OutstandingMinorUnits < 0 || !r.IssuedAt.Valid || !r.DueAt.Valid {
 			return nil, errors.New("commercial_platform_invoice_queue_corrupt")
 		}
-		out = append(out, commercialapp.PlatformInvoiceQueueItem{ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), SubscriptionID: domain.ID(r.SubscriptionID.Bytes), Number: r.InvoiceNumber, State: r.State, PurchaseKind: r.PurchaseKind, Currency: r.Currency, Version: r.Version, TotalMinorUnits: r.TotalMinorUnits, OutstandingMinorUnits: r.OutstandingMinorUnits, IssuedAt: r.IssuedAt.Time.UTC(), DueAt: r.DueAt.Time.UTC()})
+		out = append(out, commercialapp.PlatformInvoiceQueueItem{TenantName: r.TenantName, SettledPaymentVersion: r.SettledPaymentVersion, ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), SubscriptionID: domain.ID(r.SubscriptionID.Bytes), Number: r.InvoiceNumber, State: r.State, PurchaseKind: r.PurchaseKind, Currency: r.Currency, Version: r.Version, TotalMinorUnits: r.TotalMinorUnits, OutstandingMinorUnits: r.OutstandingMinorUnits, IssuedAt: r.IssuedAt.Time.UTC(), DueAt: r.DueAt.Time.UTC()})
 	}
 	return out, nil
 }
@@ -81,7 +81,7 @@ func (tx *trialTx) ListPlatformPayments(ctx context.Context, limit int32, cursor
 		if !r.ID.Valid || !r.TenantID.Valid || !r.InvoiceID.Valid || !validPaymentReadState(r.State) || !validReconciliationReadState(r.ReconciliationState) || r.Version < 1 || r.Currency != domain.CurrencyKES || r.AmountMinorUnits < 1 || !r.CreatedAt.Valid || !r.UpdatedAt.Valid {
 			return nil, errors.New("commercial_platform_payment_queue_corrupt")
 		}
-		v := commercialapp.PlatformPaymentQueueItem{ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), State: r.State, Currency: r.Currency, ReconciliationState: r.ReconciliationState, Version: r.Version, AmountMinorUnits: r.AmountMinorUnits, ReconciliationPending: r.ReconciliationState != "COMPLETE" && r.ReconciliationState != "NOT_REQUIRED", CreatedAt: r.CreatedAt.Time.UTC(), UpdatedAt: r.UpdatedAt.Time.UTC()}
+		v := commercialapp.PlatformPaymentQueueItem{TenantName: r.TenantName, ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), State: r.State, Currency: r.Currency, ReconciliationState: r.ReconciliationState, Version: r.Version, AmountMinorUnits: r.AmountMinorUnits, ReconciliationPending: r.ReconciliationState != "COMPLETE" && r.ReconciliationState != "NOT_REQUIRED", CreatedAt: r.CreatedAt.Time.UTC(), UpdatedAt: r.UpdatedAt.Time.UTC()}
 		if r.ReconciledAt.Valid {
 			x := r.ReconciledAt.Time.UTC()
 			v.ReconciledAt = &x
@@ -101,7 +101,7 @@ func (tx *trialTx) ListPlatformAdjustments(ctx context.Context, limit int32, cur
 		if !r.ID.Valid || !r.TenantID.Valid || !r.InvoiceID.Valid || !r.PaymentID.Valid || !r.MakerUserID.Valid || r.Version < 1 || r.AmountMinorUnits < 1 || r.NetMinorUnits < 0 || r.TaxMinorUnits < 0 || r.AmountMinorUnits != r.NetMinorUnits+r.TaxMinorUnits || !r.CreatedAt.Valid || !r.ExpiresAt.Valid || !validAdjustmentReadShape(r.State, r.CheckerUserID.Valid, r.DecidedAt.Valid, r.State == "APPROVED" || r.State == "REJECTED" || r.State == "REVIEW_REQUIRED") {
 			return nil, errors.New("commercial_platform_adjustment_queue_corrupt")
 		}
-		v := commercialapp.PlatformAdjustmentQueueItem{ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), PaymentID: domain.ID(r.PaymentID.Bytes), MakerUserID: domain.ID(r.MakerUserID.Bytes), CheckerUserID: domain.ID(r.CheckerUserID.Bytes), Action: r.Action, State: r.State, ReasonCode: r.ReasonCode, EntitlementDisposition: r.EntitlementDisposition, Version: r.Version, AmountMinorUnits: r.AmountMinorUnits, NetMinorUnits: r.NetMinorUnits, TaxMinorUnits: r.TaxMinorUnits, CreatedAt: r.CreatedAt.Time.UTC(), ExpiresAt: r.ExpiresAt.Time.UTC()}
+		v := commercialapp.PlatformAdjustmentQueueItem{TenantName: r.TenantName, ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), PaymentID: domain.ID(r.PaymentID.Bytes), MakerUserID: domain.ID(r.MakerUserID.Bytes), CheckerUserID: domain.ID(r.CheckerUserID.Bytes), Action: r.Action, State: r.State, ReasonCode: r.ReasonCode, EntitlementDisposition: r.EntitlementDisposition, Version: r.Version, AmountMinorUnits: r.AmountMinorUnits, NetMinorUnits: r.NetMinorUnits, TaxMinorUnits: r.TaxMinorUnits, CreatedAt: r.CreatedAt.Time.UTC(), ExpiresAt: r.ExpiresAt.Time.UTC()}
 		if r.DecidedAt.Valid {
 			x := r.DecidedAt.Time.UTC()
 			v.DecidedAt = &x
@@ -121,7 +121,7 @@ func (tx *trialTx) ListPlatformReversals(ctx context.Context, limit int32, curso
 		if !r.ID.Valid || !r.PaymentID.Valid || !r.TenantID.Valid || !r.InvoiceID.Valid || !r.ActorUserID.Valid || r.ExpectedPaymentVersion < 1 || !validPaymentReadState(r.PaymentState) || !validReconciliationReadState(r.ReconciliationState) || !validQueueState(r.QueueState) || r.Currency != domain.CurrencyKES || r.AmountMinorUnits < 1 || !r.RequestedAt.Valid || (r.QueueState == "APPLIED" && (!r.AppliedAt.Valid || r.HoldState == nil || *r.HoldState != "ACTIVE")) {
 			return nil, errors.New("commercial_platform_reversal_queue_corrupt")
 		}
-		v := commercialapp.PlatformReversalQueueItem{ID: domain.ID(r.ID.Bytes), PaymentID: domain.ID(r.PaymentID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), ActorUserID: domain.ID(r.ActorUserID.Bytes), ExpectedPaymentVersion: r.ExpectedPaymentVersion, AmountMinorUnits: r.AmountMinorUnits, PaymentState: r.PaymentState, ReconciliationState: r.ReconciliationState, QueueState: r.QueueState, Currency: r.Currency, RequestedAt: r.RequestedAt.Time.UTC()}
+		v := commercialapp.PlatformReversalQueueItem{TenantName: r.TenantName, ID: domain.ID(r.ID.Bytes), PaymentID: domain.ID(r.PaymentID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), ActorUserID: domain.ID(r.ActorUserID.Bytes), ExpectedPaymentVersion: r.ExpectedPaymentVersion, AmountMinorUnits: r.AmountMinorUnits, PaymentState: r.PaymentState, ReconciliationState: r.ReconciliationState, QueueState: r.QueueState, Currency: r.Currency, RequestedAt: r.RequestedAt.Time.UTC()}
 		if r.AppliedAt.Valid {
 			x := r.AppliedAt.Time.UTC()
 			v.AppliedAt = &x

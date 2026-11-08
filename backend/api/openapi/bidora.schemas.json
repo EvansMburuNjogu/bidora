@@ -33,11 +33,14 @@
           "additionalProperties": false,
           "properties": {
             "action": {
+              "enum": [
+                "ISSUE_CREDIT",
+                "REQUEST_REFUND"
+              ],
               "type": "string"
             },
-            "amount_minor_units": {
-              "minimum": 1,
-              "type": "integer"
+            "amount": {
+              "$ref": "#/$defs/commercial_adjustments__Money"
             },
             "credit_note_id": {
               "format": "uuid",
@@ -52,8 +55,8 @@
                 "null"
               ]
             },
-            "currency": {
-              "const": "KES"
+            "entitlement_disposition": {
+              "type": "string"
             },
             "entitlement_disposition_executed": {
               "const": false,
@@ -71,6 +74,9 @@
               "format": "uuid",
               "type": "string"
             },
+            "net": {
+              "$ref": "#/$defs/commercial_adjustments__Money"
+            },
             "payment_id": {
               "format": "uuid",
               "type": "string"
@@ -78,6 +84,9 @@
             "provider_refund_executed": {
               "const": false,
               "type": "boolean"
+            },
+            "reason_code": {
+              "type": "string"
             },
             "refund_operation_id": {
               "format": "uuid",
@@ -94,6 +103,9 @@
               ],
               "type": "string"
             },
+            "tax": {
+              "$ref": "#/$defs/commercial_adjustments__Money"
+            },
             "version": {
               "minimum": 1,
               "type": "integer"
@@ -106,9 +118,15 @@
             "action",
             "state",
             "version",
-            "amount_minor_units",
-            "currency",
+            "reason_code",
+            "amount",
+            "net",
+            "tax",
+            "entitlement_disposition",
             "expires_at",
+            "credit_note_id",
+            "credit_number",
+            "refund_operation_id",
             "provider_refund_executed",
             "entitlement_disposition_executed"
           ],
@@ -117,12 +135,16 @@
         "meta": {
           "additionalProperties": false,
           "properties": {
+            "next_cursor": {
+              "type": "null"
+            },
             "trace_id": {
               "type": "string"
             }
           },
           "required": [
-            "trace_id"
+            "trace_id",
+            "next_cursor"
           ],
           "type": "object"
         }
@@ -169,6 +191,28 @@
       },
       "required": [
         "error"
+      ],
+      "type": "object"
+    },
+    "commercial_adjustments__Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "pattern": "^[0-9]+\\.[0-9]{2}$",
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "currency": {
+          "const": "KES"
+        }
+      },
+      "required": [
+        "currency",
+        "amount_minor_units",
+        "amount"
       ],
       "type": "object"
     },
@@ -4029,6 +4073,8 @@
         "PlatformSupportCaseReply",
         "PlatformSupportCaseResolve",
         "PlatformSupportCaseReopen",
+        "PlatformTenantSuspended",
+        "PlatformTenantReactivated",
         "PlatformInformationUpdated",
         "PlatformSessionPolicyUpdated",
         "PlatformGoogleConfigurationUpdated",
@@ -5715,6 +5761,78 @@
         "subject",
         "body",
         "enabled"
+      ],
+      "type": "object"
+    },
+    "platform_plan_management__Draft": {
+      "additionalProperties": false,
+      "properties": {
+        "additional_licence_monthly_price": {
+          "$ref": "#/$defs/platform_plan_management__Money"
+        },
+        "ai_credits": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "annual_price": {
+          "$ref": "#/$defs/platform_plan_management__Money"
+        },
+        "bid_workspaces": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "concurrent_ai_jobs": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "document_versions": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expected_head_version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "included_licences": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "monthly_price": {
+          "$ref": "#/$defs/platform_plan_management__Money"
+        },
+        "storage_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_head_version",
+        "monthly_price",
+        "annual_price",
+        "additional_licence_monthly_price",
+        "bid_workspaces",
+        "included_licences",
+        "storage_bytes",
+        "document_versions",
+        "ai_credits",
+        "concurrent_ai_jobs"
+      ],
+      "type": "object"
+    },
+    "platform_plan_management__Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "pattern": "^[0-9]+\\.[0-9]{2}$",
+          "type": "string"
+        },
+        "currency": {
+          "const": "KES"
+        }
+      },
+      "required": [
+        "currency",
+        "amount"
       ],
       "type": "object"
     },

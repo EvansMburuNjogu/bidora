@@ -35,7 +35,7 @@ const permissionNames: Record<string, string> = {
   "platform.integration.read": "View integration settings",
   "platform.integration.smtp.manage": "Manage email settings",
   "platform.integration.smtp.test": "Test email connection",
-  "platform.integration.smtp.activate": "Request email activation",
+  "platform.integration.smtp.activate": "Apply email settings",
   "platform.integration.ai.manage": "Manage AI settings",
   "platform.integration.ai.test": "Test AI connection",
   "platform.integration.ai.activate": "Request AI activation",

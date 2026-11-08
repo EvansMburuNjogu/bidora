@@ -22,7 +22,8 @@ SELECT pg_advisory_xact_lock(hashtextextended('bidora:notification:' || sqlc.arg
 -- name: GetDeliveryAttemptProgress :one
 SELECT count(a.id)::integer AS attempt_count,
  count(a.id) FILTER(WHERE r.id IS NULL)::integer AS unfinished_count,
- count(a.id) FILTER(WHERE r.disposition='SMTP_ACCEPTED')::integer AS accepted_count
+ count(a.id) FILTER(WHERE r.disposition='SMTP_ACCEPTED')::integer AS accepted_count,
+ count(a.id) FILTER(WHERE r.disposition='AMBIGUOUS')::integer AS ambiguous_count
 FROM notification.delivery_attempts a
 LEFT JOIN notification.delivery_attempt_results r ON r.attempt_id=a.id
 WHERE a.notification_id=sqlc.arg(notification_id);

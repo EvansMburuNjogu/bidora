@@ -92,7 +92,6 @@ func (t *Tester) Test(ctx context.Context, configuration domain.Configuration, a
 			if parseErr != nil {
 				return parseErr
 			}
-			timeout := minimumDuration(time.Duration(cfg.ConnectTimeoutSeconds)*time.Second, time.Duration(cfg.CommandTimeoutSeconds)*time.Second, time.Duration(cfg.DeliveryTimeoutSeconds)*time.Second)
 			reply := email.Address{}
 			if cfg.ReplyToAddress != nil {
 				var e error
@@ -101,7 +100,7 @@ func (t *Tester) Test(ctx context.Context, configuration domain.Configuration, a
 					return e
 				}
 			}
-			delivery, createErr := deliverysmtp.New(deliverysmtp.Config{Host: cfg.Host, Port: uint16(cfg.Port), Username: credentials.Username, Password: credentials.Password, Sender: sender, SenderName: cfg.SenderName, ReplyTo: reply, MaxConcurrency: cfg.MaxConcurrency, TLS: &tls.Config{ServerName: cfg.Host, RootCAs: roots, MinVersion: tls.VersionTLS12}, Timeout: timeout})
+			delivery, createErr := deliverysmtp.New(deliverysmtp.Config{Host: cfg.Host, Port: uint16(cfg.Port), Username: credentials.Username, Password: credentials.Password, Sender: sender, SenderName: cfg.SenderName, ReplyTo: reply, MaxConcurrency: cfg.MaxConcurrency, TLS: &tls.Config{ServerName: cfg.Host, RootCAs: roots, MinVersion: tls.VersionTLS12}, ConnectTimeout: time.Duration(cfg.ConnectTimeoutSeconds) * time.Second, CommandTimeout: time.Duration(cfg.CommandTimeoutSeconds) * time.Second, DeliveryTimeout: time.Duration(cfg.DeliveryTimeoutSeconds) * time.Second})
 			if createErr != nil {
 				return createErr
 			}
@@ -141,13 +140,4 @@ func classify(err error) string {
 	default:
 		return "PROVIDER_REJECTED"
 	}
-}
-func minimumDuration(values ...time.Duration) time.Duration {
-	result := values[0]
-	for _, value := range values[1:] {
-		if value < result {
-			result = value
-		}
-	}
-	return result
 }

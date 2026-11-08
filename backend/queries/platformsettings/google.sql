@@ -4,8 +4,6 @@ SELECT version_id,version FROM platform_settings.google_head WHERE id=true FOR U
 SELECT version_id,version FROM platform_settings.google_head WHERE id=true FOR SHARE;
 -- name: GetGoogleConfiguration :one
 SELECT v.* FROM platform_settings.google_head h JOIN platform_settings.google_versions v ON v.id=h.version_id WHERE h.id=true;
--- name: GetGoogleVersion :one
-SELECT * FROM platform_settings.google_versions WHERE id=sqlc.arg(id)::uuid;
 -- name: ListGoogleVersions :many
 SELECT * FROM platform_settings.google_versions ORDER BY version DESC LIMIT 25;
 -- name: InsertGoogleVersion :exec

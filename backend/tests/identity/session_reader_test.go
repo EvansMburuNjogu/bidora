@@ -42,6 +42,10 @@ func (d *sessionDB) QueryRow(_ context.Context, sql string, args ...any) pgx.Row
 		*(dest[3].(*int64)) = 4
 		*(dest[4].(*pgtype.Timestamptz)) = pgtype.Timestamptz{Time: d.observed.Add(30 * time.Minute), Valid: true}
 		*(dest[5].(*pgtype.Timestamptz)) = pgtype.Timestamptz{Time: d.observed.Add(12 * time.Hour), Valid: true}
+		*(dest[6].(*string)) = "AAL1"
+		*(dest[7].(*pgtype.Timestamptz)) = pgtype.Timestamptz{Time: d.observed.Add(-10 * time.Minute), Valid: true}
+		*(dest[8].(*string)) = "PRIMARY_ONLY"
+		*(dest[9].(*pgtype.Timestamptz)) = pgtype.Timestamptz{Time: d.observed.Add(-10 * time.Minute), Valid: true}
 		return nil
 	})
 }

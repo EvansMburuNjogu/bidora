@@ -16,6 +16,12 @@ type platformMFAStatus interface {
 	HasActiveMFA(context.Context, identityapp.ID) (bool, error)
 }
 
+// NewPlatformPortalResolver exposes the same resolver to trusted deployment
+// diagnostics; it does not issue sessions or bypass identity authority checks.
+func NewPlatformPortalResolver(platform *platformadmin.Module, mfa platformMFAStatus) identityapp.PlatformPortalResolver {
+	return platformPortalAdapter{platform: platform, mfa: mfa}
+}
+
 type platformPortalAdapter struct {
 	platform *platformadmin.Module
 	mfa      platformMFAStatus

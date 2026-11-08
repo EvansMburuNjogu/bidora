@@ -173,6 +173,18 @@ type BidoraTenancyDatabaseCluster struct {
 	UpdatedAt      pgtype.Timestamptz
 }
 
+type BidoraTenancyPlatformTenantCommand struct {
+	ActorID       pgtype.UUID
+	KeyHash       []byte
+	RequestHash   []byte
+	TenantID      pgtype.UUID
+	Operation     string
+	ResultState   string
+	ResultVersion int64
+	Reason        string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type BidoraTenancyTenant struct {
 	ID                   pgtype.UUID
 	TenantType           string

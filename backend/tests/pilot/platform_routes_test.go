@@ -101,25 +101,42 @@ func TestIdentityRuntimeMountsPlatformOperations(t *testing.T) {
 				"POST /v1/platform/administrators/:user_id/sessions/revoke", "GET /v1/platform/administrator-changes", "POST /v1/platform/administrator-changes",
 				"GET /v1/platform/administrator-changes/:change_id", "POST /v1/platform/administrator-changes/:change_id/approve", "POST /v1/platform/administrator-changes/:change_id/reject",
 				"GET /v1/platform/tenants", "GET /v1/platform/tenants/:tenant_id", "GET /v1/shared/commercial/plans", "GET /v1/platform/dashboard",
-				"GET /v1/platform/commercial/ai-usage", "GET /v1/platform/commercial/invoices", "GET /v1/platform/commercial/payments",
-				"GET /v1/platform/commercial/financial-adjustments", "GET /v1/platform/commercial/financial-adjustments/:change_id",
+				"GET /v1/platform/commercial/ai-usage", "GET /v1/platform/commercial/invoices", "GET /v1/platform/commercial/payments", "POST /v1/platform/commercial/payments/:payment_id/reconciliation",
+				"GET /v1/platform/commercial/plans/management", "POST /v1/platform/commercial/plans/:plan_key/drafts", "POST /v1/platform/commercial/plans/:plan_key/publish",
+				"GET /v1/platform/commercial/subscriptions", "GET /v1/platform/commercial/subscriptions/:tenant_id", "POST /v1/platform/commercial/subscriptions/:tenant_id/cancellation", "POST /v1/platform/commercial/subscriptions/:tenant_id/cancellation/withdraw",
+				"GET /v1/platform/commercial/financial-adjustments", "GET /v1/platform/commercial/financial-adjustments/:change_id", "POST /v1/platform/commercial/financial-adjustments", "POST /v1/platform/commercial/financial-adjustments/:change_id/decision",
 				"GET /v1/platform/commercial/payment-reversals", "GET /v1/platform/commercial/payment-reversals/:payment_id",
 				"GET /v1/platform/notifications/attempts", "GET /v1/platform/audit/actions", "GET /v1/platform/audit/actions/:audit_id",
 				"GET /v1/shared/platform/information", "GET /v1/platform/security/session-policy", "PUT /v1/platform/security/session-policy",
 				"GET /v1/platform/information", "PUT /v1/platform/information", "GET /v1/platform/integration-settings/:setting_kind",
 				"GET /v1/platform/integration-settings/:setting_kind/versions", "GET /v1/platform/integration-setting-changes/:change_id",
+				"GET /v1/platform/settings/google", "PUT /v1/platform/settings/google", "GET /v1/platform/settings/google/history", "POST /v1/platform/settings/google/test",
+				"GET /v1/platform/notification-templates", "GET /v1/platform/notification-templates/:template_key", "PUT /v1/platform/notification-templates/:template_key",
+				"GET /v1/platform/notification-templates/:template_key/history", "POST /v1/platform/notification-templates/:template_key/preview", "POST /v1/platform/notification-templates/:template_key/test",
+				"GET /v1/platform/countries", "POST /v1/platform/countries", "PUT /v1/platform/countries/:code", "GET /v1/platform/countries/:code/history",
+				"GET /v1/platform/operational-policy", "PUT /v1/platform/operational-policy", "GET /v1/platform/operational-policy/history",
 			}
 			if withVault {
-				required = append(required, "POST /v1/platform/administrator-invitations", "POST /v1/platform/integration-settings/:setting_kind/versions", "POST /v1/platform/integration-settings/:setting_kind/versions/:version_id/test", "POST /v1/platform/integration-settings/:setting_kind/versions/:version_id/activation-proposals", "POST /v1/platform/integration-setting-changes/:change_id/approve", "POST /v1/platform/integration-setting-changes/:change_id/reject")
+				required = append(required, "POST /v1/platform/administrator-invitations", "POST /v1/platform/administrator-invitations/:invitation_id/reissue", "GET /v1/platform/administrator-invitations", "POST /v1/platform/integration-settings/:setting_kind/versions", "POST /v1/platform/integration-settings/:setting_kind/versions/:version_id/test", "POST /v1/platform/integration-settings/:setting_kind/versions/:version_id/activation-proposals", "POST /v1/platform/integration-setting-changes/:change_id/approve", "POST /v1/platform/integration-setting-changes/:change_id/reject")
 			}
 			for _, route := range required {
 				if routes[route] != 1 {
 					t.Errorf("expected one registration for %s, got %d", route, routes[route])
 				}
 			}
-			for _, route := range []string{"POST /v1/platform/commercial/payments/:payment_id/reconciliation", "POST /v1/platform/commercial/financial-adjustments", "POST /v1/platform/commercial/financial-adjustments/:change_id/decision"} {
-				if routes[route] != 0 {
-					t.Errorf("read composition unexpectedly activated financial command: %s", route)
+			for _, retired := range []string{"POST /v1/auth/mfa/totp/enroll", "POST /v1/auth/mfa/totp/confirm", "POST /v1/auth/mfa/step-up", "POST /v1/auth/mfa/recovery-codes/regenerate", "POST /v1/auth/mfa/totp/replace"} {
+				if routes[retired] != 0 {
+					t.Errorf("retired authenticator route still mounted: %s", retired)
+				}
+			}
+			if routes["POST /v1/platform/notifications/attempts/:attempt_id/retry"] != 0 {
+				t.Error("generic notification retry must remain unmounted")
+			}
+			for route, count := range routes {
+				if strings.HasPrefix(route, "GET /v1/platform/") || strings.HasPrefix(route, "POST /v1/platform/") || strings.HasPrefix(route, "PUT /v1/platform/") || strings.HasPrefix(route, "DELETE /v1/platform/") {
+					if count != 1 {
+						t.Errorf("duplicate Platform route %s registered %d times", route, count)
+					}
 				}
 			}
 		})

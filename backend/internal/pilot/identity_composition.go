@@ -9,6 +9,7 @@ import (
 	authzapp "bidora/backend/internal/authorization/application"
 	authzpersistence "bidora/backend/internal/authorization/persistence"
 	"bidora/backend/internal/commercial"
+	commercialapp "bidora/backend/internal/commercial/application"
 	commercialpersistence "bidora/backend/internal/commercial/persistence"
 	controlapp "bidora/backend/internal/controlplane/application"
 	controlintegration "bidora/backend/internal/controlplane/integration"
@@ -198,6 +199,9 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 		tenantRecorded, _, tenantErr := BuildInvitationNotificationDelivery(control, vault, config.NotificationFingerprintKey, config.NotificationFingerprintKeyVersion)
 		if tenantErr != nil {
 			return nil, tenantErr
+		}
+		if err = tenantRecorded.EnableTemplates(result.templateRenderer); err != nil {
+			return nil, err
 		}
 		result.tenantInvitationDelivery = tenantRecorded
 	}
@@ -466,6 +470,18 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err != nil {
 		return fail(err)
 	}
+	platformSupportStore, err := controlintegration.NewSupportStore(control)
+	if err != nil {
+		return fail(err)
+	}
+	platformSupport, err := controlapp.NewSupportService(platformSupportStore, controlAuditIDs{}, systemClock{})
+	if err != nil {
+		return fail(err)
+	}
+	platformSupportHandler, err := httpapi.NewPlatformSupportHandler(platformSupport)
+	if err != nil {
+		return fail(err)
+	}
 	platformHistoryStore, err := notificationpersistence.NewPlatformHistoryStore(control)
 	if err != nil {
 		return fail(err)
@@ -541,15 +557,44 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 		return fail(err)
 	}
 	commercialModule := commercial.NewModule()
+	platformPlanStore, err := commercialpersistence.NewPlanStore(control, platformPlanAuthority)
+	if err != nil {
+		return fail(err)
+	}
+	if err = commercialModule.ConfigurePlatformPlans(platformPlanStore, commercialIDs{}, systemClock{}); err != nil {
+		return fail(err)
+	}
+	platformSubscriptionStore, err := commercialpersistence.NewPlatformSubscriptionStore(control, platformPlanAuthority)
+	if err != nil {
+		return fail(err)
+	}
+	if err = commercialModule.ConfigurePlatformSubscriptions(platformSubscriptionStore, commercialIDs{}, systemClock{}); err != nil {
+		return fail(err)
+	}
 	if err = commercialModule.ConfigurePlatformFinancialQueues(commercialStore, commercialIDs{}, systemClock{}); err != nil {
 		return fail(err)
 	}
 	if err = commercialModule.ConfigureFinancialReads(commercialStore, commercialIDs{}, systemClock{}); err != nil {
 		return fail(err)
 	}
-	// Mount only read operations: this composition must not activate payment or
-	// financial-adjustment effects just because their shared module is present.
+	if err = commercialModule.ConfigureReversals(commercialStore, commercialIDs{}, systemClock{}); err != nil {
+		return fail(err)
+	}
+	// No refund approval before contract policy and approval-cutoff enforcement.
+	if err = commercialModule.ConfigureAdjustments(commercialStore, commercialIDs{}, systemClock{}, commercialapp.AdjustmentPolicy{}); err != nil {
+		return fail(err)
+	}
+	// Reconciliation requests schedule audited work only; adjustment decisions
+	// record credit notes or pending refunds without provider execution.
 	platformFinancialHandler, err := httpapi.NewCommercialPlatformFinancialHandler(commercialModule)
+	if err != nil {
+		return fail(err)
+	}
+	platformPlanHandler, err := httpapi.NewPlatformPlanHandler(commercialModule)
+	if err != nil {
+		return fail(err)
+	}
+	platformSubscriptionHandler, err := httpapi.NewPlatformSubscriptionHandler(commercialModule)
 	if err != nil {
 		return fail(err)
 	}
@@ -639,13 +684,34 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err = httpapi.RegisterCommercialCatalogueRoutes(app, browserMiddleware, catalogueHandler); err != nil {
 		return fail(err)
 	}
+	if err = httpapi.RegisterPlatformPlanRoutes(app, browserMiddleware, platformPlanHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterPlatformSubscriptionRoutes(app, browserMiddleware, platformSubscriptionHandler); err != nil {
+		return fail(err)
+	}
 	if err = httpapi.RegisterCommercialPlatformFinancialReadRoutes(app, browserMiddleware, platformFinancialHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterCommercialPlatformReconciliationRoute(app, browserMiddleware, platformFinancialHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterCommercialPlatformAdjustmentRoutes(app, browserMiddleware, platformFinancialHandler); err != nil {
+		return fail(err)
+	}
+	if err = registerPlatformTenantLifecycle(app, browserMiddleware, control); err != nil {
+		return fail(err)
+	}
+	if err = registerPlatformOverview(app, browserMiddleware, control); err != nil {
 		return fail(err)
 	}
 	if err = httpapi.RegisterPlatformDashboardRoute(app, browserMiddleware, dashboardHandler); err != nil {
 		return fail(err)
 	}
 	if err = httpapi.RegisterPlatformAuditRoutes(app, browserMiddleware, platformAuditHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterPlatformSupportRoutes(app, browserMiddleware, platformSupportHandler); err != nil {
 		return fail(err)
 	}
 	if err = httpapi.RegisterPlatformNotificationHistoryRoutes(app, browserMiddleware, platformHistoryHandler); err != nil {

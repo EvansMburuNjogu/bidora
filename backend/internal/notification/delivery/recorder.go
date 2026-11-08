@@ -90,7 +90,7 @@ func (r *Recorder) Send(ctx context.Context, request Request, send func(context.
 		return err
 	}
 	if !fresh {
-		return app.ErrConflict // Replayed evidence never authorizes another SMTP send.
+		return app.ErrConflict // Replay cannot authorize a second SMTP send.
 	}
 	sendErr := send(ctx)
 	finish := app.FinishAttemptInput{AttemptID: attempt.ID, CorrelationID: request.CorrelationID, Disposition: domain.SMTPAccepted}

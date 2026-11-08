@@ -880,7 +880,7 @@ func recentAAL2(p SessionPrincipal, n time.Time) bool {
 	return p.AssuranceLevel == "AAL2" && (p.AssuranceMethod == "TOTP" || p.AssuranceMethod == "RECOVERY_CODE") && age >= 0 && age <= 15*time.Minute
 }
 func recentPrimary(p SessionPrincipal, n time.Time) bool {
-	a := p.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour)
+	a := p.AuthenticatedAt.UTC()
 	d := n.Sub(a)
 	return d >= 0 && d <= 15*time.Minute
 }

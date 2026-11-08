@@ -84,7 +84,7 @@ func (t *tx) CanStartAttempt(ctx context.Context, notificationID domain.ID, numb
 	if err != nil {
 		return false, err
 	}
-	return progress.UnfinishedCount == 0 && progress.AcceptedCount == 0 && number == progress.AttemptCount+1, nil
+	return progress.UnfinishedCount == 0 && progress.AcceptedCount == 0 && progress.AmbiguousCount == 0 && number == progress.AttemptCount+1, nil
 }
 func (t *tx) GetAttemptByNumber(ctx context.Context, notificationID domain.ID, number int32) (domain.Attempt, bool, error) {
 	row, err := t.q.GetDeliveryAttemptByNumber(ctx, notificationsql.GetDeliveryAttemptByNumberParams{NotificationID: uuid(notificationID), AttemptNumber: number})

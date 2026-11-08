@@ -107,7 +107,7 @@ func (h *SubmissionHandler) Confirm(c fiber.Ctx) error {
 	if !eok || !mok || !pok || !present {
 		return fail(c, 400, "INVALID_REQUEST", "The submission confirmation request is invalid.", false)
 	}
-	v, e := h.s.Confirm(c.Context(), app.ConfirmSubmissionInput{Subject: x.subject, BidID: x.opportunityID, EvidenceID: eid, ManifestID: mid, ProofVersionID: pid, CorrelationID: x.correlationID, ExpectedWorkspaceVersion: b.ExpectedWorkspaceVersion, Rationale: b.Rationale, IdempotencyKey: x.idempotencyKey, SessionAuthenticatedAt: principal.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour), AssuranceLevel: principal.AssuranceLevel, AssuranceMethod: principal.AssuranceMethod, AssuranceAt: principal.AssuredAt})
+	v, e := h.s.Confirm(c.Context(), app.ConfirmSubmissionInput{Subject: x.subject, BidID: x.opportunityID, EvidenceID: eid, ManifestID: mid, ProofVersionID: pid, CorrelationID: x.correlationID, ExpectedWorkspaceVersion: b.ExpectedWorkspaceVersion, Rationale: b.Rationale, IdempotencyKey: x.idempotencyKey, SessionAuthenticatedAt: principal.AuthenticatedAt.UTC(), AssuranceLevel: principal.AssuranceLevel, AssuranceMethod: principal.AssuranceMethod, AssuranceAt: principal.AssuredAt})
 	if e != nil {
 		return submissionFailure(c, e)
 	}

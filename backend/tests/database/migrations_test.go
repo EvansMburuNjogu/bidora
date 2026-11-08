@@ -26,7 +26,7 @@ func TestMigrationAndGenerationInputsMatchReviewedChecksums(t *testing.T) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 185 {
+	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 188 {
 		t.Fatal("unexpected manifest scope")
 	}
 	for name, want := range manifest.Files {
@@ -605,11 +605,11 @@ func TestCaptureQueriesAreQualifiedAndParameterized(t *testing.T) {
 
 func TestGeneratedSQLCFilesDeclarePinnedGenerator(t *testing.T) {
 	groups := map[string][]string{
-		"internal/opportunity/persistence/sqlc/":   {"capture.sql.go", "compatibility.sql.go", "db.go", "models.go", "querier.go"},
-		"internal/tenancy/persistence/sqlc/":       {"registry.sql.go", "db.go", "models.go", "querier.go"},
-		"internal/eventing/persistence/sqlc/":      {"inbox.sql.go", "db.go", "models.go", "querier.go"},
-		"internal/identity/persistence/sqlc/":      {"password.sql.go", "verification.sql.go", "session.sql.go", "google.sql.go", "db.go", "models.go", "querier.go"},
-		"internal/authorization/persistence/sqlc/": {"membership.sql.go", "db.go", "models.go", "querier.go"},
+		"internal/opportunity/persistence/sqlc/":   {"capture.sql.go", "compatibility.sql.go", "db.go", "models.go"},
+		"internal/tenancy/persistence/sqlc/":       {"registry.sql.go", "db.go", "models.go"},
+		"internal/eventing/persistence/sqlc/":      {"inbox.sql.go", "db.go", "models.go"},
+		"internal/identity/persistence/sqlc/":      {"password.sql.go", "verification.sql.go", "session.sql.go", "google.sql.go", "db.go", "models.go"},
+		"internal/authorization/persistence/sqlc/": {"membership.sql.go", "db.go", "models.go"},
 	}
 	for dir, names := range groups {
 		for _, name := range names {
@@ -618,6 +618,10 @@ func TestGeneratedSQLCFilesDeclarePinnedGenerator(t *testing.T) {
 				t.Fatal("generated artifact provenance missing", dir+name)
 			}
 		}
+	}
+	generatedInterfaces, err := filepath.Glob(filepath.Join(backendRoot(), "internal", "*", "persistence", "sqlc", "querier.go"))
+	if err != nil || len(generatedInterfaces) != 0 {
+		t.Fatalf("unused generated interfaces remain: %d, %v", len(generatedInterfaces), err)
 	}
 }
 

@@ -18,8 +18,18 @@ type PlatformQueueRequest struct {
 	Limit                        int32
 	Cursor                       *CommercialListCursor
 	StateFilter, SecondaryFilter string
+	AIUsageFilter                PlatformAIUsageFilter
+}
+type PlatformAIUsageFilter struct {
+	TenantID     domain.ID
+	Kind         string
+	From, Before time.Time
+}
+type filteredPlatformAIUsageTx interface {
+	ListFilteredAIUsage(context.Context, int32, *CommercialListCursor, PlatformAIUsageFilter) ([]PlatformAIUsageItem, error)
 }
 type PlatformAIUsageItem struct {
+	TenantName    string
 	ID, TenantID  domain.ID
 	Kind          domain.AIUsageKind
 	ActualCredits int64
@@ -30,12 +40,15 @@ type PlatformAIUsagePage struct {
 	NextCursor *CommercialListCursor
 }
 type PlatformInvoiceQueueItem struct {
+	TenantName                                      string
+	SettledPaymentVersion                           int64
 	ID, TenantID, SubscriptionID                    domain.ID
 	Number, State, PurchaseKind, Currency           string
 	Version, TotalMinorUnits, OutstandingMinorUnits int64
 	IssuedAt, DueAt                                 time.Time
 }
 type PlatformPaymentQueueItem struct {
+	TenantName                           string
 	ID, TenantID, InvoiceID              domain.ID
 	State, Currency, ReconciliationState string
 	Version, AmountMinorUnits            int64
@@ -44,6 +57,7 @@ type PlatformPaymentQueueItem struct {
 	ReconciledAt                         *time.Time
 }
 type PlatformAdjustmentQueueItem struct {
+	TenantName                                                     string
 	ID, TenantID, InvoiceID, PaymentID, MakerUserID, CheckerUserID domain.ID
 	Action, State, ReasonCode, EntitlementDisposition              string
 	Version, AmountMinorUnits, NetMinorUnits, TaxMinorUnits        int64
@@ -51,6 +65,7 @@ type PlatformAdjustmentQueueItem struct {
 	DecidedAt                                                      *time.Time
 }
 type PlatformReversalQueueItem struct {
+	TenantName                                                         string
 	ID, PaymentID, TenantID, InvoiceID, ActorUserID                    domain.ID
 	ExpectedPaymentVersion, AmountMinorUnits                           int64
 	PaymentState, ReconciliationState, QueueState, Currency, HoldState string
@@ -108,7 +123,7 @@ func NewPlatformFinancialQueueService(uow PlatformFinancialQueueUnitOfWork, ids 
 // ListAIUsage exposes only measured, settled credits. A current Billing Administrator
 // with fresh TOTP is required; Platform Owner and invoice-read alone are insufficient.
 func (s *PlatformFinancialQueueService) ListAIUsage(ctx context.Context, in PlatformQueueRequest) (out PlatformAIUsagePage, err error) {
-	if invalidPlatformQueueRequest(ctx, in) || in.StateFilter != "" || in.SecondaryFilter != "" {
+	if invalidPlatformQueueRequest(ctx, in) || in.StateFilter != "" || in.SecondaryFilter != "" || in.AIUsageFilter.Kind != "" && !domain.ValidAIUsageKind(domain.AIUsageKind(in.AIUsageFilter.Kind)) || !in.AIUsageFilter.From.IsZero() && !in.AIUsageFilter.Before.IsZero() && !in.AIUsageFilter.Before.After(in.AIUsageFilter.From) {
 		return out, ErrPlatformFinancialQueueInvalid
 	}
 	at := s.clock.Now().UTC()
@@ -124,7 +139,14 @@ func (s *PlatformFinancialQueueService) ListAIUsage(ctx context.Context, in Plat
 		if tie || !facts.BillingAdministrator || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
 			return ErrPlatformFinancialQueueNotAuthorized
 		}
-		items, x := tx.ListPlatformAIUsageSettlements(c, in.Limit+1, in.Cursor)
+		var items []PlatformAIUsageItem
+		if filtered, ok := tx.(filteredPlatformAIUsageTx); ok {
+			items, x = filtered.ListFilteredAIUsage(c, in.Limit+1, in.Cursor, in.AIUsageFilter)
+		} else if in.AIUsageFilter == (PlatformAIUsageFilter{}) {
+			items, x = tx.ListPlatformAIUsageSettlements(c, in.Limit+1, in.Cursor)
+		} else {
+			return ErrPlatformFinancialQueueUnavailable
+		}
 		if x != nil {
 			return x
 		}

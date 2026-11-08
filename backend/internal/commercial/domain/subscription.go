@@ -236,17 +236,32 @@ func (s Subscription) Access() AccessMode {
 }
 
 func NewCatalogueTerm(key PlanKey, cadence BillingCadence, startsAt time.Time) (TermSnapshot, error) {
-	if startsAt.IsZero() || key == Enterprise {
-		if key == Enterprise {
-			return TermSnapshot{}, ErrContractTermsRequired
-		}
+	if key == Enterprise {
+		return TermSnapshot{}, ErrContractTermsRequired
+	}
+	// Source defaults are only authoritative for the fixed Trial. Paid terms
+	// must be built from a published version supplied by CatalogueService.
+	if key != Trial {
 		return TermSnapshot{}, ErrSubscriptionInvalid
 	}
 	plan, err := FindPlan(key)
 	if err != nil {
 		return TermSnapshot{}, err
 	}
-	price, err := BasePrice(key, cadence)
+	return NewTermFromPlan(plan, cadence, startsAt)
+}
+
+// NewTermFromPlan snapshots the actual published plan supplied by the owner
+// catalogue service; existing terms never change when a new version publishes.
+func NewTermFromPlan(plan Plan, cadence BillingCadence, startsAt time.Time) (TermSnapshot, error) {
+	key := plan.Key
+	if startsAt.IsZero() || key == Enterprise {
+		if key == Enterprise {
+			return TermSnapshot{}, ErrContractTermsRequired
+		}
+		return TermSnapshot{}, ErrSubscriptionInvalid
+	}
+	price, err := PriceForPlan(plan, cadence)
 	if err != nil {
 		return TermSnapshot{}, err
 	}

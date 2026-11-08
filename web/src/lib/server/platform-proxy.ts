@@ -58,6 +58,43 @@ export async function proxyPlatformAdministrators(request: Request, administrato
   return new Response(body, { status: upstream.status, headers: responseHeaders });
 }
 
+// Invitation issuance is available only when the Go runtime has delivery composed.
+// Forward the client's idempotency key so retries cannot create multiple invitations.
+export async function proxyPlatformInvitation(request: Request): Promise<Response> {
+  const backend = apiOrigin(), browser = webOrigin();
+  if (!backend || !browser) return failure(503);
+  if (request.headers.get("origin") !== browser) return failure(403);
+  if (new URL(request.url).search || request.headers.get("content-type")?.split(";")[0] !== "application/json") return failure(400);
+  const generation = request.headers.get("x-bidora-platform-context-generation"), csrf = request.headers.get("x-csrf-token"), key = request.headers.get("idempotency-key");
+  if (!generation || !/^[1-9]\d{0,18}$/.test(generation) || !csrf || !/^[A-Za-z0-9_-]{43}$/.test(csrf) || !key || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return failure(400);
+  const length = Number(request.headers.get("content-length") ?? "0");
+  if (!Number.isFinite(length) || length > 2048) return failure(400);
+  let body: ArrayBuffer;
+  try { body = await request.arrayBuffer(); } catch { return failure(400); }
+  if (body.byteLength < 2 || body.byteLength > 2048) return failure(400);
+  let value: unknown;
+  try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)); } catch { return failure(400); }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return failure(400);
+  const fields = value as Record<string, unknown>;
+  if (Object.keys(fields).some((field) => !["email", "role_key", "reason"].includes(field)) || typeof fields.email !== "string" || fields.email.length < 3 || fields.email.length > 254 ||
+      !PLATFORM_ROLES.some((role) => role === fields.role_key) || typeof fields.reason !== "string" || fields.reason.trim().length < 1 || fields.reason.length > 2000) return failure(400);
+  const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation, "X-CSRF-Token": csrf, "Idempotency-Key": key });
+  forwardAuditContext(request, headers);
+  const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
+  if (cookie) headers.set("Cookie", cookie);
+  let upstream: Response;
+  try { upstream = await fetch(`${backend}/v1/platform/administrator-invitations`, { method: "POST", headers, body, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15_000) }); }
+  catch { return failure(503); }
+  if (![201, 400, 401, 403, 409, 413, 415, 503].includes(upstream.status) || upstream.headers.get("content-type")?.split(";")[0] !== "application/json") { await upstream.body?.cancel(); return failure(503); }
+  let bytes: ArrayBuffer;
+  try { bytes = await upstream.arrayBuffer(); } catch { return failure(503); }
+  if (bytes.byteLength > 65_536) return failure(503);
+  const responseHeaders = new Headers({ "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", Vary: "Cookie, Origin", "Content-Type": "application/json" });
+  for (const name of ["retry-after", "x-request-id", "idempotency-replayed"]) { const header = upstream.headers.get(name); if (header) responseHeaders.set(name, header); }
+  for (const header of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", browserSetCookie(header, browser));
+  return new Response(bytes, { status: upstream.status, headers: responseHeaders });
+}
+
 // Exact email search uses a CSRF-protected body, not an access-loggable query URL.
 export async function proxyAdministratorEmailSearch(request: Request): Promise<Response> {
   const backend = apiOrigin(), browser = webOrigin();

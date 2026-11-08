@@ -44,6 +44,7 @@ export type PlatformAdministratorChange = {
   version: number; maker_id: string; created_at: string; expires_at: string | null;
 };
 export type PlatformChangePage = { changes: PlatformAdministratorChange[]; next_cursor: string | null };
+export type PlatformInvitationReceipt = { id: string; state: "ACTIVE" | "PENDING_APPROVAL"; delivery_state: "NOT_READY" | "ACCEPTED_FOR_DELIVERY" | "DELIVERY_UNCONFIRMED" };
 export type PlatformAdministratorList = {
   administrators: PlatformAdministrator[];
   effective_owner_count: number;
@@ -65,6 +66,16 @@ function instant(value: unknown): value is string {
 }
 function optionalUUID(value: unknown): boolean { return value === null || typeof value === "string" && uuid.test(value); }
 function role(value: unknown): value is PlatformRole { return typeof value === "string" && PLATFORM_ROLES.includes(value as PlatformRole); }
+
+export function parsePlatformInvitationReceipt(value: unknown): PlatformInvitationReceipt | null {
+  const root = object(value), data = object(root?.data), meta = object(root?.meta);
+  if (!root || !data || !meta || !exact(root, ["data", "meta"]) || !exact(data, ["id", "email", "role_key", "state", "version", "created_at", "expires_at", "delivery_state", "governance_change_id"]) ||
+      !uuid.test(String(data.id)) || typeof data.email !== "string" || !role(data.role_key) || !Number.isSafeInteger(data.version) || Number(data.version) < 1 || !instant(data.created_at) ||
+      !(data.expires_at === null || instant(data.expires_at)) || !optionalUUID(data.governance_change_id) ||
+      !["ACTIVE", "PENDING_APPROVAL"].includes(String(data.state)) || !["NOT_READY", "ACCEPTED_FOR_DELIVERY", "DELIVERY_UNCONFIRMED"].includes(String(data.delivery_state)) ||
+      !exact(meta, ["trace_id", "next_cursor"]) || typeof meta.trace_id !== "string" || meta.next_cursor !== null) return null;
+  return { id: data.id as string, state: data.state as PlatformInvitationReceipt["state"], delivery_state: data.delivery_state as PlatformInvitationReceipt["delivery_state"] };
+}
 
 export function parsePlatformAdministratorList(value: unknown): PlatformAdministratorList | null {
   const root = object(value);

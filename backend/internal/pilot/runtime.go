@@ -13,6 +13,7 @@ import (
 	"bidora/backend/internal/authorization/invitation"
 	authzpersistence "bidora/backend/internal/authorization/persistence"
 	commercial "bidora/backend/internal/commercial"
+	commercialapp "bidora/backend/internal/commercial/application"
 	commercialdomain "bidora/backend/internal/commercial/domain"
 	commercialpersistence "bidora/backend/internal/commercial/persistence"
 	controlapp "bidora/backend/internal/controlplane/application"
@@ -465,6 +466,18 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err != nil {
 		return fail(err)
 	}
+	platformSupportStore, err := controlintegration.NewSupportStore(deps.Control)
+	if err != nil {
+		return fail(err)
+	}
+	platformSupport, err := controlapp.NewSupportService(platformSupportStore, controlAuditIDs{}, systemClock{})
+	if err != nil {
+		return fail(err)
+	}
+	platformSupportHandler, err := httpapi.NewPlatformSupportHandler(platformSupport)
+	if err != nil {
+		return fail(err)
+	}
 	platformHistoryStore, err := notificationpersistence.NewPlatformHistoryStore(deps.Control)
 	if err != nil {
 		return fail(err)
@@ -527,6 +540,20 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 		return fail(err)
 	}
 	commercialModule := commercial.NewModule()
+	platformPlanStore, err := commercialpersistence.NewPlanStore(deps.Control, platformPlanAuthority)
+	if err != nil {
+		return fail(err)
+	}
+	if err = commercialModule.ConfigurePlatformPlans(platformPlanStore, commercialIDs{}, systemClock{}); err != nil {
+		return fail(err)
+	}
+	platformSubscriptionStore, err := commercialpersistence.NewPlatformSubscriptionStore(deps.Control, platformPlanAuthority)
+	if err != nil {
+		return fail(err)
+	}
+	if err = commercialModule.ConfigurePlatformSubscriptions(platformSubscriptionStore, commercialIDs{}, systemClock{}); err != nil {
+		return fail(err)
+	}
 	if err = commercialModule.ConfigureSubscriptionLifecycle(commercialStore, commercialIDs{}, systemClock{}); err != nil {
 		return fail(err)
 	}
@@ -559,11 +586,26 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err = commercialModule.ConfigureFinancialReads(commercialStore, commercialIDs{}, systemClock{}); err != nil {
 		return fail(err)
 	}
+	if err = commercialModule.ConfigureReversals(commercialStore, commercialIDs{}, systemClock{}); err != nil {
+		return fail(err)
+	}
+	// No refund approval before contract policy and approval-cutoff enforcement.
+	if err = commercialModule.ConfigureAdjustments(commercialStore, commercialIDs{}, systemClock{}, commercialapp.AdjustmentPolicy{}); err != nil {
+		return fail(err)
+	}
 	commercialFinancialHandler, err := httpapi.NewCommercialFinancialHandler(commercialModule)
 	if err != nil {
 		return fail(err)
 	}
 	platformFinancialHandler, err := httpapi.NewCommercialPlatformFinancialHandler(commercialModule)
+	if err != nil {
+		return fail(err)
+	}
+	platformPlanHandler, err := httpapi.NewPlatformPlanHandler(commercialModule)
+	if err != nil {
+		return fail(err)
+	}
+	platformSubscriptionHandler, err := httpapi.NewPlatformSubscriptionHandler(commercialModule)
 	if err != nil {
 		return fail(err)
 	}
@@ -1140,6 +1182,9 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err = httpapi.RegisterPlatformAuditRoutes(app, browserMiddleware, platformAuditHandler); err != nil {
 		return fail(err)
 	}
+	if err = httpapi.RegisterPlatformSupportRoutes(app, browserMiddleware, platformSupportHandler); err != nil {
+		return fail(err)
+	}
 	if err = httpapi.RegisterPlatformNotificationHistoryRoutes(app, browserMiddleware, platformHistoryHandler); err != nil {
 		return fail(err)
 	}
@@ -1172,7 +1217,25 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 	if err = httpapi.RegisterCommercialFinancialReadRoutes(app, browserMiddleware, commercialFinancialHandler); err != nil {
 		return fail(err)
 	}
+	if err = httpapi.RegisterPlatformPlanRoutes(app, browserMiddleware, platformPlanHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterPlatformSubscriptionRoutes(app, browserMiddleware, platformSubscriptionHandler); err != nil {
+		return fail(err)
+	}
 	if err = httpapi.RegisterCommercialPlatformFinancialReadRoutes(app, browserMiddleware, platformFinancialHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterCommercialPlatformReconciliationRoute(app, browserMiddleware, platformFinancialHandler); err != nil {
+		return fail(err)
+	}
+	if err = httpapi.RegisterCommercialPlatformAdjustmentRoutes(app, browserMiddleware, platformFinancialHandler); err != nil {
+		return fail(err)
+	}
+	if err = registerPlatformTenantLifecycle(app, browserMiddleware, deps.Control); err != nil {
+		return fail(err)
+	}
+	if err = registerPlatformOverview(app, browserMiddleware, deps.Control); err != nil {
 		return fail(err)
 	}
 	if err = httpapi.RegisterPlatformDashboardRoute(app, browserMiddleware, platformDashboardHandler); err != nil {
@@ -1204,6 +1267,10 @@ func (dispatchObserver) Observe(dispatchapp.Observation) {}
 type systemClock struct{}
 
 func (systemClock) Now() time.Time { return time.Now().UTC() }
+
+func platformPlanAuthority(db postgres.DBTX) (commercialpersistence.PlanAuthorityTx, error) {
+	return platformpersistence.NewSettingsAuthorityTx(db)
+}
 
 type commercialIDs struct{}
 

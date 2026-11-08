@@ -385,9 +385,10 @@ func (q *Queries) LockAdjustmentCandidate(ctx context.Context, arg LockAdjustmen
 const lockFinancialChange = `-- name: LockFinancialChange :one
 SELECT c.id,c.tenant_id,c.invoice_id,c.payment_id,c.action,c.state,c.version,c.reason_code,c.amount_minor_units,c.net_minor_units,c.tax_minor_units,c.tax_profile_id,c.tax_profile_hash,c.entitlement_disposition,c.maker_user_id,c.checker_user_id,c.maker_authority_hash,c.proposal_reason,c.expected_invoice_version,c.expected_payment_version,c.request_hash,c.created_at,c.expires_at,
  (SELECT n.id FROM commercial.credit_notes n WHERE n.change_id=c.id) AS credit_note_id,COALESCE((SELECT n.credit_number FROM commercial.credit_notes n WHERE n.change_id=c.id),''::text)::text AS credit_number,(SELECT r.id FROM commercial.refund_operations r WHERE r.change_id=c.id) AS refund_id,
- i.version AS invoice_version,i.state AS invoice_state,i.total_minor_units,i.credit_minor_units,p.version AS payment_version,p.state AS payment_state,p.provider,p.amount_minor_units AS payment_amount_minor_units,
+ i.version AS invoice_version,i.state AS invoice_state,i.total_minor_units,i.credit_minor_units,p.version AS payment_version,p.state AS payment_state,p.provider,p.amount_minor_units AS payment_amount_minor_units,e.settled_at AS payment_settled_at,
  COALESCE((SELECT sum(n.total_minor_units) FROM commercial.credit_notes n WHERE n.invoice_id=i.id AND n.state<>'VOID'),0)::bigint AS prior_credit_minor_units
 FROM commercial.financial_changes c JOIN commercial.invoices i ON i.id=c.invoice_id JOIN commercial.payment_operations p ON p.id=c.payment_id
+LEFT JOIN commercial.payment_settlement_effects e ON e.payment_id=p.id
 WHERE c.id=$1 AND c.tenant_id=$2 FOR UPDATE OF c,i,p
 `
 
@@ -431,6 +432,7 @@ type LockFinancialChangeRow struct {
 	PaymentState            string
 	Provider                string
 	PaymentAmountMinorUnits int64
+	PaymentSettledAt        pgtype.Timestamptz
 	PriorCreditMinorUnits   int64
 }
 
@@ -472,6 +474,7 @@ func (q *Queries) LockFinancialChange(ctx context.Context, arg LockFinancialChan
 		&i.PaymentState,
 		&i.Provider,
 		&i.PaymentAmountMinorUnits,
+		&i.PaymentSettledAt,
 		&i.PriorCreditMinorUnits,
 	)
 	return i, err

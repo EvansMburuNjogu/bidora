@@ -8,7 +8,7 @@ import (
 
 	identityapp "bidora/backend/internal/identity/application"
 	identitysql "bidora/backend/internal/identity/persistence/sqlc"
-	"bidora/backend/internal/identity/session"
+	"bidora/backend/internal/identity/securitypolicy"
 	"bidora/backend/internal/postgres"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -79,7 +79,7 @@ func (c *LoginCommitter) CommitLoginSession(ctx context.Context, commit identity
 	if c == nil || c.runner == nil {
 		return errors.New("login_committer_invalid")
 	}
-	idle, absolute, err := session.Expiries(commit.CreatedAt)
+	idle, absolute, err := securitypolicy.Expiries(ctx, commit.CreatedAt, false)
 	if err != nil || !idle.Equal(commit.IdleExpiresAt) || !absolute.Equal(commit.AbsoluteExpiresAt) {
 		return errors.New("login_commit_invalid")
 	}

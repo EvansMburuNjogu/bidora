@@ -1,7 +1,7 @@
 import "server-only";
 
 // Bound memory even when an upstream omits Content-Length or streams chunked JSON.
-export async function boundedUpstreamBody(response: Response, limit = 65_536): Promise<ArrayBuffer | null> {
+export async function boundedUpstreamBody(response: Pick<Response, "headers" | "body">, limit = 65_536): Promise<ArrayBuffer | null> {
   const declared = response.headers.get("content-length");
   if (declared !== null && Number.isFinite(Number(declared)) && Number(declared) > limit) {
     await response.body?.cancel();

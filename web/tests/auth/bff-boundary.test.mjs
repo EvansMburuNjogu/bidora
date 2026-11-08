@@ -16,18 +16,14 @@ let webOrigin;
 let forwarded = [];
 let loginAuditContext = null;
 let googleRedirect = "valid";
-let publicMinimum = 20;
 let logs = "";
 const platformRequests = [];
 const managedRequests = [];
 let platformStatus = 200;
 let platformError = "PLATFORM_SETTING_NOT_FOUND";
-
-test("public password requirements use current values and reject invalid policy responses", async () => {
-  publicMinimum=20;let response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,200);assert.equal((await response.json()).data.minimum_password_bytes,20);
-  publicMinimum=24;response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal((await response.json()).data.minimum_password_bytes,24);
-  publicMinimum=8;response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,503);publicMinimum=20;
-});
+let sessionMutation = null;
+let bootstrapMounted = true;
+let publicMinimum = 20;
 
 async function freePort() {
   const server = net.createServer();
@@ -54,6 +50,12 @@ async function waitForNext(origin) {
   throw new Error(`Next.js test server did not start:\n${logs.slice(-4000)}`);
 }
 
+test("public password requirements use current values and reject invalid policy responses", async () => {
+  publicMinimum=20;let response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,200);assert.equal((await response.json()).data.minimum_password_bytes,20);
+  publicMinimum=24;response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal((await response.json()).data.minimum_password_bytes,24);
+  publicMinimum=8;response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,503);publicMinimum=20;
+});
+
 test("Platform BFF paths preserve filters, context and safe read responses", async () => {
   platformStatus = 200;
   const cases = [
@@ -64,6 +66,7 @@ test("Platform BFF paths preserve filters, context and safe read responses", asy
     ["/api/platform/commercial/invoices?limit=10&state=REVIEW_REQUIRED", "/v1/platform/commercial/invoices?limit=10&state=REVIEW_REQUIRED"],
     ["/api/platform/ai-usage?limit=10", "/v1/platform/commercial/ai-usage?limit=10"],
     ["/api/platform/communications/attempts?limit=10", "/v1/platform/notifications/attempts?limit=10"],
+    ["/api/platform/plans/management", "/v1/platform/commercial/plans/management"],
     ["/api/platform/audit/actions?limit=10&sort=ASC&search=User", "/v1/platform/audit/actions?limit=10&sort=ASC&search=User"],
     ["/api/platform/information", "/v1/platform/information"],
     ["/api/platform/integrations/openai/versions", "/v1/platform/integration-settings/OPENAI/versions?limit=25"],
@@ -79,6 +82,105 @@ test("Platform BFF paths preserve filters, context and safe read responses", asy
     assert.equal(response.headers.get("cache-control"), "private, no-store");
     assert.deepEqual(platformRequests.at(-1), { path: upstream, method: "GET", generation: "7", origin: webOrigin });
   }
+});
+
+test("administrator invitation BFF forwards one guarded command and rejects missing authority before I/O", async () => {
+  const key = "00000000-0000-4000-8000-000000000001";
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-Bidora-Platform-Context-Generation": "7", "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": key };
+  const path = "/api/platform/administrator-invitations";
+  const body = JSON.stringify({ email: "invited@example.test", role_key: "PLATFORM_OWNER", reason: "Operational coverage" });
+  const before = platformRequests.length;
+  const response = await fetch(webOrigin + path, { method: "POST", headers, body });
+  assert.equal(response.status, 201);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/administrator-invitations", method: "POST", generation: "7", origin: webOrigin });
+  assert.deepEqual(managedRequests.at(-1), { version: undefined, key, csrf: headers["X-CSRF-Token"], body });
+  for (const name of ["Origin", "X-CSRF-Token", "Idempotency-Key", "X-Bidora-Platform-Context-Generation"]) {
+    const invalid = { ...headers }; delete invalid[name];
+    assert.ok([400, 403].includes((await fetch(webOrigin + path, { method: "POST", headers: invalid, body })).status), name);
+  }
+  assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify({ ...JSON.parse(body), secret: "unwanted" }) })).status, 400);
+  assert.equal(platformRequests.length, before + 1);
+});
+
+test("financial adjustment BFF forwards only guarded maker/checker commands", async () => {
+ const id="00000000-0000-4000-8000-000000000002",path="/api/platform/commercial/financial-adjustments";
+ const headers={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Platform-Context-Generation":"7","X-CSRF-Token":"A".repeat(43),"Idempotency-Key":"00000000-0000-4000-8000-000000000001"};
+ const proposal={invoice_id:id,action:"ISSUE_CREDIT",reason_code:"SERVICE_CREDIT",amount_minor_units:200,entitlement_disposition:"NO_ENTITLEMENT_CHANGE",proposal_reason:"Reviewed service credit",expected_invoice_version:3,expected_payment_version:4};
+ const before=platformRequests.length;
+ for(const invalid of [{...proposal,extra:true},{...proposal,action:"REQUEST_REFUND"},{...proposal,amount_minor_units:0}])assert.equal((await fetch(webOrigin+path,{method:"POST",headers,body:JSON.stringify(invalid)})).status,400);
+ assert.equal((await fetch(webOrigin+path,{method:"POST",headers:{...headers,Origin:"https://invalid.test"},body:JSON.stringify(proposal)})).status,400);
+ assert.equal(platformRequests.length,before);
+ const created=await fetch(webOrigin+path,{method:"POST",headers,body:JSON.stringify(proposal)});assert.equal(created.status,201);assert.equal(created.headers.get("cache-control"),"private, no-store");
+ assert.deepEqual(platformRequests.at(-1),{path:"/v1/platform/commercial/financial-adjustments",method:"POST",generation:"7",origin:webOrigin});
+ assert.deepEqual(managedRequests.at(-1),{version:undefined,key:headers["Idempotency-Key"],csrf:headers["X-CSRF-Token"],body:JSON.stringify(proposal)});
+ const decisionPath=`${path}/${id}/decision`;
+ assert.equal((await fetch(webOrigin+`${path}/invalid/decision`,{method:"POST",headers,body:JSON.stringify({decision:"REJECTED",reason:"Not eligible",expected_version:1})})).status,400);
+ assert.equal((await fetch(webOrigin+decisionPath,{method:"POST",headers,body:JSON.stringify({decision:"APPROVED",reason:"",expected_version:1})})).status,400);
+ assert.equal((await fetch(webOrigin+decisionPath,{method:"POST",headers,body:JSON.stringify({decision:"REJECTED",reason:"Not eligible",expected_version:1})})).status,200);
+ assert.deepEqual(platformRequests.at(-1),{path:`/v1/platform/commercial/financial-adjustments/${id}/decision`,method:"POST",generation:"7",origin:webOrigin});
+});
+test("billing reconciliation BFF forwards a bounded request without claiming settlement", async () => {
+  const paymentID = "00000000-0000-4000-8000-000000000002";
+  const path = `/api/platform/commercial/payments/${paymentID}/reconciliation`;
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-Bidora-Platform-Context-Generation": "7", "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": "00000000-0000-4000-8000-000000000001" };
+  const body = JSON.stringify({ expected_version: 3, reason: "Verify a settled observation" });
+  const before = platformRequests.length;
+  const response = await fetch(webOrigin + path, { method: "POST", headers, body });
+  assert.equal(response.status, 202);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(platformRequests.at(-1), { path: `/v1/platform/commercial/payments/${paymentID}/reconciliation`, method: "POST", generation: "7", origin: webOrigin });
+  assert.deepEqual(managedRequests.at(-1), { version: undefined, key: headers["Idempotency-Key"], csrf: headers["X-CSRF-Token"], body });
+  for (const name of ["Origin", "X-CSRF-Token", "Idempotency-Key", "X-Bidora-Platform-Context-Generation"]) {
+    const invalid = { ...headers }; delete invalid[name];
+    assert.equal((await fetch(webOrigin + path, { method: "POST", headers: invalid, body })).status, 400, name);
+  }
+  assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify({ expected_version: 3, reason: "Verify", extra: true }) })).status, 400);
+  assert.equal(platformRequests.length, before + 1);
+});
+
+test("Platform plan BFF bounds versioned draft and publish commands", async () => {
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": "00000000-0000-4000-8000-000000000001", "X-Bidora-Platform-Context-Generation": "7" };
+  const before = platformRequests.length;
+  const draft = { expected_head_version: 1, monthly_price: { currency: "KES", amount: "4500.00" }, annual_price: { currency: "KES", amount: "45000.00" }, additional_licence_monthly_price: { currency: "KES", amount: "750.00" }, bid_workspaces: 3, included_licences: 3, storage_bytes: 10737418240, document_versions: 250, ai_credits: 5000, concurrent_ai_jobs: 2 };
+  const path = "/api/platform/plans/BASIC/drafts";
+  for (const body of [{ ...draft, extra: "secret" }, { ...draft, monthly_price: { currency: "USD", amount: "4500.00" } }]) assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify(body) })).status, 400);
+  assert.equal((await fetch(webOrigin + "/api/platform/plans/TRIAL/drafts", { method: "POST", headers, body: JSON.stringify(draft) })).status, 400);
+  assert.equal(platformRequests.length, before);
+  assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify(draft) })).status, 201);
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/commercial/plans/BASIC/drafts", method: "POST", generation: "7", origin: webOrigin });
+  assert.equal((await fetch(webOrigin + "/api/platform/plans/BASIC/publish", { method: "POST", headers, body: JSON.stringify({ version: 2, expected_head_version: 2 }) })).status, 201);
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/commercial/plans/BASIC/publish", method: "POST", generation: "7", origin: webOrigin });
+});
+
+test("Platform subscription BFF forwards only scoped, versioned boundary commands", async () => {
+  const tenant = "00000000-0000-4000-8000-000000000003";
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": "00000000-0000-4000-8000-000000000001", "X-Bidora-Platform-Context-Generation": "7" };
+  const base = `/api/platform/subscriptions/${tenant}`;
+  const before = platformRequests.length;
+  assert.equal((await fetch(webOrigin + "/api/platform/subscriptions/not-a-tenant", { headers })).status, 400);
+  assert.equal((await fetch(webOrigin + base + "/cancellation", { method: "POST", headers, body: JSON.stringify({ expected_version: 1, secret: "bad" }) })).status, 400);
+  for (const query of ["limit=51", "limit=20&limit=30", "cursor=not-uuid", "state=UNKNOWN", "sort=DESC"]) assert.equal((await fetch(webOrigin + `/api/platform/subscriptions?${query}`, { headers: { "X-Bidora-Platform-Context-Generation": "7" } })).status, 400);
+  assert.equal(platformRequests.length, before);
+  assert.equal((await fetch(webOrigin + `/api/platform/subscriptions?limit=20&state=ACTIVE&cursor=${tenant}`, { headers: { "X-Bidora-Platform-Context-Generation": "7" } })).status, 200);
+  assert.deepEqual(platformRequests.at(-1), { path: `/v1/platform/commercial/subscriptions?limit=20&state=ACTIVE&cursor=${tenant}`, method: "GET", generation: "7", origin: webOrigin });
+  assert.equal((await fetch(webOrigin + base, { headers: { "X-Bidora-Platform-Context-Generation": "7" } })).status, 200);
+  assert.deepEqual(platformRequests.at(-1), { path: `/v1/platform/commercial/subscriptions/${tenant}`, method: "GET", generation: "7", origin: webOrigin });
+  assert.equal((await fetch(webOrigin + base + "/cancellation", { method: "POST", headers, body: JSON.stringify({ expected_version: 1 }) })).status, 200);
+  assert.deepEqual(platformRequests.at(-1), { path: `/v1/platform/commercial/subscriptions/${tenant}/cancellation`, method: "POST", generation: "7", origin: webOrigin });
+});
+
+test("fresh invitation reissue BFF requires an explicit bounded command", async () => {
+  const id = "00000000-0000-4000-8000-000000000003";
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": "00000000-0000-4000-8000-000000000001", "X-Bidora-Platform-Context-Generation": "7" };
+  const path = `/api/platform/administrator-invitations/${id}/reissue`;
+  const before = platformRequests.length;
+  for (const body of [{ expected_version: 1, reason: "Explicit replacement", token: "unsafe" }, { expected_version: 0, reason: "Explicit replacement" }]) assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify(body) })).status, 400);
+  assert.equal(platformRequests.length, before);
+  assert.equal((await fetch(webOrigin + "/api/platform/administrator-invitations", { headers: { "X-Bidora-Platform-Context-Generation": "7" } })).status, 200);
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/administrator-invitations?limit=20", method: "GET", generation: "7", origin: webOrigin });
+  assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify({ expected_version: 1, reason: "Explicit replacement" }) })).status, 201);
+  assert.deepEqual(platformRequests.at(-1), { path: `/v1/platform/administrator-invitations/${id}/reissue`, method: "POST", generation: "7", origin: webOrigin });
 });
 
 test("PA-23 BFF rejects invalid filters locally and distinguishes missing list from missing detail", async () => {
@@ -97,6 +199,39 @@ test("PA-23 BFF rejects invalid filters locally and distinguishes missing list f
     const detail = await fetch(webOrigin + "/api/platform/audit/actions/00000000-0000-4000-8000-000000000001", { headers });
     assert.equal(detail.status, 404);
   } finally { platformStatus = 200; }
+});
+
+test("Support BFF validates bounded case commands and context before forwarding", async () => {
+  const before = platformRequests.length;
+  const path = "/api/platform/support/cases";
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": "00000000-0000-4000-8000-000000000001", "X-Bidora-Platform-Context-Generation": "7" };
+  for (const body of [{ tenant_id: "not-uuid", title: "Title", description: "Description" }, { tenant_id: "00000000-0000-4000-8000-000000000001", title: "Title", description: "Description", secret: "bad" }]) {
+    assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify(body) })).status, 400);
+  }
+  assert.equal(platformRequests.length, before);
+  const list = await fetch(webOrigin + path + "?limit=20", { headers: { "X-Bidora-Platform-Context-Generation": "7" } });
+  assert.equal(list.status, 200);
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/support/cases?limit=20", method: "GET", generation: "7", origin: webOrigin });
+  const create = await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify({ tenant_id: "00000000-0000-4000-8000-000000000001", title: "Title", description: "Description" }) });
+  assert.equal(create.status, 201);
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/support/cases", method: "POST", generation: "7", origin: webOrigin });
+  assert.equal((await fetch(webOrigin + path + "/00000000-0000-4000-8000-000000000001/unknown", { method: "POST", headers, body: "{}" })).status, 400);
+});
+
+test("audit export BFF forwards only a bounded UTC window and accepts CSV only", async () => {
+  const headers = { "X-Bidora-Platform-Context-Generation": "7" };
+  const path = "/api/platform/audit/actions/export?from=2026-03-01&to=2026-03-10";
+  const before = platformRequests.length;
+  for (const query of ["from=2026-03-01", "from=2026-03-01&to=2026-04-02", "from=2026-03-01&to=2026-03-10&sort=ASC", "from=2026-03-01&to=2026-03-10&to=2026-03-11"]) {
+    assert.equal((await fetch(webOrigin + "/api/platform/audit/actions/export?" + query, { headers })).status, 400);
+  }
+  assert.equal(platformRequests.length, before);
+  const response = await fetch(webOrigin + path, { headers });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.equal(response.headers.get("content-type"), "text/csv; charset=utf-8");
+  assert.match(await response.text(), /^id,occurred_at_utc/);
+  assert.deepEqual(platformRequests.at(-1), { path: "/v1/platform/audit/actions/export?from=2026-03-01&to=2026-03-10", method: "GET", generation: "7", origin: webOrigin });
 });
 
 test("SMTP BFF preserves concealed setting-not-found rather than claiming dependency failure", async () => {
@@ -160,20 +295,49 @@ test.before(async () => {
       response.end();
       return;
     }
+    if (request.url === "/v1/auth/session/bootstrap" && !bootstrapMounted) {
+      response.writeHead(404, { "Content-Type": "application/json" });
+      response.end(jsonError("NOT_FOUND"));
+      return;
+    }
+    if (request.url === "/v1/auth/session/bootstrap" || request.url === "/v1/auth/sessions" && request.method === "GET") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ data: "x".repeat(70_000) }));
+      return;
+    }
+    if (request.url?.startsWith("/v1/auth/sessions/") && request.method === "DELETE") {
+      sessionMutation = { cookie: request.headers.cookie, csrf: request.headers["x-csrf-token"], key: request.headers["idempotency-key"] };
+      response.writeHead(204, { "Set-Cookie": "__Host-bidora_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax" });
+      response.end();
+      return;
+    }
     if (request.url.startsWith("/v1/platform/")) {
       platformRequests.push({ path: request.url, method: request.method, generation: request.headers["x-bidora-platform-context-generation"], origin: request.headers.origin });
-      const managed = request.url.startsWith("/v1/platform/settings/google") || request.url.startsWith("/v1/platform/notification-templates");
+      const reconciliation = /^\/v1\/platform\/commercial\/payments\/[0-9a-f-]{36}\/reconciliation$/.test(request.url);
+      const adjustment = request.url.startsWith("/v1/platform/commercial/financial-adjustments") && request.method === "POST";
+      const managed = request.url.startsWith("/v1/platform/settings/google") || request.url.startsWith("/v1/platform/notification-templates") || request.url === "/v1/platform/administrator-invitations" || reconciliation || adjustment;
       let managedBody = ""; request.on("data", (chunk) => { if (managed) managedBody += chunk; });
       request.on("end", () => {
         if (managed) managedRequests.push({ version: request.headers["if-match"], key: request.headers["idempotency-key"], csrf: request.headers["x-csrf-token"], body: managedBody });
-        response.writeHead(platformStatus, { "Content-Type": "application/json", "Cache-Control": "private, no-store" });
-        response.end(platformStatus === 200 ? JSON.stringify({ data: [], meta: { trace_id: crypto.randomUUID(), next_cursor: null } }) : jsonError(platformError));
+        const status = platformStatus === 200 ? reconciliation ? 202 : request.url === "/v1/platform/commercial/financial-adjustments" && request.method === "POST" ? 201 : request.url === "/v1/platform/administrator-invitations" || request.url === "/v1/platform/support/cases" && request.method === "POST" || request.url.startsWith("/v1/platform/commercial/plans/") && request.method === "POST" || request.url.endsWith("/reissue") && request.method === "POST" ? 201 : 200 : platformStatus;
+        if (request.url.startsWith("/v1/platform/audit/actions/export?") && status === 200) {
+          response.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store" });
+          response.end("id,occurred_at_utc,action,module,result,administrator_id,affected_record_id\n");
+          return;
+        }
+        response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "private, no-store" });
+        response.end(status === 202 ? JSON.stringify({ data: { payment_id: request.url.split("/")[5], version: 4, reconciliation_requested: true, reconciliation_state: "DUE" }, meta: { trace_id: crypto.randomUUID(), next_cursor: null } }) : status === 201 ? JSON.stringify({ data: { id: "00000000-0000-4000-8000-000000000001", email: "invited@example.test", role_key: "PLATFORM_OWNER", state: "ACTIVE", version: 1, created_at: "2026-10-18T12:00:00Z", expires_at: "2026-10-21T12:00:00Z", delivery_state: "ACCEPTED_FOR_DELIVERY", governance_change_id: null }, meta: { trace_id: crypto.randomUUID() } }) : status === 200 ? JSON.stringify({ data: [], meta: { trace_id: crypto.randomUUID(), next_cursor: null } }) : jsonError(platformError));
       });
       return;
     }
     let bytes = "";
     request.on("data", (chunk) => { bytes += chunk; });
     request.on("end", () => {
+      if (bytes.includes("oversized@example.invalid")) {
+        response.writeHead(401, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ error: "x".repeat(70_000) }));
+        return;
+      }
       if (bytes.includes("nonjson@example.invalid")) {
         response.writeHead(500, { "Content-Type": "text/plain" });
         response.end("private upstream diagnostic");
@@ -260,6 +424,43 @@ test("authentication BFF maps an unexpectedly unmounted known route to unavailab
   const body = await response.json();
   assert.equal(body.error.code, "AUTH_UNAVAILABLE");
   assertSafeError(body);
+});
+
+test("authentication and session BFFs reject oversized streamed upstream responses", async () => {
+  const login = await postLogin('{"email":"oversized@example.invalid","password":"synthetic password"}', { "X-Bidora-Client-IP": "192.0.2.10" });
+  assert.equal(login.status, 503);
+  assertSafeError(await login.json());
+  for (const path of ["/api/session/bootstrap", "/api/session/sessions"]) {
+    const response = await fetch(webOrigin + path);
+    assert.equal(response.status, 503, path);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    assertSafeError(await response.json());
+  }
+});
+
+test("session BFF reports a missing backend route as unavailable", async () => {
+  bootstrapMounted = false;
+  try {
+    const response = await fetch(webOrigin + "/api/session/bootstrap");
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error.code, "AUTH_UNAVAILABLE");
+  } finally { bootstrapMounted = true; }
+});
+
+test("session revocation BFF checks browser authority and forwards idempotency without a request body", async () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  const key = "00000000-0000-4000-8000-000000000002";
+  const url = webOrigin + `/api/session/sessions/${id}`;
+  const headers = { Origin: webOrigin, "X-CSRF-Token": "A".repeat(43), "Idempotency-Key": key, Cookie: "__Host-bidora_session=synthetic" };
+  sessionMutation = null;
+  assert.equal((await fetch(url, { method: "DELETE", headers: { ...headers, Origin: "https://invalid.test" } })).status, 403);
+  assert.equal((await fetch(url, { method: "DELETE", headers: { ...headers, "X-CSRF-Token": "bad" } })).status, 403);
+  assert.equal((await fetch(url, { method: "DELETE", headers: { ...headers, "Idempotency-Key": "bad" } })).status, 400);
+  assert.equal(sessionMutation, null);
+  const response = await fetch(url, { method: "DELETE", headers });
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(sessionMutation, { cookie: headers.Cookie, csrf: headers["X-CSRF-Token"], key });
 });
 
 test("authentication BFF conceals non-JSON upstream diagnostics", async () => {

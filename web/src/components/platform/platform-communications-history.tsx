@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlatformSelect } from "@/components/platform/platform-select";
 import { isAcceptedEmail } from "@/lib/auth-validation";
+import { PlatformInvitationReissue } from "@/components/platform/platform-invitation-reissue";
 import { useSession } from "@/components/session/session-provider";
 
 type Attempt = { recipient: string | null; subject: string | null; message: string | null; category: string; attempt_number: number; disposition: string | null; failure_code: string | null; started_at: string; finished_at: string | null };
@@ -73,6 +74,7 @@ export function PlatformCommunicationsHistory() {
   function clearFilters() { setFilterError(""); setFilters({ ...emptyFilters }); setApplied({ ...emptyFilters }); setCursors([null]); }
   return <main className="app-page min-w-0 space-y-5">
     <div className="app-page-header"><h1 className="type-title">Communications</h1><p className="text-sm text-muted-foreground">Recipients, message previews and recorded send outcomes. Secret codes and links are redacted. SMTP acceptance does not confirm inbox delivery.</p></div>
+    <PlatformInvitationReissue />
     <form onSubmit={apply} aria-label="Communication filters" className="space-y-3 rounded-lg border bg-card p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="grid gap-2"><Label htmlFor="communication-recipient">Recipient email</Label><Input id="communication-recipient" type="email" maxLength={254} autoComplete="off" placeholder="Exact email address" value={filters.recipient} onChange={event => setFilters(old => ({...old, recipient:event.target.value}))} /></div>

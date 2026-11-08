@@ -60,7 +60,8 @@ func (q *Queries) ListPlatformAIUsageSettlements(ctx context.Context, arg ListPl
 }
 
 const listPlatformAdjustmentQueue = `-- name: ListPlatformAdjustmentQueue :many
-SELECT id,tenant_id,invoice_id,payment_id,action,state,reason_code,entitlement_disposition,maker_user_id,checker_user_id,version,amount_minor_units,net_minor_units,tax_minor_units,created_at,expires_at,decided_at
+SELECT id,tenant_id,invoice_id,payment_id,action,state,reason_code,entitlement_disposition,maker_user_id,checker_user_id,version,amount_minor_units,net_minor_units,tax_minor_units,created_at,expires_at,decided_at,
+ coalesce((SELECT name FROM bidora_tenancy.tenants t WHERE t.id=commercial.financial_changes.tenant_id),'')::text AS tenant_name
 FROM commercial.financial_changes
 WHERE ($1::text IS NULL OR state=$1::text)
  AND ($2::text IS NULL OR action=$2::text)
@@ -94,6 +95,7 @@ type ListPlatformAdjustmentQueueRow struct {
 	CreatedAt              pgtype.Timestamptz
 	ExpiresAt              pgtype.Timestamptz
 	DecidedAt              pgtype.Timestamptz
+	TenantName             string
 }
 
 func (q *Queries) ListPlatformAdjustmentQueue(ctx context.Context, arg ListPlatformAdjustmentQueueParams) ([]ListPlatformAdjustmentQueueRow, error) {
@@ -129,6 +131,7 @@ func (q *Queries) ListPlatformAdjustmentQueue(ctx context.Context, arg ListPlatf
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.DecidedAt,
+			&i.TenantName,
 		); err != nil {
 			return nil, err
 		}
@@ -141,7 +144,9 @@ func (q *Queries) ListPlatformAdjustmentQueue(ctx context.Context, arg ListPlatf
 }
 
 const listPlatformInvoiceQueue = `-- name: ListPlatformInvoiceQueue :many
-SELECT id,tenant_id,subscription_id,invoice_number,state,version,purchase_kind,currency,total_minor_units,outstanding_minor_units,issued_at,due_at
+SELECT id,tenant_id,subscription_id,invoice_number,state,version,purchase_kind,currency,total_minor_units,outstanding_minor_units,issued_at,due_at,
+ coalesce((SELECT max(p.version)::bigint FROM commercial.payment_operations p JOIN commercial.payment_settlement_effects e ON e.payment_id=p.id WHERE p.invoice_id=commercial.invoices.id AND p.state='SETTLED' AND (SELECT count(*) FROM commercial.payment_operations exact_payment WHERE exact_payment.invoice_id=commercial.invoices.id AND exact_payment.state='SETTLED')=1 HAVING count(*)=1),0)::bigint AS settled_payment_version,
+ coalesce((SELECT name FROM bidora_tenancy.tenants t WHERE t.id=commercial.invoices.tenant_id),'')::text AS tenant_name
 FROM commercial.invoices
 WHERE ($1::text IS NULL OR state=$1::text)
  AND ($2::timestamptz IS NULL OR (issued_at,id)<($2::timestamptz,$3::uuid))
@@ -168,6 +173,8 @@ type ListPlatformInvoiceQueueRow struct {
 	OutstandingMinorUnits int64
 	IssuedAt              pgtype.Timestamptz
 	DueAt                 pgtype.Timestamptz
+	SettledPaymentVersion int64
+	TenantName            string
 }
 
 func (q *Queries) ListPlatformInvoiceQueue(ctx context.Context, arg ListPlatformInvoiceQueueParams) ([]ListPlatformInvoiceQueueRow, error) {
@@ -197,6 +204,8 @@ func (q *Queries) ListPlatformInvoiceQueue(ctx context.Context, arg ListPlatform
 			&i.OutstandingMinorUnits,
 			&i.IssuedAt,
 			&i.DueAt,
+			&i.SettledPaymentVersion,
+			&i.TenantName,
 		); err != nil {
 			return nil, err
 		}
@@ -209,7 +218,8 @@ func (q *Queries) ListPlatformInvoiceQueue(ctx context.Context, arg ListPlatform
 }
 
 const listPlatformPaymentQueue = `-- name: ListPlatformPaymentQueue :many
-SELECT id,tenant_id,invoice_id,state,version,currency,amount_minor_units,reconciliation_state,created_at,updated_at,reconciled_at
+SELECT id,tenant_id,invoice_id,state,version,currency,amount_minor_units,reconciliation_state,created_at,updated_at,reconciled_at,
+ coalesce((SELECT name FROM bidora_tenancy.tenants t WHERE t.id=commercial.payment_operations.tenant_id),'')::text AS tenant_name
 FROM commercial.payment_operations
 WHERE ($1::text IS NULL OR state=$1::text)
  AND ($2::text IS NULL OR reconciliation_state=$2::text)
@@ -237,6 +247,7 @@ type ListPlatformPaymentQueueRow struct {
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 	ReconciledAt        pgtype.Timestamptz
+	TenantName          string
 }
 
 func (q *Queries) ListPlatformPaymentQueue(ctx context.Context, arg ListPlatformPaymentQueueParams) ([]ListPlatformPaymentQueueRow, error) {
@@ -266,6 +277,7 @@ func (q *Queries) ListPlatformPaymentQueue(ctx context.Context, arg ListPlatform
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReconciledAt,
+			&i.TenantName,
 		); err != nil {
 			return nil, err
 		}
@@ -287,7 +299,8 @@ WITH queued AS (
  LEFT JOIN commercial.payment_reversal_effects e ON e.payment_id=p.id
  LEFT JOIN commercial.subscription_access_holds h ON h.source_payment_id=p.id
 )
-SELECT id,payment_id,tenant_id,invoice_id,actor_user_id,expected_payment_version,payment_state,reconciliation_state,queue_state,currency,amount_minor_units,requested_at,applied_at,hold_state
+SELECT id,payment_id,tenant_id,invoice_id,actor_user_id,expected_payment_version,payment_state,reconciliation_state,queue_state,currency,amount_minor_units,requested_at,applied_at,hold_state,
+ coalesce((SELECT name FROM bidora_tenancy.tenants t WHERE t.id=queued.tenant_id),'')::text AS tenant_name
 FROM queued
 WHERE ($1::text IS NULL OR queue_state=$1::text)
  AND ($2::timestamptz IS NULL OR (requested_at,id)<($2::timestamptz,$3::uuid))
@@ -316,6 +329,7 @@ type ListPlatformReversalQueueRow struct {
 	RequestedAt            pgtype.Timestamptz
 	AppliedAt              pgtype.Timestamptz
 	HoldState              *string
+	TenantName             string
 }
 
 func (q *Queries) ListPlatformReversalQueue(ctx context.Context, arg ListPlatformReversalQueueParams) ([]ListPlatformReversalQueueRow, error) {
@@ -347,6 +361,7 @@ func (q *Queries) ListPlatformReversalQueue(ctx context.Context, arg ListPlatfor
 			&i.RequestedAt,
 			&i.AppliedAt,
 			&i.HoldState,
+			&i.TenantName,
 		); err != nil {
 			return nil, err
 		}

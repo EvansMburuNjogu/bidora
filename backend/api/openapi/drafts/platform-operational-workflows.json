@@ -1,0 +1,673 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Platform operational workflows",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/platform/overview": {
+      "get": {
+        "operationId": "getPlatformOperationalOverview",
+        "summary": "Read permission-scoped operational totals",
+        "description": "Current administrator authority and recent administrator assurance are rechecked in the same control transaction as totals and audit insertion. Unauthorized metrics are null, not zero. Counts include active unheld trials/paid terms, unpaid non-void KES invoice balances and open support cases. Monthly gross invoicing is not net revenue. No tenant database or provider is opened.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized result; read and evidence commit together.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "tenderpreneurs",
+                        "active_subscriptions",
+                        "outstanding_minor_units",
+                        "open_support_cases",
+                        "observed_at",
+                        "invoiced_minor_units",
+                        "paid_invoices",
+                        "failed_payments",
+                        "monthly_invoicing"
+                      ],
+                      "properties": {
+                        "tenderpreneurs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "active_subscriptions": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "outstanding_minor_units": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "open_support_cases": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "invoiced_minor_units": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "paid_invoices": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "failed_payments": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9]+$"
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "monthly_invoicing": {
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "month",
+                              "total_minor_units"
+                            ],
+                            "properties": {
+                              "month": {
+                                "type": "string",
+                                "pattern": "^[0-9]{4}-[0-9]{2}$"
+                              },
+                              "total_minor_units": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "trace_id",
+                        "next_cursor"
+                      ],
+                      "properties": {
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "next_cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Authority or recent verification required"
+          },
+          "404": {
+            "description": "Record not found"
+          },
+          "409": {
+            "description": "Version, context or idempotency conflict"
+          },
+          "503": {
+            "description": "Unavailable; no partial success"
+          }
+        }
+      }
+    },
+    "/v1/platform/references/{kind}": {
+      "get": {
+        "operationId": "lookupPlatformOperationalReferences",
+        "summary": "Search organisations or eligible support assignees",
+        "description": "A bounded label/ID lookup, not administrator or private customer record access. Organisation lookup requires tenant-read, subscription-read or support-case-read; assignee lookup requires support-case-manage and returns only active explicitly assigned Support Administrators. Uses exact current context and recent verification, with committed audit evidence.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "organizations",
+                "support-assignees"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authorized result; read and evidence commit together.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "items",
+                        "has_more"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "maxItems": 25,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "label"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 254
+                              }
+                            }
+                          }
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "trace_id",
+                        "next_cursor"
+                      ],
+                      "properties": {
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "next_cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Authority or recent verification required"
+          },
+          "404": {
+            "description": "Record not found"
+          },
+          "409": {
+            "description": "Version, context or idempotency conflict"
+          },
+          "503": {
+            "description": "Unavailable; no partial success"
+          }
+        }
+      }
+    },
+    "/v1/platform/tenants/{tenant_id}/suspend": {
+      "post": {
+        "operationId": "suspendPlatformTenant",
+        "summary": "Suspend organisation access",
+        "description": "Requires the exact platform.tenant.suspend capability, current context, verified email and recent administrator assurance. Locks the tenant and command scope, enforces optimistic version and idempotency, and atomically records the result and audit. Suspend only permits ACTIVE → SUSPENDED. Reactivation requires a current active assignment/cluster and compatible common/tenderpreneur schemas. It does not change membership, tenant placement, subscriptions, financial evidence or secrets.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current authorized result; read and evidence commit together.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "tenant_id",
+                        "state",
+                        "version"
+                      ],
+                      "properties": {
+                        "tenant_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ACTIVE",
+                            "SUSPENDED"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "trace_id",
+                        "next_cursor"
+                      ],
+                      "properties": {
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "next_cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Authority or recent verification required"
+          },
+          "404": {
+            "description": "Record not found"
+          },
+          "409": {
+            "description": "Version, context or idempotency conflict"
+          },
+          "503": {
+            "description": "Unavailable; no partial success"
+          }
+        }
+      }
+    },
+    "/v1/platform/tenants/{tenant_id}/reactivate": {
+      "post": {
+        "operationId": "reactivatePlatformTenant",
+        "summary": "Reactivate a suspended organisation",
+        "description": "Requires the exact platform.tenant.reactivate capability, current context, verified email and recent administrator assurance. Locks the tenant and command scope, enforces optimistic version and idempotency, and atomically records the result and audit. Suspend only permits ACTIVE → SUSPENDED. Reactivation requires a current active assignment/cluster and compatible common/tenderpreneur schemas. It does not change membership, tenant placement, subscriptions, financial evidence or secrets.",
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bidora-Platform-Context-Generation",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current authorized result; read and evidence commit together.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "tenant_id",
+                        "state",
+                        "version"
+                      ],
+                      "properties": {
+                        "tenant_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ACTIVE",
+                            "SUSPENDED"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "trace_id",
+                        "next_cursor"
+                      ],
+                      "properties": {
+                        "trace_id": {
+                          "type": "string"
+                        },
+                        "next_cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Authority or recent verification required"
+          },
+          "404": {
+            "description": "Record not found"
+          },
+          "409": {
+            "description": "Version, context or idempotency conflict"
+          },
+          "503": {
+            "description": "Unavailable; no partial success"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bidora_session"
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"bidora/backend/internal/commercial/domain"
 )
@@ -26,15 +27,49 @@ type AICreditCalculation struct {
 	Rule    string
 }
 
-type CatalogueService struct{}
+type CatalogueService struct{ published PublishedPlanReader }
 
 func NewCatalogueService() *CatalogueService { return &CatalogueService{} }
-
-func (*CatalogueService) List(ctx context.Context) ([]domain.Plan, error) {
-	if ctx == nil {
+func (s *CatalogueService) ConfigurePublished(reader PublishedPlanReader) error {
+	if s == nil || reader == nil {
+		return ErrPlatformPlanUnavailable
+	}
+	s.published = reader
+	return nil
+}
+func (s *CatalogueService) List(ctx context.Context) ([]domain.Plan, error) {
+	if ctx == nil || s == nil {
 		return nil, ErrInvalidRequest
 	}
-	return domain.Catalogue(), nil
+	plans := domain.Catalogue()
+	if s.published == nil {
+		return plans, nil
+	} // Offline/test module; both production runtimes configure the control store.
+	versions, err := s.published.PublishedPlans(ctx)
+	if err != nil || len(versions) != 3 {
+		return nil, ErrPlatformPlanUnavailable
+	}
+	seen := map[domain.PlanKey]bool{}
+	for _, v := range versions {
+		if seen[v.Key] {
+			return nil, ErrPlatformPlanUnavailable
+		}
+		updated, e := ApplyPublishedPlan(v)
+		if e != nil {
+			return nil, e
+		}
+		seen[v.Key] = true
+		for i := range plans {
+			if plans[i].Key == v.Key {
+				plans[i] = updated
+				break
+			}
+		}
+	}
+	if !seen[domain.Basic] || !seen[domain.Growth] || !seen[domain.Professional] {
+		return nil, ErrPlatformPlanUnavailable
+	}
+	return plans, nil
 }
 
 func (*CatalogueService) CalculateDocumentCredits(ctx context.Context, documentType string, measuredUnits int64) (AICreditCalculation, error) {
@@ -68,7 +103,21 @@ func (*CatalogueService) CalculateGenerationCredits(ctx context.Context, inputCh
 	return AICreditCalculation{Credits: credits, Rule: "GENERATION_TEXT"}, nil
 }
 
-func (*CatalogueService) QuoteBasePrice(ctx context.Context, planValue, cadenceValue string) (BasePriceQuote, error) {
+// PublishedTerm snapshots the same version that quotes read. Invoice issuance
+// remains separately gated by its own quote provider and payment workflow.
+func (s *CatalogueService) PublishedTerm(ctx context.Context, key domain.PlanKey, cadence domain.BillingCadence, startsAt time.Time) (domain.TermSnapshot, error) {
+	plans, err := s.List(ctx)
+	if err != nil {
+		return domain.TermSnapshot{}, err
+	}
+	for _, plan := range plans {
+		if plan.Key == key {
+			return domain.NewTermFromPlan(plan, cadence, startsAt)
+		}
+	}
+	return domain.TermSnapshot{}, ErrInvalidRequest
+}
+func (s *CatalogueService) QuoteBasePrice(ctx context.Context, planValue, cadenceValue string) (BasePriceQuote, error) {
 	if ctx == nil || planValue == "" || cadenceValue == "" {
 		return BasePriceQuote{}, ErrInvalidRequest
 	}
@@ -77,14 +126,24 @@ func (*CatalogueService) QuoteBasePrice(ctx context.Context, planValue, cadenceV
 		return BasePriceQuote{}, ErrInvalidRequest
 	}
 	cadence := domain.BillingCadence(cadenceValue)
-	price, err := domain.BasePrice(key, cadence)
+	plans, err := s.List(ctx)
+	if err != nil {
+		return BasePriceQuote{}, err
+	}
+	var plan domain.Plan
+	for _, candidate := range plans {
+		if candidate.Key == key {
+			plan = candidate
+			break
+		}
+	}
+	if plan.Key == "" {
+		return BasePriceQuote{}, ErrInvalidRequest
+	}
+	price, err := domain.PriceForPlan(plan, cadence)
 	if errors.Is(err, domain.ErrCadenceUnavailable) {
 		return BasePriceQuote{}, ErrUnavailableCadence
 	}
-	if err != nil {
-		return BasePriceQuote{}, ErrInvalidRequest
-	}
-	plan, err := domain.FindPlan(key)
 	if err != nil {
 		return BasePriceQuote{}, ErrInvalidRequest
 	}

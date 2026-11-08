@@ -31,7 +31,7 @@ type smtpFixture struct {
 	message   chan string
 }
 
-func newSMTPFixture(t *testing.T, startTLS bool) *smtpFixture {
+func newSMTPFixture(t *testing.T, startTLS bool, bannerDelay ...time.Duration) *smtpFixture {
 	t.Helper()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -50,7 +50,12 @@ func newSMTPFixture(t *testing.T, startTLS bool) *smtpFixture {
 		t.Fatal(err)
 	}
 	fixture := &smtpFixture{listener: listener, roots: roots, serverTLS: &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12}, done: make(chan error, 1), message: make(chan string, 1)}
-	go fixture.serve(startTLS)
+	go func() {
+		if len(bannerDelay) > 0 {
+			time.Sleep(bannerDelay[0])
+		}
+		fixture.serve(startTLS)
+	}()
 	t.Cleanup(func() {
 		_ = listener.Close()
 		select {

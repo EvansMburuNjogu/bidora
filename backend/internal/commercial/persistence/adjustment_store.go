@@ -103,7 +103,11 @@ func (tx *trialTx) lockAdjustment(ctx context.Context, tenant, change domain.ID)
 		return commercialapp.AdjustmentStored{}, false, errors.New("commercial_adjustment_corrupt")
 	}
 	p := domain.AdjustmentProposal{ID: domain.ID(r.ID.Bytes), TenantID: domain.ID(r.TenantID.Bytes), InvoiceID: domain.ID(r.InvoiceID.Bytes), PaymentID: domain.ID(r.PaymentID.Bytes), MakerUserID: domain.ID(r.MakerUserID.Bytes), Action: r.Action, ReasonCode: r.ReasonCode, EntitlementDisposition: r.EntitlementDisposition, ProposalReason: r.ProposalReason, AmountMinorUnits: r.AmountMinorUnits, NetMinorUnits: r.NetMinorUnits, TaxMinorUnits: r.TaxMinorUnits, ExpectedInvoiceVersion: r.ExpectedInvoiceVersion, ExpectedPaymentVersion: r.ExpectedPaymentVersion, TaxProfileID: domain.ID(r.TaxProfileID.Bytes), TaxProfileHash: tax, MakerAuthorityHash: maker, RequestHash: request, Version: r.Version, CreatedAt: r.CreatedAt.Time.UTC(), ExpiresAt: r.ExpiresAt.Time.UTC()}
-	return commercialapp.AdjustmentStored{Proposal: p, State: r.State, InvoiceState: r.InvoiceState, PaymentState: r.PaymentState, CheckerUserID: domain.ID(r.CheckerUserID.Bytes), CreditNoteID: domain.ID(r.CreditNoteID.Bytes), RefundID: domain.ID(r.RefundID.Bytes), CreditNumber: r.CreditNumber, CurrentInvoiceVersion: r.InvoiceVersion, CurrentPaymentVersion: r.PaymentVersion, InvoiceTotalMinor: r.TotalMinorUnits, PriorCreditMinor: r.PriorCreditMinorUnits}, true, nil
+	stored := commercialapp.AdjustmentStored{Proposal: p, State: r.State, InvoiceState: r.InvoiceState, PaymentState: r.PaymentState, CheckerUserID: domain.ID(r.CheckerUserID.Bytes), CreditNoteID: domain.ID(r.CreditNoteID.Bytes), RefundID: domain.ID(r.RefundID.Bytes), CreditNumber: r.CreditNumber, CurrentInvoiceVersion: r.InvoiceVersion, CurrentPaymentVersion: r.PaymentVersion, InvoiceTotalMinor: r.TotalMinorUnits, PriorCreditMinor: r.PriorCreditMinorUnits}
+	if r.PaymentSettledAt.Valid {
+		stored.PaymentSettledAt = r.PaymentSettledAt.Time.UTC()
+	}
+	return stored, true, nil
 }
 func (tx *trialTx) ExpirePendingAdjustment(ctx context.Context, tenant, invoice domain.ID, at time.Time) (commercialapp.ExpiredAdjustment, bool, error) {
 	r, err := tx.commercial.ExpirePendingFinancialChange(ctx, commercialsql.ExpirePendingFinancialChangeParams{At: commercialTime(at), TenantID: commercialID(tenant), InvoiceID: commercialID(invoice)})

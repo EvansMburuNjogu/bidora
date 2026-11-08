@@ -30,7 +30,7 @@ func (c sessionClockFake) Now() time.Time { return c.at }
 func validSessionRecord(observed time.Time) identityapp.SessionRecord {
 	var csrf [32]byte
 	csrf[31] = 1
-	return identityapp.SessionRecord{SessionID: identityID(1), UserID: identityID(2), CSRFHash: csrf, AuthEpoch: 3, IdleExpiresAt: observed.Add(30 * time.Minute), AbsoluteExpiresAt: observed.Add(12 * time.Hour), AssuranceLevel: "AAL1", AssuranceMethod: "PRIMARY_ONLY", AssuredAt: observed.Add(-time.Minute)}
+	return identityapp.SessionRecord{AuthenticatedAt: observed.Add(-time.Minute), SessionID: identityID(1), UserID: identityID(2), CSRFHash: csrf, AuthEpoch: 3, IdleExpiresAt: observed.Add(30 * time.Minute), AbsoluteExpiresAt: observed.Add(12 * time.Hour), AssuranceLevel: "AAL1", AssuranceMethod: "PRIMARY_ONLY", AssuredAt: observed.Add(-time.Minute)}
 }
 
 func TestSessionValidatorHashesRefreshesAndReturnsCurrentPrincipal(t *testing.T) {

@@ -39,7 +39,7 @@ func (r *Runtime) CreateOrder(ctx context.Context, c commercial.PaymentProviderC
 	if e != nil {
 		return unavailable, commercial.ErrPaymentUnavailable
 	}
-	body := map[string]any{"id": uuid.UUID(in.MerchantOperationID).String(), "currency": "KES", "amount": json.Number(fmt.Sprintf("%d.%02d", in.AmountMinorUnits/100, in.AmountMinorUnits%100)), "description": "Bidora invoice " + uuid.UUID(in.InvoiceID).String(), "callback_url": r.options.CallbackURL, "notification_id": uuid.UUID(cfg.NotificationID).String(), "billing_address": map[string]string{"email_address": in.PayerEmail, "country_code": in.PayerCountry}}
+	body := map[string]any{"id": uuid.UUID(in.MerchantOperationID).String(), "currency": "KES", "amount": json.Number(fmt.Sprintf("%d.%02d", in.AmountMinorUnits/100, in.AmountMinorUnits%100)), "description": cfg.MerchantName + " invoice " + uuid.UUID(in.InvoiceID).String(), "callback_url": r.options.CallbackURL, "notification_id": uuid.UUID(cfg.NotificationID).String(), "billing_address": map[string]string{"email_address": in.PayerEmail, "country_code": in.PayerCountry}}
 	payload, e := json.Marshal(body)
 	if e != nil {
 		return unavailable, commercial.ErrPaymentUnavailable

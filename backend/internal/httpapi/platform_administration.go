@@ -31,6 +31,7 @@ type PlatformAdministrationUseCase interface {
 	Changes(context.Context, platformapp.ReadAuthority, *string, platformapp.PageCursor) (platformapp.ChangeList, error)
 	Change(context.Context, platformapp.ReadAuthority, platformapp.ID) (platformapp.ChangeView, error)
 	IssueInvitation(context.Context, platformapp.IssueInvitationInput) (platformapp.IssueInvitationResult, error)
+	ReissueInvitation(context.Context, platformapp.ReissueInvitationInput) (platformapp.IssueInvitationResult, error)
 	CancelInvitation(context.Context, platformapp.CancelInvitationInput) error
 	AcceptInvitation(context.Context, platformapp.AcceptInvitationInput) (platformapp.AcceptInvitationResult, error)
 	ChangeRole(context.Context, platformapp.RoleChangeInput) (platformapp.RoleChangeResult, error)
@@ -79,6 +80,7 @@ func RegisterPlatformInvitationRoutes(app *fiber.App, middleware *BrowserSession
 	g := app.Group("/v1/platform", middleware.Platform)
 	g.Get("/administrator-invitations", handler.invitations)
 	g.Post("/administrator-invitations", handler.issueInvitation)
+	g.Post("/administrator-invitations/:invitation_id/reissue", handler.reissueInvitation)
 	g.Delete("/administrator-invitations/:invitation_id", handler.cancelInvitation)
 	g.Post("/administrator-invitations/accept", handler.acceptInvitation)
 	return nil
@@ -107,29 +109,6 @@ func RegisterPlatformSessionRevocationRoute(app *fiber.App, middleware *BrowserS
 		return errors.New("platform_administration_routes_invalid")
 	}
 	g := app.Group("/v1/platform", middleware.Platform)
-	g.Post("/administrators/:user_id/sessions/revoke", handler.revokeSessions)
-	return nil
-}
-
-func RegisterPlatformAdministrationRoutes(app *fiber.App, middleware *BrowserSessionMiddleware, handler *PlatformAdministrationHandler) error {
-	if app == nil || middleware == nil || handler == nil {
-		return errors.New("platform_administration_routes_invalid")
-	}
-	g := app.Group("/v1/platform", middleware.Platform)
-	g.Get("/roles", handler.roles)
-	g.Get("/administrator-invitations", handler.invitations)
-	g.Post("/administrator-invitations", handler.issueInvitation)
-	g.Delete("/administrator-invitations/:invitation_id", handler.cancelInvitation)
-	g.Post("/administrator-invitations/accept", handler.acceptInvitation)
-	g.Get("/administrators", handler.administrators)
-	g.Post("/administrators/search", handler.searchAdministrators)
-	g.Get("/administrators/:user_id", handler.administrator)
-	g.Get("/administrators/:user_id/assignment-history", handler.assignmentHistory)
-	g.Post("/administrator-changes", handler.createChange)
-	g.Get("/administrator-changes", handler.changes)
-	g.Get("/administrator-changes/:change_id", handler.change)
-	g.Post("/administrator-changes/:change_id/approve", handler.approveChange)
-	g.Post("/administrator-changes/:change_id/reject", handler.rejectChange)
 	g.Post("/administrators/:user_id/sessions/revoke", handler.revokeSessions)
 	return nil
 }
@@ -392,6 +371,42 @@ func (h *PlatformAdministrationHandler) issueInvitation(c fiber.Ctx) error {
 	}
 	auth := common.read(h.clock.Now())
 	row, err := h.usecase.Invitation(c.Context(), auth, result.InvitationID)
+	if err != nil {
+		return platformFailure(c, err)
+	}
+	row.Delivery = result.Delivery
+	return platformJSON(c, 201, invitationJSON(row), nil)
+}
+
+type platformReissueBody struct {
+	ExpectedVersion int64  `json:"expected_version"`
+	Reason          string `json:"reason"`
+}
+
+func (h *PlatformAdministrationHandler) reissueInvitation(c fiber.Ctx) error {
+	common, ok := h.mutation(c)
+	if !ok {
+		return nil
+	}
+	if len(c.Request().URI().QueryString()) != 0 {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	id, ok := platformPathID(c, "invitation_id")
+	if !ok {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	var body platformReissueBody
+	if !platformPlanDecode(c, &body) || body.ExpectedVersion < 1 {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	result, err := h.usecase.ReissueInvitation(c.Context(), platformapp.ReissueInvitationInput{ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, InvitationID: id, PlatformContextGeneration: common.generation, ExpectedVersion: body.ExpectedVersion, Reason: body.Reason})
+	if err != nil {
+		return platformFailure(c, err)
+	}
+	if result.Replay {
+		c.Set("Idempotency-Replayed", "true")
+	}
+	row, err := h.usecase.Invitation(c.Context(), common.read(h.clock.Now()), result.InvitationID)
 	if err != nil {
 		return platformFailure(c, err)
 	}

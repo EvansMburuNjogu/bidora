@@ -8,9 +8,26 @@ export type CommercialQueue = keyof typeof commercialQueueConfig;
 export const commercialQueues = Object.keys(commercialQueueConfig) as CommercialQueue[];
 export const commercialUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export type CommercialMoney = { currency: "KES"; amount_minor_units: number; amount: string };
-export type CommercialItem = { id: string; tenant_id: string; state: string; amount: CommercialMoney; occurred_at: string; version?: number; fields: { label: string; value: string }[]; detail_id?: string };
+export type CommercialItem = { tenant_name?: string; settled_payment_version?: number; id: string; tenant_id: string; state: string; amount: CommercialMoney; occurred_at: string; version?: number; fields: { label: string; value: string }[]; detail_id?: string };
 export type CommercialPage = { items: CommercialItem[]; next_cursor: string | null };
-export type CommercialDetail = { id: string; title: string; state: string; amount: CommercialMoney; fields: { label: string; value: string }[] };
+export type CommercialDetail = { id: string; title: string; state: string; amount: CommercialMoney; fields: { label: string; value: string }[]; adjustment?: { version: number; maker_user_id: string; action: "ISSUE_CREDIT" | "REQUEST_REFUND"; expires_at: string } };
+export function parseAdjustmentReceipt(raw: unknown, expected: { invoiceID?: string; changeID?: string; decision?: "APPROVED" | "REJECTED"; version?: number }): { id: string; state: string } | null {
+  const e=envelope(raw),r=record(e?.data);
+  if(!e||e.next_cursor!==null||!r||!exact(r,["id","invoice_id","payment_id","action","state","version","reason_code","amount","net","tax","entitlement_disposition","expires_at","credit_note_id","credit_number","refund_operation_id","provider_refund_executed","entitlement_disposition_executed"])||!id(r.id)||!id(r.invoice_id)||!id(r.payment_id)||!["ISSUE_CREDIT","REQUEST_REFUND"].includes(String(r.action))||!money(r.amount)||!money(r.net)||!money(r.tax)||!text(r.reason_code)||!text(r.entitlement_disposition)||!instant(r.expires_at)||!version(r.version)||r.provider_refund_executed!==false||r.entitlement_disposition_executed!==false||!optionalID(r.credit_note_id)||!optionalID(r.refund_operation_id)||!nullableText(r.credit_number))return null;
+  if(expected.invoiceID){if(r.invoice_id.toLowerCase()!==expected.invoiceID.toLowerCase()||r.state!=="PENDING_APPROVAL"||r.version!==1||r.credit_note_id!==null||r.refund_operation_id!==null||r.credit_number!==null)return null;}
+  else if(expected.changeID&&expected.decision&&expected.version){if(r.id.toLowerCase()!==expected.changeID.toLowerCase()||r.state!==expected.decision||Number(r.version)<=expected.version||expected.decision==="APPROVED"&&(!id(r.credit_note_id)||!text(r.credit_number)||r.action==="REQUEST_REFUND"&&!id(r.refund_operation_id)||r.action==="ISSUE_CREDIT"&&r.refund_operation_id!==null)||expected.decision==="REJECTED"&&(r.credit_note_id!==null||r.refund_operation_id!==null||r.credit_number!==null))return null;}
+  else return null;
+  return {id:r.id,state:r.state as string};
+}
+
+export function parseReconciliationReceipt(raw: unknown, paymentID: string, expectedVersion: number): boolean {
+  const root = record(raw), data = record(root?.data), meta = record(root?.meta);
+  return !!root && !!data && !!meta && exact(root, ["data", "meta"]) && exact(meta, ["trace_id", "next_cursor"]) && text(meta.trace_id) && meta.next_cursor === null &&
+    exact(data, ["payment_id", "invoice_id", "state", "version", "reconciliation_state", "reconciliation_requested", "updated_at"]) &&
+    id(data.payment_id) && String(data.payment_id).toLowerCase() === paymentID.toLowerCase() && id(data.invoice_id) && data.state === "SETTLED" &&
+    version(data.version) && Number(data.version) > expectedVersion && data.reconciliation_state === "DUE" && data.reconciliation_requested === true && instant(data.updated_at);
+}
+
 
 function record(v: unknown): Record<string, unknown> | null { return v !== null && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null; }
 function exact(v: Record<string, unknown>, names: readonly string[]): boolean { return Object.keys(v).length === names.length && names.every((name) => Object.hasOwn(v, name)); }
@@ -38,6 +55,12 @@ function envelope(value: unknown): { data: unknown; next_cursor: string | null }
 const fields = (r: Record<string, unknown>, names: readonly string[]) => names.map((name) => ({ label: name.replaceAll("_", " "), value: r[name] === null ? "—" : String(r[name]) }));
 const base = ["id", "tenant_id", "state", "version", "amount"];
 function item(raw: unknown, kind: CommercialQueue): CommercialItem | null {
+ const source=record(raw);if(!source)return null;
+ const {tenant_name,settled_payment_version,...payload}=source;
+ if(tenant_name!==undefined&&(typeof tenant_name!=="string"||tenant_name.length>200)||settled_payment_version!==undefined&&(!Number.isSafeInteger(settled_payment_version)||Number(settled_payment_version)<0))return null;
+ const value=baseItem(payload,kind);return value?{...value,tenant_name:typeof tenant_name==="string"?tenant_name:undefined,settled_payment_version:typeof settled_payment_version==="number"?settled_payment_version:undefined}:null;
+}
+function baseItem(raw: unknown, kind: CommercialQueue): CommercialItem | null {
   const r = record(raw);
   if (!r) return null;
   switch (kind) {
@@ -77,7 +100,7 @@ export function parseCommercialDetail(raw: unknown, kind: "financial-adjustments
   if (kind === "financial-adjustments") {
     if (!exact(r, ["id", "tenant_id", "invoice_id", "payment_id", "action", "state", "version", "reason_code", "entitlement_disposition", "proposal_reason", "decision_reason", "maker_user_id", "checker_user_id", "amount", "net", "tax", "created_at", "expires_at", "decided_at", "credit_note_id", "credit_number", "credit_note_state", "refund_operation_id", "refund_state"]) ||
         !id(r.id) || r.id.toLowerCase() !== requested.toLowerCase() || !id(r.tenant_id) || !id(r.invoice_id) || !id(r.payment_id) || !id(r.maker_user_id) || !optionalID(r.checker_user_id) || !optionalID(r.credit_note_id) || !optionalID(r.refund_operation_id) || !version(r.version) || !commercialQueueConfig["financial-adjustments"].states.some((s) => s === r.state) || !commercialQueueConfig["financial-adjustments"].secondary.some((s) => s === r.action) || !text(r.reason_code) || !text(r.entitlement_disposition) || !reason(r.proposal_reason) || !nullableReason(r.decision_reason) || !nullableText(r.credit_number) || !nullableText(r.credit_note_state) || !nullableText(r.refund_state) || !money(r.amount) || !money(r.net) || !money(r.tax) || !instant(r.created_at) || !instant(r.expires_at) || !nullableInstant(r.decided_at)) return null;
-    return { id: r.id, title: "Financial adjustment", state: r.state as string, amount: r.amount, fields: fields(r, ["tenant_id", "invoice_id", "payment_id", "action", "reason_code", "entitlement_disposition", "proposal_reason", "decision_reason", "maker_user_id", "checker_user_id", "net", "tax", "created_at", "expires_at", "decided_at", "credit_note_id", "credit_number", "credit_note_state", "refund_operation_id", "refund_state"]).map((f) => f.label === "net" || f.label === "tax" ? { ...f, value: `${(r[f.label] as CommercialMoney).amount} KES` } : f) };
+    return { id: r.id, title: "Financial adjustment", state: r.state as string, amount: r.amount, adjustment: { version: r.version as number, maker_user_id: r.maker_user_id as string, action: r.action as "ISSUE_CREDIT" | "REQUEST_REFUND", expires_at: r.expires_at as string }, fields: fields(r, ["tenant_id", "invoice_id", "payment_id", "action", "reason_code", "entitlement_disposition", "proposal_reason", "decision_reason", "maker_user_id", "checker_user_id", "net", "tax", "created_at", "expires_at", "decided_at", "credit_note_id", "credit_number", "credit_note_state", "refund_operation_id", "refund_state"]).map((f) => f.label === "net" || f.label === "tax" ? { ...f, value: `${(r[f.label] as CommercialMoney).amount} KES` } : f) };
   }
   if (!exact(r, ["payment_id", "tenant_id", "invoice_id", "subscription_id", "settlement_observation_id", "reversal_observation_id", "access_hold_id", "payment_state", "invoice_state", "subscription_state", "access_mode", "hold_state", "amount", "provider_observed_at", "recorded_at", "applied_at"]) ||
       !id(r.payment_id) || r.payment_id.toLowerCase() !== requested.toLowerCase() || !["tenant_id", "invoice_id", "subscription_id", "settlement_observation_id", "reversal_observation_id", "access_hold_id"].every((name) => id(r[name])) || !["payment_state", "invoice_state", "subscription_state", "access_mode", "hold_state"].every((name) => text(r[name])) || !money(r.amount) || !nullableInstant(r.provider_observed_at) || !instant(r.recorded_at) || !instant(r.applied_at)) return null;

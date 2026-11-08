@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseCommercialPage, parseCommercialDetail } from "../src/lib/platform-commercial-contract.ts";
+import { parseCommercialPage, parseCommercialDetail, parseReconciliationReceipt, parseAdjustmentReceipt } from "../src/lib/platform-commercial-contract.ts";
 const id = "11111111-1111-4111-8111-111111111111";
 const other = "22222222-2222-4222-8222-222222222222";
 const at = "2026-10-18T12:00:00Z";
@@ -11,6 +11,23 @@ const payment = { id, tenant_id: other, invoice_id: other, state: "SETTLED", ver
 const adjustment = { id, tenant_id: other, invoice_id: other, payment_id: other, maker_user_id: other, checker_user_id: null, action: "REQUEST_REFUND", state: "PENDING_APPROVAL", reason_code: "SYNTHETIC", entitlement_disposition: "NONE", version: 1, amount, net: amount, tax: { currency: "KES", amount_minor_units: 0, amount: "0.00" }, created_at: at, expires_at: at, decided_at: null };
 const reversal = { id, payment_id: other, tenant_id: other, invoice_id: other, actor_user_id: other, expected_payment_version: 2, payment_state: "REVERSED", reconciliation_state: "HELD", queue_state: "PENDING", amount, requested_at: at, applied_at: null, hold_state: null };
 
+test("reconciliation receipt proves scheduling only, never payment settlement", () => {
+  const receipt = { payment_id: id, invoice_id: other, state: "SETTLED", version: 3, reconciliation_state: "DUE", reconciliation_requested: true, updated_at: at };
+  assert.equal(parseReconciliationReceipt({ data: receipt, meta }, id, 2), true);
+  assert.equal(parseReconciliationReceipt({ data: { ...receipt, provider_settled: true }, meta }, id, 2), false);
+  assert.equal(parseReconciliationReceipt({ data: { ...receipt, reconciliation_state: "COMPLETE" }, meta }, id, 2), false);
+  assert.equal(parseReconciliationReceipt({ data: receipt, meta }, other, 2), false);
+});
+
+test("financial adjustment receipts distinguish proposal, credit and pending refund", () => {
+ const base={id,invoice_id:other,payment_id:other,action:"REQUEST_REFUND",state:"PENDING_APPROVAL",version:1,reason_code:"SERVICE_FAILURE_REFUND",amount,net:amount,tax:{currency:"KES",amount_minor_units:0,amount:"0.00"},entitlement_disposition:"REVIEW_REQUIRED",expires_at:at,credit_note_id:null,credit_number:null,refund_operation_id:null,provider_refund_executed:false,entitlement_disposition_executed:false};
+ assert.equal(parseAdjustmentReceipt({data:base,meta},{invoiceID:other})?.state,"PENDING_APPROVAL");
+ assert.equal(parseAdjustmentReceipt({data:{...base,provider_refund_executed:true},meta},{invoiceID:other}),null);
+ const approved={...base,state:"APPROVED",version:2,credit_note_id:other,credit_number:"CREDIT-1",refund_operation_id:other};
+ assert.equal(parseAdjustmentReceipt({data:approved,meta},{changeID:id,decision:"APPROVED",version:1})?.state,"APPROVED");
+ assert.equal(parseAdjustmentReceipt({data:{...approved,refund_operation_id:null},meta},{changeID:id,decision:"APPROVED",version:1}),null);
+ assert.equal(parseAdjustmentReceipt({data:{...base,state:"REJECTED",version:2},meta},{changeID:id,decision:"REJECTED",version:1})?.state,"REJECTED");
+});
 test("four audited queues parse exact safe fields and distinguish reversal payment locator", () => {
   for (const [kind, row] of [["invoices", invoice], ["payments", payment], ["financial-adjustments", adjustment], ["payment-reversals", reversal]]) {
     const parsed = parseCommercialPage({ data: [row], meta }, kind);

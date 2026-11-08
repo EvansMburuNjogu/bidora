@@ -28,14 +28,6 @@ VALUES(sqlc.arg(version_id),'https://api.openai.com/v1/responses',sqlc.arg(model
 SELECT v.id,v.version,v.configuration_hash,o.model,o.api_key_secret_ref,o.trust_roots_secret_ref,o.timeout_seconds,o.max_concurrency,o.enabled
 FROM platform_settings.integration_heads h JOIN platform_settings.integration_versions v ON v.id=h.active_version_id AND v.setting_kind='OPENAI' AND v.state='ACTIVE' JOIN platform_settings.openai_versions o ON o.version_id=v.id WHERE h.setting_kind='OPENAI';
 
--- name: GetIntegrationVersion :one
-SELECT v.id,v.setting_kind,v.sequence,v.state,v.version,v.configuration_hash,v.latest_test_id,v.created_by,v.created_at,v.updated_at,v.activated_at,v.superseded_at,
- s.host,s.port,s.sender_name,s.sender_address,s.reply_to_address,s.connect_timeout_seconds,s.command_timeout_seconds,s.delivery_timeout_seconds,s.max_concurrency AS smtp_max_concurrency,
- o.model,o.timeout_seconds,o.max_concurrency AS openai_max_concurrency,o.enabled AS openai_enabled,
- p.enabled AS pesapal_enabled,p.environment,p.merchant_name,p.notification_id,COALESCE(p.credentials_secret_ref LIKE 'dbpesapal:v1:%',false)::boolean AS pesapal_credentials_configured
-FROM platform_settings.integration_versions v LEFT JOIN platform_settings.smtp_versions s ON s.version_id=v.id LEFT JOIN platform_settings.openai_versions o ON o.version_id=v.id LEFT JOIN platform_settings.pesapal_versions p ON p.version_id=v.id
-WHERE v.id=sqlc.arg(id);
-
 -- name: GetActiveSMTPDeliveryConfiguration :one
 SELECT v.id,v.version,v.configuration_hash,s.host,s.port,s.credential_secret_ref,s.trust_roots_secret_ref,
  s.sender_name,s.sender_address,s.reply_to_address,s.connect_timeout_seconds,s.command_timeout_seconds,s.delivery_timeout_seconds,s.max_concurrency

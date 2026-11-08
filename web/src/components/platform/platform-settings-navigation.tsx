@@ -18,7 +18,7 @@ export function PlatformSettingsNavigation({ children }: { children: React.React
   const capabilities = new Set(resolution.capabilities);
   const current = legacyPaths[pathname] ?? pathname;
   const visible = settingsSections.filter((section) => settingsSectionVisible(section, capabilities));
-  const selected = visible.some((section) => section.href === current) ? current : "/platform/settings/platform";
+  const selected = visible.some((section) => section.href === current) ? current : visible[0]?.href ?? "";
 
   return <div className="mx-auto grid w-full max-w-7xl min-w-0 gap-6 pt-[18px] lg:grid-cols-[minmax(12rem,14rem)_minmax(0,1fr)] lg:items-start [&_.app-page]:p-0">
     <div className="min-w-0 lg:sticky lg:top-4">

@@ -1,0 +1,30 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Platform plan management", "version": "0.1.0"},
+  "paths": {
+    "/v1/platform/commercial/plans/management": {
+      "get": {"summary": "Audited published and latest draft plans", "description": "Current Platform session, context generation, recent AAL2 and platform.plan.read required. Returns control-owned plan versions; no tenant-private records.", "parameters": [{"$ref": "#/components/parameters/ContextGeneration"}], "responses": {"200": {"description": "Three paid plan versions, active and latest draft with optimistic head versions."}, "403": {"description": "Forbidden"}, "503": {"description": "Plan store unavailable"}}}
+    },
+    "/v1/platform/commercial/plans/{plan_key}/drafts": {
+      "post": {"summary": "Create immutable versioned paid plan draft", "description": "Requires platform.plan.manage and recent AAL2. Atomic command, audit and outbox; no active price change. Idempotency-Key and CSRF/Origin required.", "parameters": [{"$ref": "#/components/parameters/ContextGeneration"}, {"$ref": "#/components/parameters/PlanKey"}, {"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Draft"}}}}, "responses": {"201": {"description": "Draft created"}, "200": {"description": "Idempotent replay"}, "409": {"description": "Stale version"}}}
+    },
+    "/v1/platform/commercial/plans/{plan_key}/publish": {
+      "post": {"summary": "Publish an immutable plan version", "description": "Requires platform.plan.publish and recent AAL2; checker cannot publish their own draft. Subsequent catalogue/quote/term reads use the new version. No existing subscription or invoice is rewritten. Idempotency-Key and CSRF/Origin required.", "parameters": [{"$ref": "#/components/parameters/ContextGeneration"}, {"$ref": "#/components/parameters/PlanKey"}, {"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["expected_head_version", "version"], "properties": {"expected_head_version": {"type": "integer", "minimum": 1}, "version": {"type": "integer", "minimum": 2}}}}}}, "responses": {"201": {"description": "Version published"}, "200": {"description": "Idempotent replay"}, "409": {"description": "Stale version or maker/checker conflict"}}}
+    }
+  },
+  "components": {
+    "parameters": {
+      "ContextGeneration": {"name": "X-Bidora-Platform-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}},
+      "PlanKey": {"name": "plan_key", "in": "path", "required": true, "schema": {"type": "string", "enum": ["BASIC", "GROWTH", "PROFESSIONAL"]}},
+      "IdempotencyKey": {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}}
+    },
+    "schemas": {
+      "Money": {"type": "object", "additionalProperties": false, "required": ["currency", "amount"], "properties": {"currency": {"const": "KES"}, "amount": {"type": "string", "pattern": "^[0-9]+\\.[0-9]{2}$"}}},
+      "Draft": {"type": "object", "additionalProperties": false, "required": ["expected_head_version", "monthly_price", "annual_price", "additional_licence_monthly_price", "bid_workspaces", "included_licences", "storage_bytes", "document_versions", "ai_credits", "concurrent_ai_jobs"], "properties": {
+        "expected_head_version": {"type": "integer", "minimum": 1},
+        "monthly_price": {"$ref": "#/components/schemas/Money"}, "annual_price": {"$ref": "#/components/schemas/Money"}, "additional_licence_monthly_price": {"$ref": "#/components/schemas/Money"},
+        "bid_workspaces": {"type": "integer", "minimum": 1}, "included_licences": {"type": "integer", "minimum": 1}, "storage_bytes": {"type": "integer", "minimum": 1}, "document_versions": {"type": "integer", "minimum": 1}, "ai_credits": {"type": "integer", "minimum": 1}, "concurrent_ai_jobs": {"type": "integer", "minimum": 1}
+      }}
+    }
+  }
+}

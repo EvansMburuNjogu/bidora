@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	commercialdomain "bidora/backend/internal/commercial/domain"
 	"github.com/gofiber/fiber/v3"
@@ -52,7 +53,7 @@ func (h *CommercialCatalogueHandler) Get(c fiber.Ctx) error {
 	}
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
-			"catalogue_version":      commercialdomain.CatalogueVersion,
+			"catalogue_version":      commercialCatalogueVersion(plans),
 			"currency":               commercialdomain.CurrencyKES,
 			"prices_include_vat":     false,
 			"vat_calculated":         false,
@@ -75,6 +76,15 @@ func (h *CommercialCatalogueHandler) Get(c fiber.Ctx) error {
 	})
 }
 
+func commercialCatalogueVersion(plans []commercialdomain.Plan) string {
+	version := commercialdomain.CatalogueVersion
+	for _, plan := range plans {
+		if plan.CatalogueVersion != commercialdomain.CatalogueVersion {
+			version += "-" + strings.TrimPrefix(plan.CatalogueVersion, commercialdomain.CatalogueVersion+"-")
+		}
+	}
+	return version
+}
 func prepareCommercialResponse(c fiber.Ctx) {
 	c.Set("Cache-Control", "private, no-store")
 	c.Set("Vary", "Cookie, Origin")

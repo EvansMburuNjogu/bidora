@@ -54,7 +54,7 @@ func (h *MembershipOffboardingHandler) Begin(c fiber.Ctx) error {
 		return fail(c, 400, "INVALID_REQUEST", "The offboarding request is invalid.", false)
 	}
 	p, _ := SessionPrincipalFrom(c)
-	authAt := p.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour)
+	authAt := p.AuthenticatedAt.UTC()
 	v, e := h.s.Begin(c.Context(), authapp.MembershipOffboardingInput{ActorID: authapp.ID(x.subject.IdentityID), TenantID: authapp.ID(x.subject.SelectedTenantID), TargetMembershipID: authapp.ID(x.opportunityID), SuccessorMembershipID: authapp.ID(succ), CorrelationID: authapp.ID(x.correlationID), ActorContextGeneration: x.subject.ContextGeneration, ExpectedTargetGeneration: b.ExpectedTargetContextGeneration, Reason: b.Reason, IdempotencyKey: x.idempotencyKey, SessionAuthenticatedAt: authAt, AssuranceLevel: p.AssuranceLevel, AssuranceMethod: p.AssuranceMethod, AssuranceAt: p.AssuredAt})
 	if e != nil {
 		return membershipOffboardingFailure(c, e)
@@ -109,7 +109,7 @@ func (h *MembershipOffboardingHandler) change(c fiber.Ctx, retarget bool) error 
 		return fail(c, 400, "INVALID_REQUEST", "The offboarding request is invalid.", false)
 	}
 	p, _ := SessionPrincipalFrom(c)
-	in := authapp.MembershipOffboardingChange{ActorID: authapp.ID(p.UserID), TenantID: authapp.ID(x.subject.SelectedTenantID), OperationID: authapp.ID(x.opportunityID), SuccessorMembershipID: succ, CorrelationID: authapp.ID(x.correlationID), ActorContextGeneration: x.subject.ContextGeneration, ExpectedVersion: b.ExpectedOperationVersion, Reason: b.Reason, IdempotencyKey: x.idempotencyKey, SessionAuthenticatedAt: p.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour), AssuranceLevel: p.AssuranceLevel, AssuranceMethod: p.AssuranceMethod, AssuranceAt: p.AssuredAt}
+	in := authapp.MembershipOffboardingChange{ActorID: authapp.ID(p.UserID), TenantID: authapp.ID(x.subject.SelectedTenantID), OperationID: authapp.ID(x.opportunityID), SuccessorMembershipID: succ, CorrelationID: authapp.ID(x.correlationID), ActorContextGeneration: x.subject.ContextGeneration, ExpectedVersion: b.ExpectedOperationVersion, Reason: b.Reason, IdempotencyKey: x.idempotencyKey, SessionAuthenticatedAt: p.AuthenticatedAt.UTC(), AssuranceLevel: p.AssuranceLevel, AssuranceMethod: p.AssuranceMethod, AssuranceAt: p.AssuredAt}
 	var v authapp.MembershipOffboardingOperation
 	var e error
 	if retarget {

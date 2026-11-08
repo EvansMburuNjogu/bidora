@@ -47,7 +47,7 @@ func (h *ProposalApprovalHandler) Approve(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 401, "SESSION_INVALID", "Authentication is required.", false)
 	}
-	authenticatedAt := principal.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour)
+	authenticatedAt := principal.AuthenticatedAt.UTC()
 	result, e := h.service.Approve(c.Context(), application.ApproveProposalInput{Subject: common.subject, BidID: common.opportunityID, ManifestID: manifest, CorrelationID: common.correlationID, ExpectedProposalVersion: body.ExpectedProposalVersion, ExpectedWorkspaceVersion: body.ExpectedWorkspaceVersion, IdempotencyKey: common.idempotencyKey, Rationale: body.Rationale, SessionAuthenticatedAt: authenticatedAt, AssuranceLevel: principal.AssuranceLevel, AssuranceMethod: principal.AssuranceMethod, AssuranceAt: principal.AssuredAt})
 	if e != nil {
 		return proposalApprovalFailure(c, e)

@@ -1,5 +1,6 @@
 export const auditActions = [
   "UserLoggedIn", "EmailLoginCodeVerified", "MFALoginCompleted",
+  "PlatformTenantSuspended", "PlatformTenantReactivated",
   "PlatformInformationUpdated", "PlatformSessionPolicyUpdated", "CountryConfigurationUpdated", "OperationalPolicyUpdated", "RestrictedRequestMetadataRead",
  "PlatformGoogleConfigurationUpdated", "PlatformGoogleConnectionTested", "NotificationTemplateUpdated", "NotificationTemplateTested",
   "PlatformOwnerBootstrapped", "PlatformAdministratorSessionsRevoked",

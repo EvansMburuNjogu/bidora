@@ -171,30 +171,6 @@ func (q *Queries) GetGoogleConfiguration(ctx context.Context) (PlatformSettingsG
 	return i, err
 }
 
-const getGoogleVersion = `-- name: GetGoogleVersion :one
-SELECT id, version, enabled, allow_signup, client_id, allowed_domains, secret_id, key_version, nonce, ciphertext, created_at, created_by FROM platform_settings.google_versions WHERE id=$1::uuid
-`
-
-func (q *Queries) GetGoogleVersion(ctx context.Context, id pgtype.UUID) (PlatformSettingsGoogleVersion, error) {
-	row := q.db.QueryRow(ctx, getGoogleVersion, id)
-	var i PlatformSettingsGoogleVersion
-	err := row.Scan(
-		&i.ID,
-		&i.Version,
-		&i.Enabled,
-		&i.AllowSignup,
-		&i.ClientID,
-		&i.AllowedDomains,
-		&i.SecretID,
-		&i.KeyVersion,
-		&i.Nonce,
-		&i.Ciphertext,
-		&i.CreatedAt,
-		&i.CreatedBy,
-	)
-	return i, err
-}
-
 const insertGoogleCommand = `-- name: InsertGoogleCommand :exec
 INSERT INTO platform_settings.google_commands(actor_id,operation,key_hash,request_hash,version_id,result_version,state,result_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
 `

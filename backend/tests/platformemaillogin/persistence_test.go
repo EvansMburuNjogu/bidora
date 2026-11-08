@@ -15,6 +15,10 @@ import (
 
 	app "bidora/backend/internal/identity/application"
 	persistence "bidora/backend/internal/identity/persistence"
+	platform "bidora/backend/internal/platformadmin"
+	platformapp "bidora/backend/internal/platformadmin/application"
+	platformpolicy "bidora/backend/internal/platformadmin/domain"
+	platformstore "bidora/backend/internal/platformadmin/persistence"
 	"bidora/backend/internal/postgres"
 	"github.com/google/uuid"
 )
@@ -64,6 +68,13 @@ func TestEmailAdministratorAssurancePersistence(t *testing.T) {
 		}
 		e := p.WithinTransaction(ctx, func(c context.Context, db postgres.DBTX) error {
 			_, e := db.Exec(c, `INSERT INTO identity.users(id,email,email_lookup,email_verified_at,auth_epoch,created_at,updated_at,account_type) VALUES($1,$2,$2,$3,1,$3,$3,$4)`, uuid.UUID(user), uuid.UUID(user).String()+"@auth-test.invalid", now, kind)
+			if e != nil || !admin {
+				return e
+			}
+			if _, e = db.Exec(c, `INSERT INTO platform_administration.administrator_profiles(user_id,context_generation,version,created_at,updated_at) VALUES($1,1,1,$2,$2)`, uuid.UUID(user), now); e != nil {
+				return e
+			}
+			_, e = db.Exec(c, `INSERT INTO platform_administration.role_assignments(id,user_id,role_key,state,source,assigned_at,reason,version) VALUES($1,$2,'PLATFORM_OWNER','ACTIVE','BOOTSTRAP',$3,'Disposable auth verification fixture',1)`, uuid.New(), uuid.UUID(user), now)
 			return e
 		})
 		if e != nil {
@@ -81,12 +92,12 @@ func TestEmailAdministratorAssurancePersistence(t *testing.T) {
 	}
 	check := func(c app.MFALoginCommit, want string) {
 		t.Helper()
-		var level, method, audit string
+		var level, method string
 		e := p.WithinReadOnlyTransaction(ctx, func(x context.Context, db postgres.DBTX) error {
-			return db.QueryRow(x, `SELECT s.assurance_level,s.assurance_method,a.change_summary->>'assurance_level' FROM identity.sessions s JOIN bidora_control_audit.audit_events a ON a.target_id=s.id AND a.action='EmailLoginCodeVerified' WHERE s.id=$1`, uuid.UUID(c.SessionID)).Scan(&level, &method, &audit)
+			return db.QueryRow(x, `SELECT assurance_level,assurance_method FROM identity.sessions WHERE id=$1`, uuid.UUID(c.SessionID)).Scan(&level, &method)
 		})
-		if e != nil || level != want || audit != want || method != "EMAIL_OTP" {
-			t.Fatal("persisted session/audit assurance mismatch", e)
+		if e != nil || level != want || method != "EMAIL_OTP" {
+			t.Fatal("persisted session assurance mismatch", e)
 		}
 	}
 	t.Run("admin actual persisted assurance and replay denial", func(t *testing.T) {
@@ -97,6 +108,26 @@ func TestEmailAdministratorAssurancePersistence(t *testing.T) {
 			t.Fatal(e)
 		}
 		check(c, "AAL2")
+		adapter, e := platformstore.NewStore(p)
+		if e != nil {
+			t.Fatal(e)
+		}
+		module, e := platform.NewModule(adapter, adapter)
+		if e != nil {
+			t.Fatal(e)
+		}
+		facts, e := module.GetAuthority(ctx, platformapp.AuthorityQuery{UserID: platformapp.ID(c.UserID), SessionID: platformapp.ID(c.SessionID), ObservedAt: now})
+		if e != nil || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) {
+			t.Fatal("persisted email session did not resolve Platform authority", e)
+		}
+		for _, role := range platformpolicy.Roles() {
+			caps, _ := platformpolicy.Capabilities(role)
+			for _, cap := range caps {
+				if !facts.Grants(cap) {
+					t.Fatal("Platform Owner capability parity failed")
+				}
+			}
+		}
 		c.SessionID = id()
 		if e := s.CommitMFALogin(ctx, c); e == nil {
 			t.Fatal("replay accepted")

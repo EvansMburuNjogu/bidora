@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PlatformStatus } from "@/components/platform/platform-status";
+import { PlatformAdjustmentDecision } from "@/components/platform/platform-adjustment-decision";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/components/session/session-provider";
 import { commercialQueueConfig, commercialUUID, parseCommercialDetail, type CommercialDetail } from "@/lib/platform-commercial-contract";
@@ -44,7 +45,9 @@ export function PlatformCommercialDetail({ queue, recordID }: { queue: string; r
     {visible.kind === "ready" ? <section aria-label={visible.value.title} className="rounded-lg border bg-card p-5">
       <h2 className="text-lg font-semibold">{visible.value.title}</h2>
       <p className="mt-2 break-all text-sm text-muted-foreground">{visible.value.id}</p><p className="mt-3 text-xl font-medium tabular-nums">{visible.value.amount.amount} {visible.value.amount.currency}</p><p className="mt-2 text-sm"><PlatformStatus value={visible.value.state} /></p>
+      {visible.value.adjustment && <p role="status" className="mt-2 text-sm text-muted-foreground">{visible.value.state === "PENDING_APPROVAL" ? "Proposal only: no credit note, refund or entitlement change yet." : visible.value.state === "APPROVED" && visible.value.adjustment.action === "REQUEST_REFUND" ? "Credit note recorded; provider refund remains pending. No refund settlement or entitlement change is confirmed." : visible.value.state === "APPROVED" ? "Credit note issued. No provider refund or entitlement change occurred." : visible.value.state === "REJECTED" ? "Proposal rejected; no credit note or refund created." : "Check current review state before taking action."}</p>}
       <dl className="mt-5 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">{visible.value.fields.map(({ label, value }) => <div key={label} className="min-w-0 border-t pt-2"><dt className="capitalize text-muted-foreground">{label}</dt><dd className="break-all">{label.endsWith(" at") && value !== "—" ? `${new Date(value).toLocaleString(undefined, { timeZone: "UTC" })} UTC` : value}</dd></div>)}</dl>
+      {allowedQueue === "financial-adjustments" && visible.value.state === "PENDING_APPROVAL" && visible.value.adjustment ? <PlatformAdjustmentDecision changeID={visible.value.id} version={visible.value.adjustment.version} makerID={visible.value.adjustment.maker_user_id} action={visible.value.adjustment.action} expiresAt={visible.value.adjustment.expires_at} onDecided={() => void load()} /> : null}
     </section> : null}
   </main>;
 }

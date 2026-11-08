@@ -12,6 +12,7 @@ import (
 var ErrSessionNotFound = errors.New("session_not_found")
 
 type SessionRecord struct {
+	AuthenticatedAt                  time.Time // Trusted stored session creation, never inferred from expiry.
 	SessionID, UserID                ID
 	CSRFHash                         [32]byte
 	AuthEpoch                        int64
@@ -27,6 +28,7 @@ type SessionRepository interface {
 }
 type SessionClock interface{ Now() time.Time }
 type SessionPrincipal struct {
+	AuthenticatedAt                  time.Time
 	SessionID, UserID                ID
 	CSRFHash                         [32]byte
 	AuthEpoch                        int64
@@ -70,8 +72,8 @@ func (v *SessionValidator) Validate(ctx context.Context, rawToken string) (Sessi
 	if err != nil {
 		return SessionPrincipal{}, safe("session_unavailable", err)
 	}
-	if record.SessionID.IsZero() || record.UserID.IsZero() || record.CSRFHash == [32]byte{} || record.AuthEpoch < 1 || !record.IdleExpiresAt.After(observedAt) || !record.AbsoluteExpiresAt.After(observedAt) || record.IdleExpiresAt.After(record.AbsoluteExpiresAt) || (record.AssuranceLevel != "AAL1" && record.AssuranceLevel != "AAL2") || record.AssuredAt.IsZero() {
+	if record.SessionID.IsZero() || record.UserID.IsZero() || record.CSRFHash == [32]byte{} || record.AuthEpoch < 1 || record.AuthenticatedAt.IsZero() || record.AuthenticatedAt.After(observedAt) || !record.IdleExpiresAt.After(observedAt) || !record.AbsoluteExpiresAt.After(observedAt) || record.IdleExpiresAt.After(record.AbsoluteExpiresAt) || (record.AssuranceLevel != "AAL1" && record.AssuranceLevel != "AAL2") || record.AssuredAt.IsZero() {
 		return SessionPrincipal{}, safe("session_unavailable", nil)
 	}
-	return SessionPrincipal{SessionID: record.SessionID, UserID: record.UserID, CSRFHash: record.CSRFHash, AuthEpoch: record.AuthEpoch, IdleExpiresAt: record.IdleExpiresAt.UTC(), AbsoluteExpiresAt: record.AbsoluteExpiresAt.UTC(), AssuranceLevel: record.AssuranceLevel, AssuranceMethod: record.AssuranceMethod, AssuredAt: record.AssuredAt.UTC()}, nil
+	return SessionPrincipal{AuthenticatedAt: record.AuthenticatedAt.UTC(), SessionID: record.SessionID, UserID: record.UserID, CSRFHash: record.CSRFHash, AuthEpoch: record.AuthEpoch, IdleExpiresAt: record.IdleExpiresAt.UTC(), AbsoluteExpiresAt: record.AbsoluteExpiresAt.UTC(), AssuranceLevel: record.AssuranceLevel, AssuranceMethod: record.AssuranceMethod, AssuredAt: record.AssuredAt.UTC()}, nil
 }

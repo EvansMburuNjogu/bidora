@@ -161,6 +161,7 @@ function PlatformAccountMenu({ isSigningOut, onSignOut }: { isSigningOut: boolea
           <DropdownMenuItem render={<PlatformSidebarLink href="/account/security" />}>
             <KeyRoundIcon aria-hidden="true" />Account security
           </DropdownMenuItem>
+          <DropdownMenuItem render={<PlatformSidebarLink href="/login" />}><KeyRoundIcon aria-hidden="true" />Verify account again</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" disabled={isSigningOut} onClick={onSignOut}>

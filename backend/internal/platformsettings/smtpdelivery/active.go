@@ -82,7 +82,6 @@ func (a *Active) WithActive(ctx context.Context, use func(domain.ID, *deliverysm
 			if senderErr != nil {
 				return errors.New("active_smtp_delivery_unavailable")
 			}
-			timeout := minimum(time.Duration(cfg.ConnectTimeoutSeconds)*time.Second, time.Duration(cfg.CommandTimeoutSeconds)*time.Second, time.Duration(cfg.DeliveryTimeoutSeconds)*time.Second)
 			reply := email.Address{}
 			if cfg.ReplyToAddress != nil {
 				var e error
@@ -91,21 +90,11 @@ func (a *Active) WithActive(ctx context.Context, use func(domain.ID, *deliverysm
 					return e
 				}
 			}
-			delivery, deliveryErr := deliverysmtp.New(deliverysmtp.Config{Host: cfg.Host, Port: uint16(cfg.Port), Username: credentials.Username, Password: credentials.Password, Sender: sender, SenderName: cfg.SenderName, ReplyTo: reply, MaxConcurrency: cfg.MaxConcurrency, TLS: &tls.Config{ServerName: cfg.Host, RootCAs: roots, MinVersion: tls.VersionTLS12}, Timeout: timeout})
+			delivery, deliveryErr := deliverysmtp.New(deliverysmtp.Config{Host: cfg.Host, Port: uint16(cfg.Port), Username: credentials.Username, Password: credentials.Password, Sender: sender, SenderName: cfg.SenderName, ReplyTo: reply, MaxConcurrency: cfg.MaxConcurrency, TLS: &tls.Config{ServerName: cfg.Host, RootCAs: roots, MinVersion: tls.VersionTLS12}, ConnectTimeout: time.Duration(cfg.ConnectTimeoutSeconds) * time.Second, CommandTimeout: time.Duration(cfg.CommandTimeoutSeconds) * time.Second, DeliveryTimeout: time.Duration(cfg.DeliveryTimeoutSeconds) * time.Second})
 			if deliveryErr != nil {
 				return errors.New("active_smtp_delivery_unavailable")
 			}
 			return use(version.ID, delivery)
 		})
 	})
-}
-
-func minimum(values ...time.Duration) time.Duration {
-	result := values[0]
-	for _, value := range values[1:] {
-		if value < result {
-			result = value
-		}
-	}
-	return result
 }

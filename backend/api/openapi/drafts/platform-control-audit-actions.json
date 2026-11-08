@@ -283,6 +283,7 @@
           "CountryConfigurationUpdated", "OperationalPolicyUpdated", "RestrictedRequestMetadataRead",
           "PlatformPlansRead", "PlatformPlanDraftCreated", "PlatformPlanPublished", "PlatformSubscriptionRead", "PlatformSubscriptionCancellationScheduled", "PlatformSubscriptionCancellationWithdrawn", "PlatformSubscriptionInventoryRead",
           "PlatformSupportCasesRead", "PlatformSupportCaseRead", "PlatformSupportCaseCreate", "PlatformSupportCaseAssign", "PlatformSupportCaseReply", "PlatformSupportCaseResolve", "PlatformSupportCaseReopen",
+          "PlatformTenantSuspended", "PlatformTenantReactivated",
           "PlatformInformationUpdated",
           "PlatformSessionPolicyUpdated",
           "PlatformGoogleConfigurationUpdated", "PlatformGoogleConnectionTested", "NotificationTemplateUpdated", "NotificationTemplateTested"

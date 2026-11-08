@@ -5,9 +5,9 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 type Option = { value: string; label: string };
-type Props = { id: string; label: string; value: string; options: readonly Option[]; onChange: (value: string) => void; invalid?: boolean; disabled?: boolean };
+type Props = { id: string; label: string; value: string; options: readonly Option[]; onChange: (value: string) => void; invalid?: boolean; disabled?: boolean; onSearch?: (query: string) => void };
 
-export function ReferenceSearchSelect({ id, label, value, options, onChange, invalid, disabled = false }: Props) {
+export function ReferenceSearchSelect({ id, label, value, options, onChange, invalid, disabled = false, onSearch }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [above, setAbove] = useState(false);
@@ -26,10 +26,10 @@ export function ReferenceSearchSelect({ id, label, value, options, onChange, inv
   function choose(option: Option) { onChange(option.value); close(); }
   return <div className="relative min-w-0" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}>
     <label htmlFor={id} className="mb-1 block text-sm font-medium">{label}</label>
-    <div className="relative"><Input ref={input} id={id} role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open ? `${id}-options` : undefined} aria-activedescendant={open && visible[active] ? `${id}-option-${active}` : undefined} aria-invalid={invalid} autoComplete="off" className="pr-9" disabled={disabled || options.length === 0} placeholder={options.length ? `Search ${label.toLowerCase()}` : "No options available"} value={query ?? selected?.label ?? ""}
+    <div className="relative"><Input ref={input} id={id} role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open ? `${id}-options` : undefined} aria-activedescendant={open && visible[active] ? `${id}-option-${active}` : undefined} aria-invalid={invalid} autoComplete="off" className="pr-9" disabled={disabled || !onSearch && options.length === 0} placeholder={options.length || onSearch ? `Search ${label.toLowerCase()}` : "No options available"} value={query ?? selected?.label ?? ""}
       onFocus={(event) => { setQuery(null); setActive(0); openList(); event.currentTarget.select(); }}
       onClick={(event) => { if (query === null) { openList(); event.currentTarget.select(); } }}
-      onChange={(event) => { setQuery(event.target.value); setActive(0); openList(); }}
+      onChange={(event) => { setQuery(event.target.value); onSearch?.(event.target.value); setActive(0); openList(); }}
       onKeyDown={(event) => {
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); }
         if (event.key === "ArrowDown" && visible.length) { event.preventDefault(); openList(); setActive((index) => Math.min(visible.length - 1, index + 1)); }

@@ -14,8 +14,8 @@ import (
 )
 
 type mfaStoreFake struct {
-	platformAdministrator             bool
-	classificationErr                 error
+	platformAdministrator bool
+	classificationErr error
 	active, pending                   *identityapp.MFAFactorMaterial
 	pendingCommit                     identityapp.MFAPendingCommit
 	stepUpCommit                      identityapp.MFAStepUpCommit
@@ -208,7 +208,7 @@ func TestMFAEnrollmentStoresAADBoundSecretWithoutPersistingPlaintext(t *testing.
 	now := time.Unix(59, 0).UTC()
 	store := &mfaStoreFake{}
 	service, keys := mfaServiceFixture(t, now, store, &mfaAttemptsFake{threshold: 5})
-	principal := identityapp.SessionPrincipal{SessionID: identityID(1), UserID: identityID(2), AuthEpoch: 1, AbsoluteExpiresAt: now.Add(12 * time.Hour)}
+	principal := identityapp.SessionPrincipal{SessionID: identityID(1), UserID: identityID(2), AuthEpoch: 1, AuthenticatedAt: now, AbsoluteExpiresAt: now.Add(12 * time.Hour)}
 	enrollment, err := service.Enroll(context.Background(), principal, identityID(3))
 	if err != nil {
 		t.Fatal(err)

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/components/session/session-provider";
 import { parsePlatformPlanCatalogue, type PlanCatalogue, type PlanMoney } from "@/lib/platform-plan-catalogue-contract";
+import { PlatformPlanManager } from "@/components/platform/platform-plan-manager";
+import { PlatformSubscriptionManager } from "@/components/platform/platform-subscription-manager";
 
 type State = { generation: number | null; kind: "loading" | "denied" | "error" } | { generation: number | null; kind: "ready"; data: PlanCatalogue };
 function price(value: PlanMoney | null): string { return value ? `${value.kind === "FROM" ? "From " : ""}KES ${value.amount}` : "Not specified"; }
@@ -35,7 +37,7 @@ export function PlatformPlansCatalogue() {
   useEffect(() => { const requestSequence = sequence; const timer = window.setTimeout(() => void load(), 0); return () => { window.clearTimeout(timer); requestSequence.current++; }; }, [load]);
   const visible = state.generation === generation && allowed ? state : { generation, kind: allowed ? "loading" : "denied" } as State;
   return <main className="app-page space-y-5">
-    <div className="app-page-header"><h1 className="type-title">Plans &amp; Subscriptions</h1><p className="type-lead text-muted-foreground">Source-defined Tenderpreneur plans. Platform plan management and subscription inventory are not available here.</p></div>
+    <div className="app-page-header"><h1 className="type-title">Plans &amp; Subscriptions</h1><p className="type-lead text-muted-foreground">Manage plan pricing, allowances and customer subscriptions. Published changes apply to new commercial terms; existing terms remain unchanged.</p></div>
     {visible.kind === "loading" && <div role="status" aria-label="Loading plan catalogue" className="grid gap-3 sm:grid-cols-2"><Skeleton className="h-36 w-full" /><Skeleton className="h-36 w-full" /></div>}
     {visible.kind === "denied" && <p className="text-sm text-muted-foreground">The plan catalogue is not available for this Platform session.</p>}
     {visible.kind === "error" && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border p-4 text-sm"><span>Couldn’t load the plan catalogue. No example prices are shown in place of the service.</span><Button type="button" size="sm" variant="outline" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button></div>}
@@ -53,7 +55,8 @@ export function PlatformPlansCatalogue() {
         </dl>
         {plan.contract_required && <p className="mt-4 text-xs text-muted-foreground">Contract terms required; missing amounts and limits are not estimated.</p>}
       </section>)}</div>
-      <p className="text-sm text-muted-foreground">Customer subscriptions and plan editing require separate governed Platform operations; this catalogue does not report their status.</p>
+      <PlatformPlanManager onPublished={load} />
+      <PlatformSubscriptionManager />
     </>}
   </main>;
 }

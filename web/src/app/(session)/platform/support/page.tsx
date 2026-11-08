@@ -1,2 +1,2 @@
-import { PlatformUIPreview } from "@/components/platform/platform-ui-preview";
-export default function Page() { return <PlatformUIPreview module="support" />; }
+import { PlatformSupportCases } from "@/components/platform/platform-support-cases";
+export default function Page() { return <PlatformSupportCases />; }

@@ -35,7 +35,6 @@ type Manifest struct {
 
 var control = map[string]string{
 	"bidora_control_audit.audit_events":                         "I",
-	"bidora_control_audit.platform_action_details_v1":           "S",
 	"bidora_control_eventing.ai_acknowledgement_dispatch_holds": "SI",
 	"bidora_control_eventing.inbox_events":                      "I",
 	"bidora_control_eventing.outbox_events":                     "SIU",
@@ -43,7 +42,12 @@ var control = map[string]string{
 	"bidora_tenancy.database_clusters":                          "S",
 	"bidora_tenancy.tenant_database_assignments":                "S",
 	"bidora_tenancy.tenant_schema_versions":                     "S",
-	"bidora_tenancy.tenants":                                    "SI",
+	"bidora_tenancy.tenants":                                    "SIU",
+	"bidora_tenancy.platform_tenant_commands":                   "SI",
+	"bidora_support.cases":                                      "SIU",
+	"bidora_support.case_messages":                              "SI",
+	"bidora_support.case_events":                                "I",
+	"bidora_support.case_commands":                              "SI",
 	"commercial.additional_licence_grants":                      "SI",
 	"commercial.ai_reservation_request_outcomes":                "SI",
 	"commercial.ai_usage_reservation_transitions":               "SI",
@@ -115,9 +119,14 @@ var control = map[string]string{
 	"platform_settings.operational_policy_versions":             "SI",
 	"platform_settings.regional_policy_commands":                "SI",
 	"commercial.payment_callback_hints":                         "SI",
+	"commercial.platform_plan_versions":                         "SI",
+	"commercial.platform_plan_heads":                            "SU",
+	"commercial.platform_plan_commands":                         "SI",
+	"commercial.platform_subscription_commands":                 "SI",
 	"platform_settings.pesapal_versions":                        "SI",
 	"bidora_control_audit.request_metadata":                     "I",
 	"bidora_control_audit.platform_request_metadata_v1":         "S",
+	"bidora_control_audit.platform_action_details_v1":           "S",
 	"platform_settings.smtp_secrets":                            "SI",
 	"notification.delivery_attempt_results":                     "SI",
 	"notification.delivery_attempts":                            "SI",
@@ -204,7 +213,7 @@ func Load(plane string) (Manifest, error) {
 	switch plane {
 	case "control":
 		source = control
-		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 54}
+		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 55}
 	case "tenant":
 		source = tenant
 		result = Manifest{Plane: plane, CompatibilitySet: "tenant_common+tenant_tenderpreneur", CompatibilityVersion: 9_000_034}

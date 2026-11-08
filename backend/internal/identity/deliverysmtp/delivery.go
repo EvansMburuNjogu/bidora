@@ -30,17 +30,18 @@ import (
 )
 
 type Config struct {
-	ActionOrigin   string // Explicit browser origin for token-free quick actions.
-	SenderName     string
-	ReplyTo        email.Address
-	MaxConcurrency int32
-	Host           string
-	Port           uint16
-	Username       string
-	Password       string
-	Sender         email.Address
-	TLS            *tls.Config
-	Timeout        time.Duration
+	ActionOrigin                                    string // Explicit browser origin for token-free quick actions.
+	SenderName                                      string
+	ReplyTo                                         email.Address
+	MaxConcurrency                                  int32
+	Host                                            string
+	Port                                            uint16
+	Username                                        string
+	Password                                        string
+	Sender                                          email.Address
+	TLS                                             *tls.Config
+	Timeout                                         time.Duration // Legacy explicit-adapter fallback only.
+	ConnectTimeout, CommandTimeout, DeliveryTimeout time.Duration
 }
 
 func (Config) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED SMTP delivery config]") }
@@ -215,18 +216,24 @@ func (d *Delivery) deliver(ctx context.Context, recipient email.Address, message
 	if headerErr != nil {
 		return headerErr
 	}
+	connectTimeout, commandTimeout, deliveryTimeout := smtpTimeouts(d.config)
+	ctx, cancel := context.WithTimeout(ctx, deliveryTimeout)
+	defer cancel()
 	address := net.JoinHostPort(d.config.Host, strconv.Itoa(int(d.config.Port)))
-	dialer := net.Dialer{Timeout: d.config.Timeout}
+	dialer := net.Dialer{Timeout: connectTimeout}
 	connection, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return safe(err)
 	}
 	defer connection.Close()
-	deadline := time.Now().Add(d.config.Timeout)
-	if contextDeadline, ok := ctx.Deadline(); ok && contextDeadline.Before(deadline) {
-		deadline = contextDeadline
+	commandDeadline := func() error {
+		deadline := time.Now().Add(commandTimeout)
+		if outer, ok := ctx.Deadline(); ok && outer.Before(deadline) {
+			deadline = outer
+		}
+		return connection.SetDeadline(deadline)
 	}
-	if err = connection.SetDeadline(deadline); err != nil {
+	if err = commandDeadline(); err != nil {
 		return safe(err)
 	}
 	stop := context.AfterFunc(ctx, func() { _ = connection.Close() })
@@ -236,23 +243,40 @@ func (d *Delivery) deliver(ctx context.Context, recipient email.Address, message
 		return safe(err)
 	}
 	defer client.Close()
+	if err=commandDeadline();err!=nil{return safe(err)}
 	if supported, _ := client.Extension("STARTTLS"); !supported {
 		return safe(errors.New("STARTTLS unavailable"))
+	}
+	if err = commandDeadline(); err != nil {
+		return safe(err)
 	}
 	if err = client.StartTLS(d.config.TLS.Clone()); err != nil {
 		return safe(err)
 	}
+	if err=commandDeadline();err!=nil{return safe(err)}
 	ok, mechanisms := client.Extension("AUTH")
 	if !ok || !containsPlain(mechanisms) {
 		return safe(errors.New("SMTP AUTH PLAIN unavailable"))
 	}
+	if err = commandDeadline(); err != nil {
+		return safe(err)
+	}
 	if err = client.Auth(smtp.PlainAuth("", d.config.Username, d.config.Password, d.config.TLS.ServerName)); err != nil {
+		return safe(err)
+	}
+	if err = commandDeadline(); err != nil {
 		return safe(err)
 	}
 	if err = client.Mail(d.config.Sender.Display()); err != nil {
 		return safe(err)
 	}
+	if err = commandDeadline(); err != nil {
+		return safe(err)
+	}
 	if err = client.Rcpt(recipient.Display()); err != nil {
+		return safe(err)
+	}
+	if err = commandDeadline(); err != nil {
 		return safe(err)
 	}
 	writer, err := client.Data()
@@ -266,16 +290,36 @@ func (d *Delivery) deliver(ctx context.Context, recipient email.Address, message
 	if err = writer.Close(); err != nil {
 		return safe(err)
 	}
+	if err = commandDeadline(); err != nil {
+		return safe(err)
+	}
 	if err = client.Quit(); err != nil {
 		return safe(err)
 	}
 	return nil
 }
+func smtpTimeouts(c Config) (time.Duration, time.Duration, time.Duration) {
+	connect, command, delivery := c.ConnectTimeout, c.CommandTimeout, c.DeliveryTimeout
+	if connect == 0 {
+		connect = c.Timeout
+	}
+	if command == 0 {
+		command = c.Timeout
+	}
+	if delivery == 0 {
+		delivery = c.Timeout
+	}
+	return connect, command, delivery
+}
 func validConfig(config Config) bool {
+	connect, command, delivery := smtpTimeouts(config)
+	if connect < time.Millisecond || connect > 30*time.Second || command < time.Millisecond || command > 60*time.Second || delivery < time.Millisecond || delivery > 120*time.Second {
+		return false
+	}
 	if config.MaxConcurrency < 0 || config.MaxConcurrency > 100 || !utf8.ValidString(config.SenderName) || len(config.SenderName) > 200 || strings.IndexFunc(config.SenderName, unicode.IsControl) >= 0 {
 		return false
 	}
-	return validHost(config.Host) && config.Port > 0 && config.Username != "" && len(config.Username) <= 256 && strings.TrimSpace(config.Username) == config.Username && config.Password != "" && len(config.Password) <= 1024 && !strings.ContainsRune(config.Password, 0) && !config.Sender.IsZero() && config.TLS != nil && !config.TLS.InsecureSkipVerify && config.TLS.ServerName != "" && validHost(config.TLS.ServerName) && config.TLS.RootCAs != nil && len(config.TLS.RootCAs.Subjects()) > 0 && (config.TLS.MinVersion == 0 || config.TLS.MinVersion >= tls.VersionTLS12) && (config.TLS.MaxVersion == 0 || config.TLS.MaxVersion >= tls.VersionTLS12) && (config.TLS.MinVersion == 0 || config.TLS.MaxVersion == 0 || config.TLS.MinVersion <= config.TLS.MaxVersion) && config.Timeout >= time.Millisecond && config.Timeout <= 30*time.Second
+	return validHost(config.Host) && config.Port > 0 && config.Username != "" && len(config.Username) <= 256 && strings.TrimSpace(config.Username) == config.Username && config.Password != "" && len(config.Password) <= 1024 && !strings.ContainsRune(config.Password, 0) && !config.Sender.IsZero() && config.TLS != nil && !config.TLS.InsecureSkipVerify && config.TLS.ServerName != "" && validHost(config.TLS.ServerName) && config.TLS.RootCAs != nil && len(config.TLS.RootCAs.Subjects()) > 0 && (config.TLS.MinVersion == 0 || config.TLS.MinVersion >= tls.VersionTLS12) && (config.TLS.MaxVersion == 0 || config.TLS.MaxVersion >= tls.VersionTLS12) && (config.TLS.MinVersion == 0 || config.TLS.MaxVersion == 0 || config.TLS.MinVersion <= config.TLS.MaxVersion)
 }
 
 var smtpConcurrency struct {

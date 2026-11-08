@@ -30,12 +30,13 @@ func (f *sessionInventoryHTTPFake) Get(context.Context, identityapp.SessionPrinc
 }
 
 type sessionAdministrationHTTPFake struct {
-	otherInput identityapp.RevokeOtherSessionInput
-	allUser    identityapp.SessionPrincipal
-	otherErr   error
-	allErr     error
-	otherCalls int
-	allCalls   int
+	otherInput         identityapp.RevokeOtherSessionInput
+	allUser            identityapp.SessionPrincipal
+	allAuthenticatedAt time.Time
+	otherErr           error
+	allErr             error
+	otherCalls         int
+	allCalls           int
 }
 
 func (f *sessionAdministrationHTTPFake) RevokeOther(_ context.Context, input identityapp.RevokeOtherSessionInput) (identityapp.RevokeOtherSessionResult, error) {
@@ -43,20 +44,24 @@ func (f *sessionAdministrationHTTPFake) RevokeOther(_ context.Context, input ide
 	f.otherInput = input
 	return identityapp.RevokeOtherSessionResult{Revoked: f.otherErr == nil}, f.otherErr
 }
-func (f *sessionAdministrationHTTPFake) RevokeAll(_ context.Context, principal identityapp.SessionPrincipal, _ identityapp.ID, _ time.Time) (identityapp.RevokeAllSessionsResult, error) {
+func (f *sessionAdministrationHTTPFake) RevokeAll(_ context.Context, principal identityapp.SessionPrincipal, _ identityapp.ID, authenticatedAt time.Time) (identityapp.RevokeAllSessionsResult, error) {
 	f.allCalls++
 	f.allUser = principal
+	f.allAuthenticatedAt = authenticatedAt
 	return identityapp.RevokeAllSessionsResult{AuthEpoch: principal.AuthEpoch + 1}, f.allErr
 }
 
-func sessionAdministrationHTTPHarness(t *testing.T, inventory *sessionInventoryHTTPFake, administration *sessionAdministrationHTTPFake) (*fiber.App, string, string, identityapp.SessionPrincipal) {
+func sessionAdministrationHTTPHarness(t *testing.T, inventory *sessionInventoryHTTPFake, administration *sessionAdministrationHTTPFake, expiry ...time.Duration) (*fiber.App, string, string, identityapp.SessionPrincipal) {
 	t.Helper()
 	pair, err := session.GeneratePairWithRandom(&repeatingReader{value: 41})
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)
-	principal := identityapp.SessionPrincipal{SessionID: httpIdentityID(1), UserID: httpIdentityID(2), CSRFHash: pair.CSRF.Hash(), AuthEpoch: 4, IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(12 * time.Hour), AssuranceLevel: "AAL1", AssuranceMethod: "PRIMARY_ONLY", AssuredAt: now}
+	principal := identityapp.SessionPrincipal{AuthenticatedAt: now, SessionID: httpIdentityID(1), UserID: httpIdentityID(2), CSRFHash: pair.CSRF.Hash(), AuthEpoch: 4, IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(12 * time.Hour), AssuranceLevel: "AAL1", AssuranceMethod: "PRIMARY_ONLY", AssuredAt: now}
+	if len(expiry) > 0 {
+		principal.AbsoluteExpiresAt = now.Add(expiry[0])
+	}
 	validator := &sessionValidatorFake{principal: principal}
 	protection, err := browser.NewProtection([]string{"https://app.example.com"})
 	if err != nil {

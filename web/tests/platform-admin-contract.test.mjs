@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parsePlatformAdministratorChange, parsePlatformChangePage, parsePlatformAssignmentHistory } from "../src/lib/platform-contract.ts";
+import { parsePlatformAdministratorChange, parsePlatformChangePage, parsePlatformAssignmentHistory, parsePlatformInvitationReceipt } from "../src/lib/platform-contract.ts";
 import { parsePlatformTenantList, parsePlatformTenantDetail } from "../src/lib/platform-tenant-contract.ts";
 
 const target = "11111111-1111-4111-8111-111111111111";
@@ -20,6 +20,13 @@ const assignment = {
   assigned_by: maker, assigned_at: "2026-10-18T12:00:00Z", revoked_by: maker,
   revoked_at: "2026-10-19T12:00:00Z", reason: "Initial assignment", revocation_reason: "Transferred",
 };
+
+test("invitation receipt distinguishes delivery acceptance from recipient delivery and rejects extra data", () => {
+  const receipt = { id: target, email: "invited@example.test", role_key: "PLATFORM_OWNER", state: "ACTIVE", version: 1, created_at: "2026-10-18T12:00:00Z", expires_at: "2026-10-21T12:00:00Z", delivery_state: "ACCEPTED_FOR_DELIVERY", governance_change_id: null };
+  assert.deepEqual(parsePlatformInvitationReceipt({ data: receipt, meta }), { id: target, state: "ACTIVE", delivery_state: "ACCEPTED_FOR_DELIVERY" });
+  assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, delivery_state: "DELIVERED" }, meta }), null);
+  assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, token: "must-not-be-returned" }, meta }), null);
+});
 
 test("administrator change parser distinguishes pending from executed and rejects unsafe shapes", () => {
   assert.equal(parsePlatformAdministratorChange({ data: pending, meta })?.state, "PENDING_APPROVAL");

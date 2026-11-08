@@ -31,6 +31,8 @@ type Module struct {
 	financialReads          *application.FinancialReadService
 	financialLists          *application.FinancialListService
 	platformFinancialQueues *application.PlatformFinancialQueueService
+	platformPlans           *application.PlanService
+	platformSubscriptions   *application.PlatformSubscriptionService
 }
 
 func NewModule() *Module {
@@ -60,6 +62,64 @@ type PlatformFinancialQueueUnitOfWork interface {
 	application.PlatformFinancialQueueUnitOfWork
 }
 
+func (m *Module) ConfigurePlatformPlans(store interface {
+	application.PublishedPlanReader
+	application.PlanUnitOfWork
+}, ids application.PlanIDs, clock application.PlanClock) error {
+	if m == nil || m.catalogue == nil {
+		return errors.New("commercial_module_unavailable")
+	}
+	service, err := application.NewPlanService(store, ids, clock)
+	if err != nil {
+		return err
+	}
+	if err = m.catalogue.ConfigurePublished(store); err != nil {
+		return err
+	}
+	m.platformPlans = service
+	return nil
+}
+func (m *Module) ConfigurePlatformSubscriptions(uow application.PlatformSubscriptionUnitOfWork, ids application.PlanIDs, clock application.PlanClock) error {
+	if m == nil {
+		return application.ErrPlatformSubscriptionUnavailable
+	}
+	service, e := application.NewPlatformSubscriptionService(uow, ids, clock)
+	if e != nil {
+		return e
+	}
+	m.platformSubscriptions = service
+	return nil
+}
+func (m *Module) InventoryPlatformSubscriptions(ctx context.Context, in application.PlatformSubscriptionInventoryInput) (application.PlatformSubscriptionInventoryPage, error) {
+	if m == nil || m.platformSubscriptions == nil {
+		return application.PlatformSubscriptionInventoryPage{}, application.ErrPlatformSubscriptionUnavailable
+	}
+	return m.platformSubscriptions.Inventory(ctx, in)
+}
+func (m *Module) ReadPlatformSubscription(ctx context.Context, subject application.PlatformSubscriptionSubject, tenant domain.ID) (application.SubscriptionSummary, error) {
+	if m == nil || m.platformSubscriptions == nil {
+		return application.SubscriptionSummary{}, application.ErrPlatformSubscriptionUnavailable
+	}
+	return m.platformSubscriptions.Read(ctx, subject, tenant)
+}
+func (m *Module) ChangePlatformSubscription(ctx context.Context, in application.PlatformSubscriptionChange) (application.PlatformSubscriptionReceipt, error) {
+	if m == nil || m.platformSubscriptions == nil {
+		return application.PlatformSubscriptionReceipt{}, application.ErrPlatformSubscriptionUnavailable
+	}
+	return m.platformSubscriptions.Change(ctx, in)
+}
+func (m *Module) ListPlatformPlans(ctx context.Context, subject application.PlanSubject) ([]application.PlanManagementItem, error) {
+	if m == nil || m.platformPlans == nil {
+		return nil, application.ErrPlatformPlanUnavailable
+	}
+	return m.platformPlans.ListManagement(ctx, subject)
+}
+func (m *Module) ChangePlatformPlan(ctx context.Context, in application.PlanChange) (application.PlanReceipt, error) {
+	if m == nil || m.platformPlans == nil {
+		return application.PlanReceipt{}, application.ErrPlatformPlanUnavailable
+	}
+	return m.platformPlans.Change(ctx, in)
+}
 func (m *Module) ConfigureSubscriptionLifecycle(uow application.SubscriptionUnitOfWork, ids application.TrialIDGenerator, clock application.TrialClock) error {
 	if m == nil {
 		return errors.New("commercial_module_unavailable")
@@ -598,6 +658,12 @@ func (m *Module) CalculateGenerationCredits(ctx context.Context, inputCharacters
 	return m.catalogue.CalculateGenerationCredits(ctx, inputCharacters, outputCharacters)
 }
 
+func (m *Module) PublishedTerm(ctx context.Context, key domain.PlanKey, cadence domain.BillingCadence, at time.Time) (domain.TermSnapshot, error) {
+	if m == nil || m.catalogue == nil {
+		return domain.TermSnapshot{}, application.ErrPlatformPlanUnavailable
+	}
+	return m.catalogue.PublishedTerm(ctx, key, cadence, at)
+}
 func (m *Module) QuoteBasePrice(ctx context.Context, plan, cadence string) (application.BasePriceQuote, error) {
 	if m == nil || m.catalogue == nil {
 		return application.BasePriceQuote{}, errors.New("commercial_module_unavailable")

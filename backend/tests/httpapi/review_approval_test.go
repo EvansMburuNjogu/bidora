@@ -99,7 +99,7 @@ func TestReviewApprovalHTTPSuccessContractsBindAAL2AndPrivateResponses(t *testin
 	}
 	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
 	userID := httpIdentityID(8)
-	validator := &sessionValidatorFake{principal: identityapp.SessionPrincipal{SessionID: httpIdentityID(7), UserID: userID, CSRFHash: pair.CSRF.Hash(), AuthEpoch: 1, IdleExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(12 * time.Hour), AssuranceLevel: "AAL2", AssuranceMethod: "TOTP", AssuredAt: now.Add(-time.Minute)}}
+	validator := &sessionValidatorFake{principal: identityapp.SessionPrincipal{SessionID: httpIdentityID(7), UserID: userID, CSRFHash: pair.CSRF.Hash(), AuthEpoch: 1, IdleExpiresAt: now.Add(time.Hour), AuthenticatedAt: now, AbsoluteExpiresAt: now.Add(7 * 24 * time.Hour), AssuranceLevel: "AAL2", AssuranceMethod: "TOTP", AssuredAt: now.Add(-time.Minute)}}
 	protection, _ := browser.NewProtection([]string{"https://app.example.com"})
 	middleware, err := httpapi.NewBrowserSessionMiddleware(validator, &sessionToucherFake{}, protection, browserClockFake{at: now})
 	if err != nil {

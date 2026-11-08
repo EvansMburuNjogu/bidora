@@ -38,7 +38,7 @@ func (c preparationClock) Now() time.Time { return c.at }
 func preparationPrincipal(now time.Time) identityapp.SessionPrincipal {
 	var sessionID, userID identityapp.ID
 	sessionID[15], userID[15] = 1, 2
-	return identityapp.SessionPrincipal{SessionID: sessionID, UserID: userID, AuthEpoch: 3, AbsoluteExpiresAt: now.Add(11 * time.Hour)}
+	return identityapp.SessionPrincipal{SessionID: sessionID, UserID: userID, AuthEpoch: 3, AuthenticatedAt: now.Add(-time.Hour), AbsoluteExpiresAt: now.Add(11 * time.Hour)}
 }
 
 func TestMFAReadinessReflectsCurrentFactorState(t *testing.T) {

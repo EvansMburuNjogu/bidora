@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlatformCreatePreview } from "@/components/platform/platform-create-preview";
+import { AdministratorInvite } from "@/components/platform/administrator-invite";
 import { PlatformStatus } from "@/components/platform/platform-status";
 import { PlatformRowActions } from "@/components/platform/platform-row-actions";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -91,7 +91,7 @@ export function AdministratorDirectory() {
           <h1 className="type-title">Users</h1>
           <p className="type-lead text-muted-foreground">Manage Platform Admin accounts, responsibilities and access.</p>
         </div>
-        <div className="flex flex-wrap gap-2"><PlatformCreatePreview kind="user" />{resolution.capabilities.includes("platform.governance.approve") || resolution.capabilities.includes("platform.governance.review") ? <Link href="/platform/users/approvals" className="rounded-lg border bg-card px-3 py-2 text-sm text-primary hover:underline">Review approvals</Link> : null}</div>
+        <div className="flex flex-wrap gap-2"><AdministratorInvite key={generation ?? "none"} />{resolution.capabilities.includes("platform.governance.approve") || resolution.capabilities.includes("platform.governance.review") ? <Link href="/platform/users/approvals" className="rounded-lg border bg-card px-3 py-2 text-sm text-primary hover:underline">Review approvals</Link> : null}</div>
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">

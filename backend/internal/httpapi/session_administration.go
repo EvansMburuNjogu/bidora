@@ -48,7 +48,7 @@ func (h *SessionAdministrationHandler) RevokeOther(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	v, e := h.s.RevokeOther(c.Context(), app.RevokeOtherSessionInput{Principal: p, TargetSessionID: app.ID(target), CorrelationID: correlation, IdempotencyKey: key, SessionAuthenticatedAt: p.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour)})
+	v, e := h.s.RevokeOther(c.Context(), app.RevokeOtherSessionInput{Principal: p, TargetSessionID: app.ID(target), CorrelationID: correlation, IdempotencyKey: key, SessionAuthenticatedAt: p.AuthenticatedAt.UTC()})
 	if e != nil {
 		return sessionAdministrationFailure(c, e)
 	}
@@ -70,7 +70,7 @@ func (h *SessionAdministrationHandler) RevokeAll(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	if _, e := h.s.RevokeAll(c.Context(), p, correlation, p.AbsoluteExpiresAt.UTC().Add(-12*time.Hour)); e != nil {
+	if _, e := h.s.RevokeAll(c.Context(), p, correlation, p.AuthenticatedAt.UTC()); e != nil {
 		return sessionAdministrationFailure(c, e)
 	}
 	setLoginCookie(c, browser.ClearSessionCookie())

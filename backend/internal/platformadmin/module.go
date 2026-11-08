@@ -205,6 +205,12 @@ func (m *Module) IssueInvitation(ctx context.Context, input application.IssueInv
 	}
 	return m.invitations.Issue(ctx, input)
 }
+func (m *Module) ReissueInvitation(ctx context.Context, in application.ReissueInvitationInput) (application.IssueInvitationResult, error) {
+	if m == nil || m.invitations == nil {
+		return application.IssueInvitationResult{}, application.ErrInvitationInvalid
+	}
+	return m.invitations.Reissue(ctx, in)
+}
 func (m *Module) CancelInvitation(ctx context.Context, input application.CancelInvitationInput) error {
 	if m == nil || m.invitations == nil {
 		return errors.New("platform_module_unavailable")

@@ -123,7 +123,7 @@ func run() error {
 	}
 	pspOptions, err := pilot.LoadPesaPalDeploymentOptions(os.Getenv)
 	if err != nil {
-		log.Fatal("PesaPal deployment configuration is invalid")
+		return errors.New("pesapal_deployment_config_invalid")
 	}
 	origins := []string{"http://127.0.0.1:3000"}
 	redisName := "localhost"

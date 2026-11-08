@@ -167,6 +167,9 @@ func TestPesaPalPaymentEvidenceNeverTrustsRedirectsCallbacksOrMismatchedAmounts(
 	if e == nil || created.Disposition != money.PaymentCreateAmbiguous || created.RedirectURL != "" {
 		t.Fatal("unapproved redirect trusted")
 	}
+	if !strings.Contains(network.payloads[1], `"description":"Synthetic test merchant invoice `) {
+		t.Fatal("managed merchant name ignored")
+	}
 	if !strings.Contains(network.payloads[1], `"amount":123.45`) || strings.Contains(network.payloads[1], "consumer_secret") {
 		t.Fatal("order money or credential boundary invalid")
 	}

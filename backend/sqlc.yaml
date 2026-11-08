@@ -8,7 +8,7 @@ sql:
         package: "registrysql"
         out: "internal/tenancy/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -21,7 +21,7 @@ sql:
         package: "identitysql"
         out: "internal/identity/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -34,7 +34,7 @@ sql:
         package: "controlplanesql"
         out: "internal/controlplane/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -47,7 +47,7 @@ sql:
         package: "platformadminsql"
         out: "internal/platformadmin/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -60,7 +60,7 @@ sql:
         package: "platformsettingssql"
         out: "internal/platformsettings/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -73,7 +73,7 @@ sql:
         package: "notificationsql"
         out: "internal/notification/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -85,7 +85,7 @@ sql:
         package: "commercialsql"
         out: "internal/commercial/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -98,7 +98,7 @@ sql:
         package: "authzsql"
         out: "internal/authorization/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -111,7 +111,7 @@ sql:
         package: "eventsql"
         out: "internal/eventing/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -126,7 +126,7 @@ sql:
         package: "organizationsql"
         out: "internal/organization/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -141,7 +141,7 @@ sql:
         package: "tenantevidencesql"
         out: "internal/tenantevidence/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -154,7 +154,7 @@ sql:
         package: "entitlementsql"
         out: "internal/entitlementcheckpoint/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false
@@ -169,7 +169,7 @@ sql:
         package: "capturesql"
         out: "internal/opportunity/persistence/sqlc"
         sql_package: "pgx/v5"
-        emit_interface: true
+        emit_interface: false
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         emit_prepared_queries: false

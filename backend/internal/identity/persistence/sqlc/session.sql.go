@@ -13,7 +13,7 @@ import (
 
 const getActiveSession = `-- name: GetActiveSession :one
 WITH policy AS (SELECT $3::integer AS idle_seconds,$4::integer AS absolute_seconds,$5::integer AS admin_idle_seconds,$6::integer AS admin_absolute_seconds)
-SELECT s.id,s.user_id,s.csrf_hash,s.auth_epoch,LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS idle_expires_at,LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS absolute_expires_at,s.assurance_level,s.assured_at,s.assurance_method
+SELECT s.id,s.user_id,s.csrf_hash,s.auth_epoch,LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS idle_expires_at,LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))::timestamptz AS absolute_expires_at,s.assurance_level,s.assured_at,s.assurance_method,s.created_at AS authenticated_at
 FROM identity.sessions s JOIN identity.users u ON u.id=s.user_id CROSS JOIN policy p
 WHERE u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.auth_epoch=s.auth_epoch AND s.revoked_at IS NULL
  AND LEAST(s.idle_expires_at,s.last_seen_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_idle_seconds ELSE p.idle_seconds END),s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND LEAST(s.absolute_expires_at,s.created_at+make_interval(secs=>CASE WHEN u.account_type='PLATFORM_ADMIN' AND s.assurance_level='AAL2' AND s.assurance_method IN ('EMAIL_OTP','TOTP','RECOVERY_CODE') THEN p.admin_absolute_seconds ELSE p.absolute_seconds END))>$1 AND s.token_hash=$2
@@ -38,6 +38,7 @@ type GetActiveSessionRow struct {
 	AssuranceLevel    string
 	AssuredAt         pgtype.Timestamptz
 	AssuranceMethod   string
+	AuthenticatedAt   pgtype.Timestamptz
 }
 
 func (q *Queries) GetActiveSession(ctx context.Context, arg GetActiveSessionParams) (GetActiveSessionRow, error) {
@@ -60,6 +61,7 @@ func (q *Queries) GetActiveSession(ctx context.Context, arg GetActiveSessionPara
 		&i.AssuranceLevel,
 		&i.AssuredAt,
 		&i.AssuranceMethod,
+		&i.AuthenticatedAt,
 	)
 	return i, err
 }

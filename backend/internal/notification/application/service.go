@@ -128,11 +128,11 @@ func (s *Service) StartAttempt(ctx context.Context, in StartAttemptInput) (domai
 	return attempt, err
 }
 
-// StartAttemptForDelivery distinguishes fresh sends from historical evidence.
+// StartAttemptForDelivery fences SMTP execution: an existing attempt is evidence,
+// never permission for a second external send under the same attempt number.
 func (s *Service) StartAttemptForDelivery(ctx context.Context, in StartAttemptInput) (domain.Attempt, bool, error) {
 	return s.startAttempt(ctx, in)
 }
-
 func (s *Service) startAttempt(ctx context.Context, in StartAttemptInput) (result domain.Attempt, fresh bool, err error) {
 	at := s.clock.Now().UTC()
 	candidate := domain.Attempt{NotificationID: in.NotificationID, SMTPVersionID: in.SMTPVersionID, CorrelationID: in.CorrelationID, Number: in.Number, StartedAt: at}

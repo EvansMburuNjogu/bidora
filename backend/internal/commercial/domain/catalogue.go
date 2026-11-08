@@ -102,6 +102,12 @@ func BasePrice(key PlanKey, cadence BillingCadence) (Money, error) {
 	if err != nil {
 		return Money{}, err
 	}
+	return PriceForPlan(plan, cadence)
+}
+
+// PriceForPlan uses the selected immutable published snapshot, not source defaults.
+func PriceForPlan(plan Plan, cadence BillingCadence) (Money, error) {
+	key := plan.Key
 	var price *Money
 	switch cadence {
 	case TrialCadence:

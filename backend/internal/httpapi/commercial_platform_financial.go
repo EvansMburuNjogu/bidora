@@ -36,20 +36,31 @@ func NewCommercialPlatformFinancialHandler(u CommercialPlatformFinancialUseCase)
 	}
 	return &CommercialPlatformFinancialHandler{u}, nil
 }
-func RegisterCommercialPlatformFinancialRoutes(app *fiber.App, browser *BrowserSessionMiddleware, h *CommercialPlatformFinancialHandler) error {
-	if err := RegisterCommercialPlatformFinancialReadRoutes(app, browser, h); err != nil {
-		return err
+
+// RegisterCommercialPlatformReconciliationRoute schedules an authorized, audited
+// post-settlement recheck. It does not query a provider or settle a payment.
+func RegisterCommercialPlatformReconciliationRoute(app *fiber.App, browser *BrowserSessionMiddleware, h *CommercialPlatformFinancialHandler) error {
+	if app == nil || browser == nil || h == nil {
+		return errors.New("commercial_platform_financial_routes_invalid")
 	}
-	g := app.Group("/v1/platform/commercial", browser.Platform)
-	g.Post("/payments/:payment_id/reconciliation", h.requestReconciliation)
-	g.Post("/financial-adjustments", h.proposeAdjustment)
-	g.Post("/financial-adjustments/:change_id/decision", h.decideAdjustment)
+	app.Post("/v1/platform/commercial/payments/:payment_id/reconciliation", browser.Platform, h.requestReconciliation)
 	return nil
 }
 
-// RegisterCommercialPlatformFinancialReadRoutes mounts only audited oversight
-// reads. It deliberately excludes adjustment, reconciliation and provider-effect
-// commands so read composition cannot accidentally activate financial writes.
+// RegisterCommercialPlatformAdjustmentRoutes exposes audited maker/checker
+// decisions only. Approval records a credit note or pending refund, never a
+// provider refund or an entitlement change.
+func RegisterCommercialPlatformAdjustmentRoutes(app *fiber.App, browser *BrowserSessionMiddleware, h *CommercialPlatformFinancialHandler) error {
+	if app == nil || browser == nil || h == nil {
+		return errors.New("commercial_platform_adjustment_routes_invalid")
+	}
+	app.Post("/v1/platform/commercial/financial-adjustments", browser.Platform, h.proposeAdjustment)
+	app.Post("/v1/platform/commercial/financial-adjustments/:change_id/decision", browser.Platform, h.decideAdjustment)
+	return nil
+}
+
+// RegisterCommercialPlatformFinancialReadRoutes mounts audited oversight reads.
+// Settlement and provider-effect commands remain unmounted.
 func RegisterCommercialPlatformFinancialReadRoutes(app *fiber.App, browser *BrowserSessionMiddleware, h *CommercialPlatformFinancialHandler) error {
 	if app == nil || browser == nil || h == nil {
 		return errors.New("commercial_platform_financial_read_routes_invalid")
@@ -177,17 +188,39 @@ func (h *CommercialPlatformFinancialHandler) aiUsage(c fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	page, _, ok := parsePlatformCommercialPage(c, "", "")
+	page, values, ok := parsePlatformCommercialPage(c, "", "", "tenant_id", "kind", "from", "to")
 	if !ok {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	result, err := h.usecase.ListPlatformAIUsage(c.Context(), commercialapp.PlatformQueueRequest{Actor: actor, CorrelationID: correlation, Limit: page.limit, Cursor: page.cursor})
+	filter := commercialapp.PlatformAIUsageFilter{Kind: values.Get("kind")}
+	if raw := values.Get("tenant_id"); raw != "" {
+		id, valid := commercialID(raw)
+		if !valid {
+			return fail(c, 400, "INVALID_REQUEST", "Choose a valid organisation.", false)
+		}
+		filter.TenantID = id
+	}
+	if raw := values.Get("from"); raw != "" {
+		at, e := time.Parse("2006-01-02", raw)
+		if e != nil {
+			return fail(c, 400, "INVALID_REQUEST", "Choose a valid start date.", false)
+		}
+		filter.From = at
+	}
+	if raw := values.Get("to"); raw != "" {
+		at, e := time.Parse("2006-01-02", raw)
+		if e != nil {
+			return fail(c, 400, "INVALID_REQUEST", "Choose a valid end date.", false)
+		}
+		filter.Before = at.AddDate(0, 0, 1)
+	}
+	result, err := h.usecase.ListPlatformAIUsage(c.Context(), commercialapp.PlatformQueueRequest{Actor: actor, CorrelationID: correlation, Limit: page.limit, Cursor: page.cursor, AIUsageFilter: filter})
 	if err != nil {
 		return commercialPlatformFailure(c, err)
 	}
 	items := make([]any, len(result.Items))
 	for i, v := range result.Items {
-		items[i] = fiber.Map{"id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "kind": v.Kind, "actual_credits": strconv.FormatInt(v.ActualCredits, 10), "settled_at": commercialTimestamp(v.SettledAt)}
+		items[i] = fiber.Map{"id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "tenant_name": v.TenantName, "kind": v.Kind, "actual_credits": strconv.FormatInt(v.ActualCredits, 10), "settled_at": commercialTimestamp(v.SettledAt)}
 	}
 	return commercialJSON(c, 200, items, result.NextCursor)
 }
@@ -297,12 +330,15 @@ func platformCommercialPrincipal(c fiber.Ctx) (commercialapp.AdjustmentActor, do
 	}
 	return commercialapp.AdjustmentActor{UserID: domain.ID(p.UserID), SessionID: domain.ID(p.SessionID), ContextGeneration: generation}, domain.ID(correlation), true
 }
-func parsePlatformCommercialPage(c fiber.Ctx, primary, secondary string) (commercialPage, url.Values, bool) {
+func parsePlatformCommercialPage(c fiber.Ctx, primary, secondary string, additional ...string) (commercialPage, url.Values, bool) {
 	values, e := url.ParseQuery(string(c.Request().URI().QueryString()))
 	if e != nil {
 		return commercialPage{}, nil, false
 	}
 	allowed := map[string]bool{"limit": true, "cursor": true}
+	for _, key := range additional {
+		allowed[key] = true
+	}
 	if primary != "" {
 		allowed[primary] = true
 	}
@@ -354,16 +390,16 @@ func reversalReadView(v commercialapp.PaymentReversalRead) any {
 	return fiber.Map{"payment_id": uuid.UUID(v.PaymentID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "subscription_id": uuid.UUID(v.SubscriptionID).String(), "settlement_observation_id": uuid.UUID(v.SettlementObservationID).String(), "reversal_observation_id": uuid.UUID(v.ReversalObservationID).String(), "access_hold_id": uuid.UUID(v.AccessHoldID).String(), "payment_state": v.PaymentState, "invoice_state": v.InvoiceState, "subscription_state": v.SubscriptionState, "access_mode": v.AccessMode, "hold_state": v.HoldState, "amount": moneyView(v.AmountMinorUnits), "provider_observed_at": commercialOptionalTimestamp(v.ProviderObservedAt), "recorded_at": commercialTimestamp(v.RecordedAt), "applied_at": commercialTimestamp(v.AppliedAt)}
 }
 func platformInvoiceView(v commercialapp.PlatformInvoiceQueueItem) any {
-	return fiber.Map{"id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "subscription_id": uuid.UUID(v.SubscriptionID).String(), "invoice_number": v.Number, "state": v.State, "version": v.Version, "purchase_kind": v.PurchaseKind, "total": moneyView(v.TotalMinorUnits), "outstanding": moneyView(v.OutstandingMinorUnits), "issued_at": commercialTimestamp(v.IssuedAt), "due_at": commercialTimestamp(v.DueAt)}
+	return fiber.Map{"tenant_name": v.TenantName, "id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "subscription_id": uuid.UUID(v.SubscriptionID).String(), "invoice_number": v.Number, "state": v.State, "version": v.Version, "purchase_kind": v.PurchaseKind, "settled_payment_version": v.SettledPaymentVersion, "total": moneyView(v.TotalMinorUnits), "outstanding": moneyView(v.OutstandingMinorUnits), "issued_at": commercialTimestamp(v.IssuedAt), "due_at": commercialTimestamp(v.DueAt)}
 }
 func platformPaymentView(v commercialapp.PlatformPaymentQueueItem) any {
-	return fiber.Map{"id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "state": v.State, "version": v.Version, "amount": moneyView(v.AmountMinorUnits), "reconciliation_state": v.ReconciliationState, "reconciliation_pending": v.ReconciliationPending, "created_at": commercialTimestamp(v.CreatedAt), "updated_at": commercialTimestamp(v.UpdatedAt), "reconciled_at": commercialOptionalTimestamp(v.ReconciledAt)}
+	return fiber.Map{"tenant_name": v.TenantName, "id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "state": v.State, "version": v.Version, "amount": moneyView(v.AmountMinorUnits), "reconciliation_state": v.ReconciliationState, "reconciliation_pending": v.ReconciliationPending, "created_at": commercialTimestamp(v.CreatedAt), "updated_at": commercialTimestamp(v.UpdatedAt), "reconciled_at": commercialOptionalTimestamp(v.ReconciledAt)}
 }
 func platformAdjustmentView(v commercialapp.PlatformAdjustmentQueueItem) any {
-	return fiber.Map{"id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "payment_id": uuid.UUID(v.PaymentID).String(), "maker_user_id": uuid.UUID(v.MakerUserID).String(), "checker_user_id": optionalCommercialID(v.CheckerUserID), "action": v.Action, "state": v.State, "reason_code": v.ReasonCode, "entitlement_disposition": v.EntitlementDisposition, "version": v.Version, "amount": moneyView(v.AmountMinorUnits), "net": moneyView(v.NetMinorUnits), "tax": moneyView(v.TaxMinorUnits), "created_at": commercialTimestamp(v.CreatedAt), "expires_at": commercialTimestamp(v.ExpiresAt), "decided_at": commercialOptionalTimestamp(v.DecidedAt)}
+	return fiber.Map{"tenant_name": v.TenantName, "id": uuid.UUID(v.ID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "payment_id": uuid.UUID(v.PaymentID).String(), "maker_user_id": uuid.UUID(v.MakerUserID).String(), "checker_user_id": optionalCommercialID(v.CheckerUserID), "action": v.Action, "state": v.State, "reason_code": v.ReasonCode, "entitlement_disposition": v.EntitlementDisposition, "version": v.Version, "amount": moneyView(v.AmountMinorUnits), "net": moneyView(v.NetMinorUnits), "tax": moneyView(v.TaxMinorUnits), "created_at": commercialTimestamp(v.CreatedAt), "expires_at": commercialTimestamp(v.ExpiresAt), "decided_at": commercialOptionalTimestamp(v.DecidedAt)}
 }
 func platformReversalView(v commercialapp.PlatformReversalQueueItem) any {
-	return fiber.Map{"id": uuid.UUID(v.ID).String(), "payment_id": uuid.UUID(v.PaymentID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "actor_user_id": uuid.UUID(v.ActorUserID).String(), "expected_payment_version": v.ExpectedPaymentVersion, "payment_state": v.PaymentState, "reconciliation_state": v.ReconciliationState, "queue_state": v.QueueState, "amount": moneyView(v.AmountMinorUnits), "requested_at": commercialTimestamp(v.RequestedAt), "applied_at": commercialOptionalTimestamp(v.AppliedAt), "hold_state": commercialOptionalString(v.HoldState)}
+	return fiber.Map{"tenant_name": v.TenantName, "id": uuid.UUID(v.ID).String(), "payment_id": uuid.UUID(v.PaymentID).String(), "tenant_id": uuid.UUID(v.TenantID).String(), "invoice_id": uuid.UUID(v.InvoiceID).String(), "actor_user_id": uuid.UUID(v.ActorUserID).String(), "expected_payment_version": v.ExpectedPaymentVersion, "payment_state": v.PaymentState, "reconciliation_state": v.ReconciliationState, "queue_state": v.QueueState, "amount": moneyView(v.AmountMinorUnits), "requested_at": commercialTimestamp(v.RequestedAt), "applied_at": commercialOptionalTimestamp(v.AppliedAt), "hold_state": commercialOptionalString(v.HoldState)}
 }
 func commercialPlatformFailure(c fiber.Ctx, e error) error {
 	switch {

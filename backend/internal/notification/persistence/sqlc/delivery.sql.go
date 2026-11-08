@@ -75,7 +75,8 @@ func (q *Queries) GetDeliveryAttemptByNumber(ctx context.Context, arg GetDeliver
 const getDeliveryAttemptProgress = `-- name: GetDeliveryAttemptProgress :one
 SELECT count(a.id)::integer AS attempt_count,
  count(a.id) FILTER(WHERE r.id IS NULL)::integer AS unfinished_count,
- count(a.id) FILTER(WHERE r.disposition='SMTP_ACCEPTED')::integer AS accepted_count
+ count(a.id) FILTER(WHERE r.disposition='SMTP_ACCEPTED')::integer AS accepted_count,
+ count(a.id) FILTER(WHERE r.disposition='AMBIGUOUS')::integer AS ambiguous_count
 FROM notification.delivery_attempts a
 LEFT JOIN notification.delivery_attempt_results r ON r.attempt_id=a.id
 WHERE a.notification_id=$1
@@ -85,12 +86,18 @@ type GetDeliveryAttemptProgressRow struct {
 	AttemptCount    int32
 	UnfinishedCount int32
 	AcceptedCount   int32
+	AmbiguousCount  int32
 }
 
 func (q *Queries) GetDeliveryAttemptProgress(ctx context.Context, notificationID pgtype.UUID) (GetDeliveryAttemptProgressRow, error) {
 	row := q.db.QueryRow(ctx, getDeliveryAttemptProgress, notificationID)
 	var i GetDeliveryAttemptProgressRow
-	err := row.Scan(&i.AttemptCount, &i.UnfinishedCount, &i.AcceptedCount)
+	err := row.Scan(
+		&i.AttemptCount,
+		&i.UnfinishedCount,
+		&i.AcceptedCount,
+		&i.AmbiguousCount,
+	)
 	return i, err
 }
 

@@ -36,7 +36,7 @@ func NewMFAReadinessServiceWithFactors(reader RecoveryPreparationReader, factors
 	return &MFAReadinessService{reader: reader, factors: factors, clock: clock, emailOnly: len(emailOnly) == 1 && emailOnly[0]}, nil
 }
 func (s *MFAReadinessService) Get(ctx context.Context, principal SessionPrincipal) (MFAReadiness, error) {
-	if ctx == nil || principal.UserID.IsZero() || principal.SessionID.IsZero() || principal.AuthEpoch < 1 || principal.AbsoluteExpiresAt.IsZero() {
+	if ctx == nil || principal.UserID.IsZero() || principal.SessionID.IsZero() || principal.AuthEpoch < 1 || principal.AbsoluteExpiresAt.IsZero() || principal.AuthenticatedAt.IsZero() {
 		return MFAReadiness{}, safe("mfa_readiness_invalid", nil)
 	}
 	facts, err := s.reader.GetRecoveryAccountFacts(ctx, principal.UserID)
@@ -47,7 +47,7 @@ func (s *MFAReadinessService) Get(ctx context.Context, principal SessionPrincipa
 		return MFAReadiness{}, safe("mfa_readiness_unavailable", err)
 	}
 	observed := s.clock.Now().UTC()
-	authenticatedAt := principal.AbsoluteExpiresAt.UTC().Add(-12 * time.Hour)
+	authenticatedAt := principal.AuthenticatedAt.UTC()
 	age := int64(observed.Sub(authenticatedAt).Seconds())
 	if age < 0 {
 		age = 0
