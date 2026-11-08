@@ -138,6 +138,11 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Account Security display cleanup — BID-MVP-03
+
+- Removed Email Verification and Google sign-in/linking sections from Account Security, their unreferenced frontend components, and Verify account again from the Platform sidebar account menu. Password changes, Active Sessions, Account security navigation and Sign out remain. Mandatory emailed sign-in verification, Google sign-in/backend linking protections and permissions are unchanged.
+- Six source-security checks, TypeScript and affected lint passed. Intercepted desktop/mobile browser checks confirmed password/session visibility, absence of email/Google sections and linking-preparation calls, and the sidebar menu retaining Account security/Sign out without re-verification. No real account change or email requested.
+
 ## Communications replacement-invitation panel removal — BID-MVP-04
 
 - Removed the replacement-invitation panel and its unused component from Communications. Invitation selection, reason/acknowledgement inputs and invitation-load errors no longer appear or trigger invitation-directory requests. Existing protected invitation APIs and normal administrator invitations are unchanged.

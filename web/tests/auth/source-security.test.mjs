@@ -34,17 +34,19 @@ test("Email verification uses six accessible digits without changing the backend
   assert.match(input, /onPaste=\{paste\}/);
 });
 
-test("account security exposes the existing password-confirmed Google linking workflow", async () => {
+test("account security retains password and sessions without email or Google linking panels", async () => {
   const account = await readFile(path.join(root, "src/components/auth/account-security.tsx"), "utf8");
-  const linking = await readFile(path.join(root, "src/components/auth/google-linking.tsx"), "utf8");
-  assert.match(account, /<GoogleLinking\s*\/>/);
-  assert.match(linking, /\/api\/auth\/google-link\/start/);
-  assert.match(linking, /password/);
+  const shell = await readFile(path.join(root, "src/components/platform/platform-admin-shell.tsx"), "utf8");
+  assert.match(account, /<PasswordChangeForm\s*\/>/);
+  assert.match(account, /<SessionManagement\s*\/>/);
+  assert.doesNotMatch(account, /EmailVerificationSettings|GoogleLinking|email-verification-heading|google-link-heading/);
+  assert.doesNotMatch(shell, /Verify account again/);
+  assert.match(shell, /href="\/account\/security"/);
 });
 
 test("Platform verification uses fresh email sign-in and retires authenticator setup", async () => {
   const resolution = await readFile(path.join(root, "src/components/session/resolution-panel.tsx"), "utf8");
-  const settings = await readFile(path.join(root, "src/components/auth/email-verification-settings.tsx"), "utf8");
+  const settings = await readFile(path.join(root, "src/components/auth/account-security.tsx"), "utf8");
   const legacy = await readFile(path.join(root, "src/app/(session)/account/security/authenticator/page.tsx"), "utf8");
   assert.match(resolution, /COMPLETE_PLATFORM_STEP_UP/);
   assert.match(resolution, /fresh verification code by email/);
