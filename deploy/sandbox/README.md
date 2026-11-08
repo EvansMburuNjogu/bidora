@@ -23,7 +23,15 @@ docker compose -f deploy/sandbox/compose.yml up -d backend web
 docker compose -f deploy/sandbox/compose.yml ps
 ```
 
-## Current Users navigation and invite feedback — schema 57
+## Current Users design and invitation actions — schema 57
+
+Backend/web **`f4da164`**. Improved icon navigation pills and responsive user-detail identity/roles/security cards. Explicit reissue now supports Owner and expired ACTIVE invitations under the existing recently verified Owner policy; cancellation/new token/evidence remain atomic and replay never resends. Remove invitation uses the existing versioned, CSRF/Origin-protected audited cancellation API, invalidating the link without deleting history. Own-account destructive controls remain absent. Login no longer shows “Accept administrator invitation”; emailed setup links still work.
+
+Schema/ledger **57**, grants unchanged. Production builds, release source lint/types/contracts and focused Go race/BFF checks passed. All eight deployed-bundle intercepted Users/design/action browser cases and a read-only Login check passed. New-backend unpublished readiness and anonymous/Origin/cookie denial checks passed; both containers healthy, zero restarts; runtime environment/provider versions unchanged. Invalid-capability probes allow authoritative 400 or rate-limit 429; an initially strict probe safely rolled back before corrected cutover. No real invitation email or cancellation was used for testing.
+
+**Rollback:** `bidora-sandbox/backend:before-users-design` (**`00d3ad7`**) and `bidora-sandbox/web:before-users-design` (**`c08cf18`**), retag to latest and recreate both services, preserving schema 57 and all data. Private backup, build and rollout evidence is under `/opt/bidora-sandbox/{backups,verification}/*users-design*`. The separate unfinished session-security audit remains outside this release.
+
+## Historical Users navigation and invite feedback — schema 57
 
 Web **`c08cf18`**, backend unchanged **`00d3ad7`**. Users/Invitations navigation pills each show their own table; successful invites select Invitations. New/reissued invitation feedback uses Sonner, with no inline success message. Invite User no longer asks for a reason; the existing audited backend command receives a standard description. Retry identity, delivery uncertainty and self/Owner protections are preserved.
 
