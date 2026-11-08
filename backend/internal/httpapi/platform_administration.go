@@ -115,7 +115,7 @@ func RegisterPlatformSessionRevocationRoute(app *fiber.App, middleware *BrowserS
 
 type platformMeta struct {
 	TraceID    string  `json:"trace_id"`
-	NextCursor *string `json:"next_cursor,omitempty"`
+	NextCursor *string `json:"next_cursor"`
 }
 type platformResponse struct {
 	Data any          `json:"data"`

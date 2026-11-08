@@ -2,6 +2,7 @@
   "status": "pre-release-reviewed-slice",
   "algorithm": "sha256",
   "files": {
+    "migrations/control/00057_platform_user_directory.sql": "85bc8215357d39c707f222b4fa7801356fe149f1e3080fde176b5e82342666c2",
     "migrations/control/00056_direct_administrator_invitations.sql": "74d65acde63b6dd28f6e995f543aecb314d23ec4c4da2e2c3f8bb150804ecf15",
     "queries/platformsettings/pending_change.sql": "e441555f69072e7d431aee9a7ca4fcaf51e8b883666172f84371a1ff8f923035",
     "migrations/control/00055_platform_tenant_lifecycle.sql": "9cdc3bea99d75a915ca9cbdb4f07f84969f6bac2daa95ddeb6a533dda6a5133d",
@@ -36,7 +37,7 @@
     "migrations/control/00038_platform_identity_and_session_policy.sql": "db1214f0b79b04f2ae97ae409f68de722261bf214a94c5f299af305610ae5063",
     "queries/platformsettings/session_policy.sql": "14f01c418cc75d839e44fa4c79e3b64c6a5a6336d15127aaf50191076c1e52ab",
     "queries/platformsettings/information.sql": "c822fa18cf313ed7e81a44a8fc61e0a3498f2aa695c44221999d5c9b09d4f47d",
-    "queries/controlplane/platform_audit_read.sql": "d7484386fa1107ec350c53e73c4f29acfdf9efc217a7d18757110b3ff9c73191",
+    "queries/controlplane/platform_audit_read.sql": "357af5f7be88c47fd00fb415f343467790d8c1566e13883c4bb16bc8e2b0a56a",
     "queries/notification/platform_history.sql": "daa5812b4f446c0abe5b59984ffbbdb3cdd72508ced09b0df18515d3c4ee6d56",
     "migrations/control/00001_tenant_registry.sql": "b92357c4fb2d24427df693ca5bbc9048138c82007d57537998d91679b9c5a0e0",
     "migrations/control/00002_audit_outbox.sql": "163765203db99fb12e882f82c097432943feee0085bc3739d76ffc746e65cf42",

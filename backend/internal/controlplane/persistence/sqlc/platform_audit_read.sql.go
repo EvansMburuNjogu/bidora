@@ -15,7 +15,7 @@ const getPlatformAuditAction = `-- name: GetPlatformAuditAction :one
 SELECT id,actor_id,action,occurred_at,module,affected_record_id,result,administrator_name,affected_record_name,changes::jsonb AS changes,
  CASE WHEN $1::boolean THEN coalesce(host(ip_address),'') ELSE '' END::text AS ip_address,
  CASE WHEN $1::boolean THEN coalesce(browser,'') ELSE '' END::text AS browser
-FROM bidora_control_audit.platform_action_details_v1 WHERE id=$2
+FROM bidora_control_audit.platform_action_details_v1 WHERE id=$2 AND action<>'PlatformAdministratorRemoved'
 `
 
 type GetPlatformAuditActionParams struct {
@@ -114,7 +114,7 @@ SELECT id,actor_id,action,occurred_at,module,affected_record_id,result,administr
  CASE WHEN $1::boolean THEN coalesce(host(ip_address),'') ELSE '' END::text AS ip_address,
  CASE WHEN $1::boolean THEN coalesce(browser,'') ELSE '' END::text AS browser
 FROM bidora_control_audit.platform_action_details_v1
-WHERE ($2::uuid IS NULL OR actor_id=$2::uuid)
+WHERE action<>'PlatformAdministratorRemoved' AND ($2::uuid IS NULL OR actor_id=$2::uuid)
  AND ($3::text IS NULL OR action=$3::text)
  AND ($4::text IS NULL OR module=$4::text)
  AND ($5::text IS NULL OR result=$5::text)
