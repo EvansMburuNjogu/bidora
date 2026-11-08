@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parsePlatformAdministratorChange, type PlatformAdministrator } from "@/lib/platform-contract";
 
-export function AdministratorIdentityState({ administrator, onChanged, initialOpen = false, compact = false, onClosed }: { administrator: PlatformAdministrator; onChanged: () => void; initialOpen?: boolean; compact?: boolean; onClosed?: () => void }) {
+export function AdministratorIdentityState({ administrator, onChanged, initialOpen = false, compact = false, onClosed, remove = false }: { administrator: PlatformAdministrator; onChanged: () => void; initialOpen?: boolean; compact?: boolean; onClosed?: () => void; remove?: boolean }) {
   const { resolution, csrfToken, refresh } = useSession();
   const disable = administrator.state === "ACTIVE";
-  const action = disable ? "DISABLE_IDENTITY" : "REACTIVATE_IDENTITY";
+  const action = remove ? "REMOVE_IDENTITY" : disable ? "DISABLE_IDENTITY" : "REACTIVATE_IDENTITY";
   const ownerAccount = administrator.assignments.some(assignment => assignment.state === "ACTIVE" && assignment.role_key === "PLATFORM_OWNER");
   const allowed = resolution.capabilities.includes(disable ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || resolution.capabilities.includes("platform.governance.approve"));
   const [open, setOpen] = useState(initialOpen);
@@ -22,7 +22,7 @@ export function AdministratorIdentityState({ administrator, onChanged, initialOp
   const submitting = useRef(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
-  if (!allowed) return null;
+  if (!allowed || administrator.state==="REMOVED" || remove && !resolution.capabilities.includes("platform.governance.approve")) return null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,7 +52,7 @@ export function AdministratorIdentityState({ administrator, onChanged, initialOp
       retry.current = null;
       setOpen(false);
       if (change.state === "EXECUTED") {
-        toast.success(disable ? "Administrator disabled and sessions revoked." : "Administrator reactivated. Existing sessions remain invalid.", { id: "administrator-identity-state" });
+        toast.success(remove ? "User removed and sessions revoked." : disable ? "Administrator disabled and sessions revoked." : "Administrator reactivated. Existing sessions remain invalid.", { id: "administrator-identity-state" });
         onChanged();
       }
     } catch { toast.error(networkSubmissionError, { id: "administrator-identity-state" }); }
@@ -63,11 +63,11 @@ export function AdministratorIdentityState({ administrator, onChanged, initialOp
     {!compact && <h2 className="text-base font-medium">Account access</h2>}
     {!compact && <p className="text-sm text-muted-foreground">{disable ? "Disabling an administrator removes sign-in access and revokes their sessions when executed." : "Reactivation permits future sign-in; it does not restore old sessions."} Owner account changes require a recently verified Platform Owner.</p>}
     <AlertDialog open={open} onOpenChange={(value) => { if (!submitting.current) setOpen(value); if (!value && !submitting.current) onClosed?.(); }}>
-      {!compact && <AlertDialogTrigger render={<Button type="button" variant={disable ? "destructive" : "outline"} />}>{disable ? "Disable administrator" : "Reactivate administrator"}</AlertDialogTrigger>}
+      {!compact && <AlertDialogTrigger render={<Button type="button" variant={disable ? "destructive" : "outline"} />}>{remove ? "Remove user" : disable ? "Disable administrator" : "Reactivate administrator"}</AlertDialogTrigger>}
       <AlertDialogContent><form onSubmit={(event) => void submit(event)} className="space-y-4">
-        <AlertDialogHeader><AlertDialogTitle>{disable ? "Disable this administrator?" : "Reactivate this administrator?"}</AlertDialogTitle><AlertDialogDescription>Review the selected account and give a reason. You cannot change your own account here. Changes take effect immediately; the last active Owner remains protected.</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogHeader><AlertDialogTitle>{remove ? "Remove this user?" : disable ? "Disable this administrator?" : "Reactivate this administrator?"}</AlertDialogTitle><AlertDialogDescription>{remove ? "This removes Platform access and signs out this user. Account history and audit records are retained. You cannot remove yourself or the last active Owner." : "Review the selected account and give a reason. You cannot change your own account here. Changes take effect immediately; the last active Owner remains protected."}</AlertDialogDescription></AlertDialogHeader>
         <div className="space-y-2"><Label htmlFor="identity-change-reason">Reason</Label><Input aria-invalid={!!reasonError} aria-describedby={reasonError ? "administrator-identity-state-reason-error" : undefined} onChange={() => setReasonError(null)} id="identity-change-reason" name="reason" required maxLength={2000} disabled={busy} />{reasonError && <p role="alert" id="administrator-identity-state-reason-error" className="text-sm text-destructive">{reasonError}</p>}</div>
-        <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="submit" variant={disable ? "destructive" : "default"} disabled={busy} aria-busy={busy}>{busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : disable ? <BanIcon aria-hidden="true" /> : <RotateCcwIcon aria-hidden="true" />}{busy ? "Saving…" : disable ? "Disable administrator" : "Reactivate administrator"}</Button></AlertDialogFooter>
+        <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button type="submit" variant={disable ? "destructive" : "default"} disabled={busy} aria-busy={busy}>{busy ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : disable ? <BanIcon aria-hidden="true" /> : <RotateCcwIcon aria-hidden="true" />}{busy ? "Saving…" : remove ? "Remove user" : disable ? "Disable administrator" : "Reactivate administrator"}</Button></AlertDialogFooter>
       </form></AlertDialogContent>
     </AlertDialog>
   </section>;

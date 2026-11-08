@@ -3157,6 +3157,14 @@
           "maxLength": 254,
           "type": "string"
         },
+        "first_name": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "last_name": {
+          "maxLength": 100,
+          "type": "string"
+        },
         "platform_context_generation": {
           "minimum": 1,
           "type": "integer"
@@ -3164,7 +3172,8 @@
         "state": {
           "enum": [
             "ACTIVE",
-            "DISABLED"
+            "DISABLED",
+            "REMOVED"
           ],
           "type": "string"
         },
@@ -3207,7 +3216,8 @@
             "REVOKE_ROLE",
             "DISABLE_IDENTITY",
             "REACTIVATE_IDENTITY",
-            "ACTIVATE_OWNER_INVITATION"
+            "ACTIVATE_OWNER_INVITATION",
+            "REMOVE_IDENTITY"
           ],
           "type": "string"
         },
@@ -3384,6 +3394,7 @@
           "ASSIGN_ROLE": "#/components/schemas/AssignRoleChange",
           "DISABLE_IDENTITY": "#/components/schemas/IdentityStateChange",
           "REACTIVATE_IDENTITY": "#/components/schemas/IdentityStateChange",
+          "REMOVE_IDENTITY": "#/components/schemas/IdentityStateChange",
           "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"
         },
         "propertyName": "action"
@@ -3606,7 +3617,8 @@
         "action": {
           "enum": [
             "DISABLE_IDENTITY",
-            "REACTIVATE_IDENTITY"
+            "REACTIVATE_IDENTITY",
+            "REMOVE_IDENTITY"
           ],
           "type": "string"
         },
@@ -3758,6 +3770,16 @@
         "email": {
           "maxLength": 254,
           "minLength": 3,
+          "type": "string"
+        },
+        "first_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "last_name": {
+          "maxLength": 100,
+          "minLength": 1,
           "type": "string"
         },
         "reason": {
@@ -4052,6 +4074,7 @@
         "PlatformRoleRevocationChanged",
         "PlatformAdministratorDisabled",
         "PlatformAdministratorReactivated",
+        "PlatformAdministratorRemoved",
         "PlatformIntegrationVersionCreated",
         "PlatformIntegrationVersionTested",
         "PlatformIntegrationActivationProposed",

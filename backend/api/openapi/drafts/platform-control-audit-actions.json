@@ -276,6 +276,7 @@
           "PlatformRoleRevocationChanged",
           "PlatformAdministratorDisabled",
           "PlatformAdministratorReactivated",
+          "PlatformAdministratorRemoved",
           "PlatformIntegrationVersionCreated",
           "PlatformIntegrationVersionTested",
           "PlatformIntegrationActivationProposed",

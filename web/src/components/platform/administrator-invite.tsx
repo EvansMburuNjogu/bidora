@@ -16,6 +16,8 @@ export function AdministratorInvite({ onCreated }: { onCreated?: () => void }) {
   const allowed = resolution.capabilities.includes("platform.admin.invite");
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [firstName,setFirstName]=useState(""),[lastName,setLastName]=useState("");
+  const validNames=[firstName,lastName].every(name=>!!name.trim() && new TextEncoder().encode(name.trim()).length<=100);
   const [role, setRole] = useState<PlatformRole | "">("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -27,12 +29,12 @@ export function AdministratorInvite({ onCreated }: { onCreated?: () => void }) {
   if (!allowed || !generation) return null;
   function changed() { pendingKey.current = null; setFeedback(""); setCreated(false); }
   async function submit() {
-    if (submitting.current || !csrfToken || !generation || !validEmail || !role || !reason.trim()) return;
+    if (submitting.current || !csrfToken || !generation || !validEmail || !validNames || !role || !reason.trim()) return;
     if (new TextEncoder().encode(reason.trim()).length > 2000) { setFeedback("Enter a reason of at most 2,000 bytes."); return; }
     submitting.current = true; setBusy(true); setFeedback("");
     const key = pendingKey.current ?? crypto.randomUUID(); pendingKey.current = key;
     try {
-      const response = await fetch("/api/platform/administrator-invitations", { method: "POST", credentials: "include", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Bidora-Platform-Context-Generation": String(generation), "Idempotency-Key": key }, body: JSON.stringify({ email: email.trim(), role_key: role, reason: reason.trim() }) });
+      const response = await fetch("/api/platform/administrator-invitations", { method: "POST", credentials: "include", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Bidora-Platform-Context-Generation": String(generation), "Idempotency-Key": key }, body: JSON.stringify({ first_name:firstName.trim(),last_name:lastName.trim(),email: email.trim(), role_key: role, reason: reason.trim() }) });
       if (response.status === 401) { refresh(); return; }
       if (response.status === 201) {
         const invitation = parsePlatformInvitationReceipt(await response.json());
@@ -47,8 +49,8 @@ export function AdministratorInvite({ onCreated }: { onCreated?: () => void }) {
     finally { submitting.current = false; setBusy(false); }
   }
   return <><Button type="button" onClick={() => { setOpen(true); setFeedback(""); }}><PlusIcon aria-hidden="true" />Invite User</Button>
-    <AlertDialog open={open} onOpenChange={(next) => { if (busy) return; setOpen(next); if (!next) { setEmail(""); setRole(""); setReason(""); setFeedback(""); setCreated(false); pendingKey.current = null; } }}><AlertDialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto"><form onSubmit={event => { event.preventDefault(); void submit(); }} className="space-y-4"><AlertDialogHeader><AlertDialogTitle>Invite user</AlertDialogTitle><AlertDialogDescription>Choose a Platform Admin role. The invitation expires after 72 hours. The user appears in this list after accepting; tenant access is not granted.</AlertDialogDescription></AlertDialogHeader>
-      <div className="grid gap-3"><label className="grid gap-1 text-sm">Email address<Input type="email" required maxLength={254} value={email} disabled={busy || created} onChange={(event) => { changed(); setEmail(event.target.value); }} /></label><div className="grid gap-1 text-sm"><label htmlFor={roleID}>Role</label><PlatformSelect id={roleID} value={role} disabled={busy || created} onChange={(event) => { changed(); setRole(event.target.value as PlatformRole | ""); }}><option value="">Select role</option>{PLATFORM_ROLES.map((key) => <option value={key} key={key}>{platformRoleLabels[key]}</option>)}</PlatformSelect></div><label className="grid gap-1 text-sm">Reason<Input required maxLength={2000} value={reason} disabled={busy || created} onChange={(event) => { changed(); setReason(event.target.value); }} /></label>{feedback && <p role="status" className="text-sm text-muted-foreground">{feedback}</p>}</div>
-      <AlertDialogFooter><AlertDialogCancel disabled={busy}>{created ? "Close" : "Cancel"}</AlertDialogCancel>{!created && <Button type="submit" disabled={busy || !csrfToken || !validEmail || !role || !reason.trim()}>{busy ? "Submitting…" : "Issue invitation"}</Button>}</AlertDialogFooter></form></AlertDialogContent></AlertDialog>
+    <AlertDialog open={open} onOpenChange={(next) => { if (busy) return; setOpen(next); if (!next) { setEmail(""); setFirstName("");setLastName("");setRole(""); setReason(""); setFeedback(""); setCreated(false); pendingKey.current = null; } }}><AlertDialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto"><form onSubmit={event => { event.preventDefault(); void submit(); }} className="space-y-4"><AlertDialogHeader><AlertDialogTitle>Invite user</AlertDialogTitle><AlertDialogDescription className="sr-only">Enter the user details.</AlertDialogDescription></AlertDialogHeader>
+      <div className="grid gap-3"><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm">First name<Input required maxLength={100} value={firstName} disabled={busy||created} autoComplete="given-name" onChange={event=>{changed();setFirstName(event.target.value)}}/></label><label className="grid gap-1 text-sm">Last name<Input required maxLength={100} value={lastName} disabled={busy||created} autoComplete="family-name" onChange={event=>{changed();setLastName(event.target.value)}}/></label></div><label className="grid gap-1 text-sm">Email address<Input type="email" required maxLength={254} value={email} disabled={busy || created} onChange={(event) => { changed(); setEmail(event.target.value); }} /></label><div className="grid gap-1 text-sm"><label htmlFor={roleID}>Role</label><PlatformSelect id={roleID} value={role} disabled={busy || created} onChange={(event) => { changed(); setRole(event.target.value as PlatformRole | ""); }}><option value="">Select role</option>{PLATFORM_ROLES.map((key) => <option value={key} key={key}>{platformRoleLabels[key]}</option>)}</PlatformSelect></div><label className="grid gap-1 text-sm">Reason<Input required maxLength={2000} value={reason} disabled={busy || created} onChange={(event) => { changed(); setReason(event.target.value); }} /></label>{feedback && <p role="status" className="text-sm text-muted-foreground">{feedback}</p>}</div>
+      <AlertDialogFooter><AlertDialogCancel disabled={busy}>{created ? "Close" : "Cancel"}</AlertDialogCancel>{!created && <Button type="submit" disabled={busy || !csrfToken || !validEmail || !validNames || !role || !reason.trim()}>{busy ? "Submitting…" : "Issue invitation"}</Button>}</AlertDialogFooter></form></AlertDialogContent></AlertDialog>
   </>;
 }

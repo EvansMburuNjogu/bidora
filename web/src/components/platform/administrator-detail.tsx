@@ -50,9 +50,9 @@ export function AdministratorDetail({ userId }: { userId: string }) {
         if (controller.signal.aborted) return;
         setState(value && value.user_id.toLowerCase() === userId.toLowerCase()
           ? { kind: "ready", value }
-          : { kind: "error", message: "Couldn’t load user details." });
+          : { kind: "error", message: "Data unavailable: user details." });
       } catch {
-        if (!controller.signal.aborted) setState({ kind: "error", message: "Couldn’t load user details." });
+        if (!controller.signal.aborted) setState({ kind: "error", message: "Data unavailable: user details." });
       }
     }
     void load();

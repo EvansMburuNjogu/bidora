@@ -1,171 +1,99 @@
 "use client";
 
-import { PlatformSelect } from "@/components/platform/platform-select";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { RotateCcwIcon, SearchIcon, ShieldAlertIcon, UsersIcon } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert";
-import { useSession } from "@/components/session/session-provider";
+import { SearchIcon } from "lucide-react";
+import { PlatformSelect } from "@/components/platform/platform-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSession } from "@/components/session/session-provider";
 import { AdministratorInvite } from "@/components/platform/administrator-invite";
-import { PlatformStatus } from "@/components/platform/platform-status";
-import { PlatformRowActions } from "@/components/platform/platform-row-actions";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { AdministratorRoleChange } from "@/components/platform/administrator-role-change";
 import { AdministratorIdentityState } from "@/components/platform/administrator-identity-state";
+import { PlatformStatus } from "@/components/platform/platform-status";
+import { PlatformRowActions } from "@/components/platform/platform-row-actions";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { parsePlatformAdministratorList, platformRoleLabels, PLATFORM_ROLES, type PlatformAdministratorList, type PlatformRole } from "@/lib/platform-contract";
 
-type State = { kind: "loading" } | { kind: "error"; message: string; denied?: boolean } | { kind: "ready"; value: PlatformAdministratorList };
-
-export function AdministratorDirectory() {
-  const { resolution, csrfToken, refresh: refreshSession } = useSession();
-  const [state, setState] = useState<State>({ kind: "loading" });
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pageError, setPageError] = useState(false);
-  const [filterState, setFilterState] = useState<"ACTIVE" | "DISABLED" | "">("");
-  const [filterRole, setFilterRole] = useState<PlatformRole | "">("");
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<{ email: string; state: "ACTIVE" | "DISABLED" | ""; role: PlatformRole | "" }>({ email: "", state: "", role: "" });
-  const submittedSearch = filters.email;
-  function clearFilters() { setSearch(""); setFilterRole(""); setFilterState(""); setFilters({ email: "", state: "", role: "" }); }
-  const sequence = useRef(0);
-  const generation = resolution.platform_context_generation;
-
-  const load = useCallback(async (cursor?: string) => {
-    const current = ++sequence.current;
-    if (!generation) {
-      setState({ kind: "error", message: "You don’t have access to users.", denied: true });
-      return;
-    }
-    if (submittedSearch && !csrfToken) { setState({ kind: "error", message: "Search requires an active browser session.", denied: true }); return; }
-    if (cursor) setLoadingMore(true);
-    else { setState({ kind: "loading" }); setPageError(false); }
-    const query = new URLSearchParams();
-    if (filters.state) query.set("state", filters.state);
-    if (filters.role) query.set("role_key", filters.role);
-    if (cursor) query.set("cursor", cursor);
-    try {
-      const response = await fetch(submittedSearch ? "/api/platform/administrators/search" : `/api/platform/administrators${query.size ? `?${query}` : ""}`, {
-        method: submittedSearch ? "POST" : "GET", credentials: "include", cache: "no-store",
-        headers: submittedSearch ? { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Bidora-Platform-Context-Generation": String(generation) } :
-          { Accept: "application/json", "X-Bidora-Platform-Context-Generation": String(generation) },
-        body: submittedSearch ? JSON.stringify({ email: submittedSearch, ...(filters.state ? { state: filters.state } : {}), ...(filters.role ? { role_key: filters.role } : {}) }) : undefined,
-      });
-      if (current !== sequence.current) return;
-      if (response.status === 401 || response.status === 409) {
-        refreshSession();
-        return;
-      }
-      if (response.status === 403) {
-        setState({ kind: "error", message: "You don’t have access to users. You may need to verify your account.", denied: true });
-        return;
-      }
-      if (response.status === 400 && submittedSearch) { setState({ kind: "error", message: "Enter a valid full email address to search." }); return; }
-      const value = response.ok ? parsePlatformAdministratorList(await response.json()) : null;
-      if (!value) {
-        if (cursor) setPageError(true);
-        else setState({ kind: "error", message: "Couldn’t load users." });
-        return;
-      }
-      if (cursor) {
-        setState((previous) => {
-          if (previous.kind !== "ready" || previous.value.next_cursor !== cursor) return previous;
-          const ids = new Set(previous.value.administrators.map((administrator) => administrator.user_id));
-          return { kind: "ready", value: { ...value, administrators: [...previous.value.administrators, ...value.administrators.filter((administrator) => !ids.has(administrator.user_id))] } };
-        });
-        setPageError(false);
-      } else setState({ kind: "ready", value });
-    } catch {
-      if (current === sequence.current) { if (cursor) setPageError(true);
-      else setState({ kind: "error", message: "Couldn’t load users." }); }
-    } finally { if (current === sequence.current) setLoadingMore(false); }
-  }, [generation, filters, submittedSearch, csrfToken, refreshSession]);
-
-  useEffect(() => {
-    const sequenceRef = sequence;
-    const timeout = window.setTimeout(() => void load(), 0);
-    return () => { window.clearTimeout(timeout); sequenceRef.current++; };
-  }, [load]);
-
-  return (
-    <main className="app-page">
-      <div className="app-page-header flex-row items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="type-title">Users</h1>
-          <p className="type-lead text-muted-foreground">Manage Platform Admin accounts, responsibilities and access.</p>
-        </div>
-        <div className="flex flex-wrap gap-2"><AdministratorInvite key={generation ?? "none"} onCreated={() => void load()} /><Button type="button" variant="outline" disabled={state.kind === "loading" || loadingMore} onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Refresh</Button></div>
-      </div>
-
-      <form className="mb-5 flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); const next = { email: search.trim(), state: filterState, role: filterRole }; if (JSON.stringify(next) === JSON.stringify(filters)) void load(); else setFilters(next); }}>
-        <label className="grid min-w-0 gap-1 text-sm">Email address<div className="relative"><SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" type="email" maxLength={254} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="admin@example.com" /></div></label>
-        <div className="flex flex-col gap-1 text-sm font-medium"><label htmlFor="user-state">Status</label><PlatformSelect id="user-state" value={filterState} onChange={(event) => setFilterState(event.target.value as "ACTIVE" | "DISABLED" | "")}><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="DISABLED">Disabled</option></PlatformSelect></div>
-        <div className="flex flex-col gap-1 text-sm font-medium"><label htmlFor="user-role">Role</label><PlatformSelect id="user-role" value={filterRole} onChange={(event) => setFilterRole(event.target.value as PlatformRole | "")}><option value="">All roles</option>{PLATFORM_ROLES.map((role) => <option key={role} value={role}>{platformRoleLabels[role]}</option>)}</PlatformSelect></div>
-        {search || submittedSearch || filterRole || filterState ? <Button type="button" size="sm" variant="outline" onClick={clearFilters}>Clear filters</Button> : null}
-        <Button type="submit" size="sm" disabled={!csrfToken || state.kind === "loading"}><SearchIcon aria-hidden="true" />Apply filters</Button>
-      </form>
-      <p className="mb-3 text-xs text-muted-foreground">{submittedSearch ? `Matching email: ${submittedSearch}.` : "All Platform Admin users, including disabled accounts. Invited users appear after accepting."} Email matches a full address; filters apply across all pages.</p>
-      {state.kind === "loading" ? <DirectoryLoading /> : null}
-      {state.kind === "error" ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"><span>{state.message}</span>{!state.denied ? <Button type="button" variant="outline" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button> : null}</div> : null}
-      {state.kind === "ready" ? (
-        <>
-          {state.value.continuity_warning ? (
-            <Alert variant="warning" role="status">
-              <ShieldAlertIcon aria-hidden="true" />
-              <AlertTitle>Owner continuity needs attention</AlertTitle>
-              <AlertDescription>Platform ownership has limited coverage. Review owner assignments before making access changes.</AlertDescription>
-            </Alert>
-          ) : null}
-          {state.value.administrators.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center">
-              <UsersIcon className="mx-auto mb-3 size-5 text-muted-foreground" aria-hidden="true" />
-              <h2 className="font-medium">No records found.</h2>
-              {search || submittedSearch || filterRole || filterState ? <Button type="button" variant="link" onClick={clearFilters}>Clear filters</Button> : null}
-            </div>
-          ) : <><p role="status" className="mb-3 text-sm text-muted-foreground">{state.value.administrators.length} users shown{state.value.next_cursor ? " · More available" : ""}</p><DirectoryRows value={state.value} onChanged={() => void load()} /></>}
-          {pageError ? <p role="alert" className="text-sm text-destructive">Couldn’t load more users. Try again.</p> : null}
-          {state.value.next_cursor ? <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void load(state.value.next_cursor ?? undefined)}>{loadingMore ? "Loading…" : "Load more users"}</Button> : null}
-        </>
-      ) : null}
-    </main>
-  );
+type Filters={email:string;state:"ACTIVE"|"DISABLED"|"";role:PlatformRole|""};
+const empty:Filters={email:"",state:"",role:""};
+type State={kind:"loading"}|{kind:"error";message:string}|{kind:"ready";value:PlatformAdministratorList};
+export function AdministratorDirectory(){
+ const {resolution,csrfToken,refresh}=useSession(),generation=resolution.platform_context_generation;
+ const [draft,setDraft]=useState<Filters>(empty),[filters,setFilters]=useState<Filters>(empty),[state,setState]=useState<State>({kind:"loading"});
+ const [cursors,setCursors]=useState<(string|null)[]>([null]),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(10),[revision,setRevision]=useState(0);
+ const sequence=useRef(0),cursor=cursors[page];
+ function firstPage(){setPage(0);setCursors([null]);}
+ function changed(){firstPage();setRevision(value=>value+1);}
+ const load=useCallback(async()=>{
+  const current=++sequence.current;
+  if(!generation||!resolution.capabilities.includes("platform.admin.read")){setState({kind:"error",message:"You do not have access to these users."});return;}
+  setState({kind:"loading"});
+  const query=new URLSearchParams({limit:String(pageSize)});
+  if(filters.state)query.set("state",filters.state);if(filters.role)query.set("role_key",filters.role);if(cursor)query.set("cursor",cursor);
+  try{
+   const search=!!filters.email;
+   const response=await fetch(search?"/api/platform/administrators/search":"/api/platform/administrators?"+query,{
+    method:search?"POST":"GET",credentials:"include",cache:"no-store",
+    headers:{Accept:"application/json","X-Bidora-Platform-Context-Generation":String(generation),...(search?{"Content-Type":"application/json","X-CSRF-Token":csrfToken}:{})},
+    body:search?JSON.stringify({email:filters.email,...(filters.state?{state:filters.state}:{}),...(filters.role?{role_key:filters.role}:{})}):undefined
+   });
+   if(current!==sequence.current)return;
+   if(response.status===401||response.status===409){refresh();setState({kind:"error",message:"Your access changed. Please retry."});return;}
+   if(response.status===403){setState({kind:"error",message:"You do not have access to these users."});return;}
+   const value=response.ok?parsePlatformAdministratorList(await response.json()):null;
+   setState(value?{kind:"ready",value}:{kind:"error",message:"Data is temporarily unavailable. Please retry."});
+  }catch{if(current===sequence.current)setState({kind:"error",message:"Data is temporarily unavailable. Please retry."});}
+ },[generation,resolution.capabilities,csrfToken,filters,cursor,pageSize,refresh]);
+ useEffect(()=>{const ref=sequence,timer=window.setTimeout(()=>void load(),0);return()=>{window.clearTimeout(timer);ref.current++;};},[load,revision]);
+ const value=state.kind==="ready"?state.value:null;
+ return <main className="app-page">
+  <div className="app-page-header flex-row items-start justify-between gap-4"><div><h1 className="type-title">Users</h1><p className="type-lead text-muted-foreground">Manage Platform Admin users.</p></div><AdministratorInvite key={generation??"none"} onCreated={changed}/></div>
+  <form className="mb-5 flex flex-wrap items-end gap-3" onSubmit={event=>{event.preventDefault();firstPage();setFilters({...draft,email:draft.email.trim()});}}>
+   <label className="grid min-w-0 gap-1 text-sm">Email address<div className="relative"><SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input type="email" maxLength={254} className="pl-9" value={draft.email} placeholder="user@example.com" onChange={event=>setDraft({...draft,email:event.target.value})}/></div></label>
+   <div className="grid gap-1 text-sm"><label htmlFor="users-status">Status</label><PlatformSelect id="users-status" value={draft.state} onChange={event=>setDraft({...draft,state:event.target.value as Filters["state"]})}><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="DISABLED">Disabled</option></PlatformSelect></div>
+   <div className="grid gap-1 text-sm"><label htmlFor="users-role">Role</label><PlatformSelect id="users-role" value={draft.role} onChange={event=>setDraft({...draft,role:event.target.value as Filters["role"]})}><option value="">All roles</option>{PLATFORM_ROLES.map(role=><option key={role} value={role}>{platformRoleLabels[role]}</option>)}</PlatformSelect></div>
+   <Button type="submit" size="sm" disabled={state.kind==="loading"||!csrfToken}>Apply filters</Button>
+   {(draft.email||draft.state||draft.role||filters.email||filters.state||filters.role)&&<Button type="button" variant="outline" size="sm" onClick={()=>{setDraft(empty);setFilters(empty);firstPage();}}>Clear filters</Button>}
+  </form>
+  <DirectoryRows value={value} loading={state.kind==="loading"} error={state.kind==="error"?state.message:null} onChanged={changed}/>
+  {state.kind==="error"&&<Button variant="outline" className="mt-3" onClick={()=>void load()}>Retry</Button>}
+  <nav aria-label="User pages" className="mt-4 flex flex-wrap items-center justify-between gap-3">
+   <div className="flex items-center gap-2 text-sm"><label htmlFor="users-per-page">Rows per page</label><PlatformSelect id="users-per-page" value={pageSize} onChange={event=>{setPageSize(Number(event.target.value));firstPage();}}>{[10,25,50,100].map(size=><option key={size} value={size}>{size}</option>)}</PlatformSelect></div>
+   <div className="flex items-center gap-3"><Button variant="outline" disabled={state.kind!=="ready"||page===0} onClick={()=>setPage(value=>value-1)}>Previous</Button><span className="text-sm">Page {page+1}</span><Button variant="outline" disabled={!value?.next_cursor} onClick={()=>{if(value?.next_cursor){setCursors(old=>[...old.slice(0,page+1),value.next_cursor]);setPage(value=>value+1);}}}>Next</Button></div>
+  </nav>
+ </main>;
 }
-
-function DirectoryRows({ value, onChanged }: { value: PlatformAdministratorList; onChanged: () => void }) {
+function DirectoryRows({ value, onChanged, loading, error }: { value: PlatformAdministratorList | null; onChanged: () => void; loading: boolean; error: string | null }) {
   const { resolution } = useSession();
-  const [selected, setSelected] = useState<{ user: PlatformAdministratorList["administrators"][number]; kind: "roles" | "access" } | null>(null);
+  const [selected, setSelected] = useState<{ user: PlatformAdministratorList["administrators"][number]; kind: "roles" | "access" | "remove" } | null>(null);
   const can = (capability: string) => resolution.capabilities.includes(capability);
   function changed() { setSelected(null); onChanged(); }
   return <>
     <section aria-label="Platform administrators" className="overflow-x-auto rounded-lg border bg-card">
       <table className="w-full min-w-[680px] text-left text-sm">
         <thead className="border-b bg-muted/40 text-xs text-muted-foreground"><tr><th scope="col" className="px-4 py-3">User</th><th scope="col" className="px-4 py-3">Roles</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3 text-right">Actions</th></tr></thead>
-        <tbody className="divide-y">{value.administrators.map(user => {
+        <tbody className="divide-y">{(value?.administrators ?? []).map(user => {
           const roles = user.assignments.filter(assignment => assignment.state === "ACTIVE");
           const href = `/platform/users/${user.user_id}`;
           const ownerAccount = roles.some(role => role.role_key === "PLATFORM_OWNER");
-          const access = can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || can("platform.governance.approve")) && !(user.effective_owner && value.effective_owner_count <= 1);
+          const access = can(user.state === "ACTIVE" ? "platform.admin.identity.disable" : "platform.admin.identity.reactivate") && (!ownerAccount || can("platform.governance.approve")) && !(user.effective_owner && (value?.effective_owner_count ?? 0) <= 1);
           return <tr key={user.user_id}>
-            <th scope="row" className="max-w-72 px-4 py-4 font-medium"><Link href={href} className="break-all text-primary hover:underline">{user.email}</Link>{user.effective_owner && <span className="mt-1 block text-xs font-normal text-muted-foreground">Platform owner</span>}</th>
+            <th scope="row" className="max-w-72 px-4 py-4 font-medium"><Link href={href} className="break-all text-primary hover:underline">{[user.first_name,user.last_name].filter(Boolean).join(" ") || user.email}</Link>{(user.first_name || user.last_name) && <span className="mt-1 block break-all text-xs font-normal text-muted-foreground">{user.email}</span>}{user.effective_owner && <span className="mt-1 block text-xs font-normal text-muted-foreground">Platform owner</span>}</th>
             <td className="max-w-80 px-4 py-4"><div className="flex flex-wrap gap-1.5">{roles.length ? roles.map(role => <span key={role.id} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{platformRoleLabels[role.role_key]}</span>) : <span className="text-muted-foreground">No active role</span>}</div></td>
             <td className="px-4 py-4"><PlatformStatus value={user.state === "ACTIVE" ? "Active" : "Disabled"} /></td>
             <td className="px-4 py-4"><div className="flex justify-end"><PlatformRowActions label={user.email} actions={[
               { label: "View details", href },
               ...(can("platform.admin.role.assign") || can("platform.admin.role.revoke") ? [{ label: "Manage roles", onSelect: () => setSelected({ user, kind: "roles" }) }] : []),
               ...(access ? [{ label: user.state === "ACTIVE" ? "Disable user" : "Reactivate user", destructive: user.state === "ACTIVE", onSelect: () => setSelected({ user, kind: "access" }) }] : []),
+              ...(can("platform.governance.approve") && !(user.effective_owner && (value?.effective_owner_count ?? 0)<=1) ? [{ label: "Remove user", destructive:true,onSelect:()=>setSelected({user,kind:"remove"}) }] : []),
               ...(can("platform.admin.session.revoke") ? [{ label: "Revoke sessions", href: href + "#revoke-sessions", destructive: true }] : []),
             ]} /></div></td>
           </tr>;
-        })}</tbody>
+        })}{!(value?.administrators.length) && <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">{loading ? <span role="status">Loading users…</span> : error ? <span role="alert">{error}</span> : "No data found."}</td></tr>}</tbody>
       </table>
     </section>
     <Sheet open={selected?.kind === "roles"} onOpenChange={open => { if (!open) setSelected(null); }}><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>Manage roles</SheetTitle><SheetDescription>{selected?.user.email}</SheetDescription></SheetHeader><div className="px-6 pb-6">{selected?.kind === "roles" && <AdministratorRoleChange administrator={selected.user} onChanged={changed} />}</div></SheetContent></Sheet>
-    {selected?.kind === "access" && <AdministratorIdentityState key={selected.user.user_id} administrator={selected.user} onChanged={changed} initialOpen compact onClosed={() => setSelected(null)} />}
+    {(selected?.kind === "access" || selected?.kind === "remove") && <AdministratorIdentityState remove={selected.kind === "remove"} key={selected.user.user_id+selected.kind} administrator={selected.user} onChanged={changed} initialOpen compact onClosed={() => setSelected(null)} />}
   </>;
-}
-
-function DirectoryLoading() {
-  return <div className="space-y-3" role="status" aria-label="Loading administrators">{[0, 1, 2].map((row) => <Skeleton key={row} className="h-20 w-full rounded-lg" />)}</div>;
 }

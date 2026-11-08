@@ -23,7 +23,7 @@ export function AdministratorRoleChange({ administrator, onChanged }: { administ
   const active = administrator.assignments.filter((assignment) => assignment.state === "ACTIVE");
   const addable = PLATFORM_ROLES.filter((role) => !active.some((assignment) => assignment.role_key === role));
   const availableRoles = selectedAction === "ASSIGN_ROLE" ? addable : selectedAction === "REVOKE_ROLE" ? active.map((assignment) => assignment.role_key) : []; 
-  if (!canAssign && !canRevoke) return null;
+  if ((!canAssign && !canRevoke) || administrator.state==="REMOVED") return null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

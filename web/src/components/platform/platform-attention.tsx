@@ -41,7 +41,7 @@ function AttentionSource<T>({ title, path, link, parse, render }: {
   return <section className="rounded-lg border bg-card p-4" aria-label={title}>
     <div className="flex items-center justify-between gap-3"><h3 className="font-medium">{title}</h3><Link href={link} className="text-sm text-primary hover:underline">Open list</Link></div>
     {state.kind === "loading" && <Skeleton className="mt-3 h-16 w-full" />}
-    {state.kind === "error" && <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span>Couldn’t load {title.toLowerCase()}.</span><Button type="button" variant="outline" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button></div>}
+    {state.kind === "error" && <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span>Data unavailable: {title.toLowerCase()}.</span><Button type="button" variant="outline" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button></div>}
     {state.kind === "denied" && <p className="mt-3 text-sm text-muted-foreground">Unavailable for this session.</p>}
     {state.kind === "ready" && render(state.data)}
   </section>;

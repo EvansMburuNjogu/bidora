@@ -21,7 +21,8 @@ export type PlatformAdministrator = {
   user_version: number;
   platform_context_generation: number;
   email: string;
-  state: "ACTIVE" | "DISABLED";
+  first_name: string; last_name: string;
+  state: "ACTIVE" | "DISABLED" | "REMOVED";
   totp_enrolled: boolean;
   assignments: Array<{ id: string; version: number; role_key: PlatformRole; state: "ACTIVE" | "REVOKED" }>;
   effective_owner: boolean;
@@ -38,7 +39,7 @@ export type PlatformRoleAssignment = {
 };
 export type PlatformAssignmentHistory = { assignments: PlatformRoleAssignment[]; next_cursor: string | null };
 export type PlatformAdministratorChange = {
-  id: string; action: "ASSIGN_ROLE" | "REVOKE_ROLE" | "DISABLE_IDENTITY" | "REACTIVATE_IDENTITY" | "ACTIVATE_OWNER_INVITATION";
+  id: string; action: "ASSIGN_ROLE" | "REVOKE_ROLE" | "DISABLE_IDENTITY" | "REACTIVATE_IDENTITY" | "REMOVE_IDENTITY" | "ACTIVATE_OWNER_INVITATION";
   target_user_id: string | null; role_key: PlatformRole | null; reason: string;
   state: "PENDING_APPROVAL" | "EXECUTED" | "REJECTED" | "EXPIRED";
   version: number; maker_id: string; created_at: string; expires_at: string | null;
@@ -53,13 +54,17 @@ export type PlatformAdministratorList = {
 };
 
 function object(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  // Older terminal/single-record responses omitted the nullable cursor.
+  return typeof row.trace_id === "string" && !("next_cursor" in row) ? { ...row, next_cursor: null } : row;
 }
 function exact(value: Record<string, unknown>, keys: string[]): boolean {
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
   return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
 }
+function exactWithoutNames(value: Record<string,unknown>,keys:string[]) {return exact(Object.fromEntries(Object.entries(value).filter(([key])=>key!=="first_name"&&key!=="last_name")),keys)&&["first_name","last_name"].every(key=>value[key]===undefined||typeof value[key]==="string"&&value[key].length<=100)}
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function instant(value: unknown): value is string {
   return typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value));
@@ -157,7 +162,7 @@ function parseChange(raw: unknown): PlatformAdministratorChange | null {
   const v = object(raw);
   if (!v || !exact(v, ["id", "action", "target_user_id", "invitation_id", "role_key", "assignment_id", "expected_user_version", "expected_target_context_generation", "expected_assignment_version", "reason", "decision_reason", "state", "version", "maker_id", "checker_id", "created_at", "expires_at", "decided_at", "sessions_revoked"]) ||
       typeof v.id !== "string" || !uuid.test(v.id) ||
-      !["ASSIGN_ROLE", "REVOKE_ROLE", "DISABLE_IDENTITY", "REACTIVATE_IDENTITY", "ACTIVATE_OWNER_INVITATION"].includes(String(v.action)) ||
+      !["ASSIGN_ROLE", "REVOKE_ROLE", "DISABLE_IDENTITY", "REACTIVATE_IDENTITY", "REMOVE_IDENTITY", "ACTIVATE_OWNER_INVITATION"].includes(String(v.action)) ||
       !optionalUUID(v.target_user_id) || !optionalUUID(v.invitation_id) || !optionalUUID(v.assignment_id) ||
       !(v.role_key === null || role(v.role_key)) ||
       ![v.expected_user_version, v.expected_target_context_generation, v.expected_assignment_version].every((item) => item === null || Number.isSafeInteger(item) && Number(item) > 0) ||
@@ -175,10 +180,10 @@ function parseChange(raw: unknown): PlatformAdministratorChange | null {
 
 function parseAdministratorItem(raw: unknown): PlatformAdministrator | null {
     const item = object(raw);
-    if (!item || !exact(item, ["user_id", "email", "state", "user_version", "platform_context_generation", "totp_enrolled", "assignments", "effective_owner", "created_at", "updated_at"]) ||
+    if (!item || !exactWithoutNames(item, ["user_id", "email", "state", "user_version", "platform_context_generation", "totp_enrolled", "assignments", "effective_owner", "created_at", "updated_at"]) ||
         typeof item.user_id !== "string" || !uuid.test(item.user_id) ||
         typeof item.email !== "string" || item.email.length < 3 || item.email.length > 254 ||
-        (item.state !== "ACTIVE" && item.state !== "DISABLED") || !Number.isInteger(item.user_version) || Number(item.user_version) < 1 ||
+        (item.state !== "ACTIVE" && item.state !== "DISABLED" && item.state !== "REMOVED") || !Number.isInteger(item.user_version) || Number(item.user_version) < 1 ||
         !Number.isInteger(item.platform_context_generation) || Number(item.platform_context_generation) < 1 ||
         typeof item.totp_enrolled !== "boolean" || typeof item.effective_owner !== "boolean" ||
         !instant(item.created_at) || !instant(item.updated_at) || !Array.isArray(item.assignments) || item.assignments.length > 6) return null;
@@ -190,7 +195,7 @@ function parseAdministratorItem(raw: unknown): PlatformAdministrator | null {
       assignmentIDs.add(assignment.id);
       assignments.push({ id: assignment.id, version: assignment.version, role_key: assignment.role_key, state: assignment.state });
     }
-    return { user_id: item.user_id, user_version: Number(item.user_version), platform_context_generation: Number(item.platform_context_generation), email: item.email, state: item.state, totp_enrolled: item.totp_enrolled, assignments, effective_owner: item.effective_owner };
+    return { first_name:typeof item.first_name==="string"?item.first_name:"",last_name:typeof item.last_name==="string"?item.last_name:"",user_id: item.user_id, user_version: Number(item.user_version), platform_context_generation: Number(item.platform_context_generation), email: item.email, state: item.state, totp_enrolled: item.totp_enrolled, assignments, effective_owner: item.effective_owner };
 }
 
 function parseRoleAssignment(raw: unknown): PlatformRoleAssignment | null {

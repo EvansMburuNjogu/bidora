@@ -435,13 +435,15 @@ func (tx *EvidenceTx) AppendPlatformIdentityStateChange(ctx context.Context, evi
 	switch evidence.Action {
 	case "DISABLE_IDENTITY":
 		auditAction, eventType = "PlatformAdministratorDisabled", "platform.administrator.disable.proposed.v1"
+	case "REMOVE_IDENTITY":
+		auditAction, eventType = "PlatformAdministratorRemoved", "platform.administrator.removed.v1"
 	case "REACTIVATE_IDENTITY":
 		auditAction, eventType = "PlatformAdministratorReactivated", "platform.administrator.reactivate.proposed.v1"
 	default:
 		return errors.New("platform_identity_state_evidence_invalid")
 	}
 	if evidence.State == "EXECUTED" {
-		eventType = "platform.administrator." + map[string]string{"DISABLE_IDENTITY": "disabled", "REACTIVATE_IDENTITY": "reactivated"}[evidence.Action] + ".v1"
+		eventType = "platform.administrator." + map[string]string{"DISABLE_IDENTITY": "disabled", "REACTIVATE_IDENTITY": "reactivated", "REMOVE_IDENTITY": "removed"}[evidence.Action] + ".v1"
 	}
 	if evidence.State == "REJECTED" {
 		eventType = "platform.administrator.identity_change.rejected.v1"

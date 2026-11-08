@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/platformadmin/domain"
@@ -80,6 +82,7 @@ const (
 type InvitationRecord struct {
 	ID                        ID
 	EmailDisplay, EmailLookup string
+	FirstName, LastName       string
 	Role                      domain.Role
 	AuthorizationPath         InvitationAuthorizationPath
 	State                     InvitationState
@@ -139,6 +142,7 @@ type InvitationTx interface {
 	LockInvitee(context.Context, ID, ID, string, time.Time) (BootstrapIdentity, error)
 	HasTenantTies(context.Context, ID, string, time.Time) (bool, error)
 	PromoteIdentity(context.Context, ID, int64, time.Time) (int64, error)
+	ApplyInvitedName(context.Context, ID, string, string, time.Time) error
 	RevokeSessions(context.Context, ID, time.Time) (int64, error)
 	CreateAdministratorProfile(context.Context, ID, time.Time) error
 	AssignInvitedRole(context.Context, ID, ID, domain.Role, ID, string, time.Time) error
@@ -156,6 +160,7 @@ type IssueInvitationInput struct {
 	ActorID, SessionID, CorrelationID, IdempotencyKey ID
 	PlatformContextGeneration                         int64
 	Email, Reason                                     string
+	FirstName, LastName                               string
 	Role                                              domain.Role
 }
 type IssueInvitationResult struct {
@@ -231,6 +236,9 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 	}
 	now := s.clock.Now().UTC()
 	requestHash := hashRequest("platform-invitation-issue:v1", struct{ Email, Role, Reason string }{address.Lookup(), string(input.Role), reason})
+	if input.FirstName != "" || input.LastName != "" {
+		requestHash = hashRequest("platform-invitation-issue:v1", struct{ Email, Role, Reason, FirstName, LastName string }{address.Lookup(), string(input.Role), reason, input.FirstName, input.LastName})
+	}
 	keyHash := hashKey("platform-invitation-issue:v1", input.IdempotencyKey)
 	var deliveryToken platforminvite.Token
 	var recipient email.Address
@@ -303,7 +311,7 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 		if txErr != nil {
 			return txErr
 		}
-		record := InvitationRecord{ID: ids[0], EmailDisplay: address.Display(), EmailLookup: address.Lookup(), Role: input.Role, AuthorizationPath: authorizationPath, State: state, InvitedBy: input.ActorID, Reason: reason, CreatedAt: now, ActivatedAt: activatedAt, ExpiresAt: expiresAt, Version: 1}
+		record := InvitationRecord{FirstName: input.FirstName, LastName: input.LastName, ID: ids[0], EmailDisplay: address.Display(), EmailLookup: address.Lookup(), Role: input.Role, AuthorizationPath: authorizationPath, State: state, InvitedBy: input.ActorID, Reason: reason, CreatedAt: now, ActivatedAt: activatedAt, ExpiresAt: expiresAt, Version: 1}
 		if txErr = tx.ExpireReplacedInvitationChanges(txCtx, address.Lookup(), now); txErr != nil {
 			return txErr
 		}
@@ -340,7 +348,13 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 	return result, nil
 }
 
+func validInvitedName(value string) bool {
+	return len(value) > 0 && len(value) <= 100 && strings.TrimSpace(value) == value && utf8.ValidString(value) && strings.IndexFunc(value, unicode.IsControl) < 0
+}
 func validateIssueInput(ctx context.Context, input IssueInvitationInput) (email.Address, string, error) {
+	if (input.FirstName != "" || input.LastName != "") && (!validInvitedName(input.FirstName) || !validInvitedName(input.LastName)) {
+		return email.Address{}, "", ErrInvitationInvalid
+	}
 	if ctx == nil || input.ActorID.IsZero() || input.SessionID.IsZero() || input.CorrelationID.IsZero() || input.IdempotencyKey.IsZero() || input.PlatformContextGeneration < 1 {
 		return email.Address{}, "", ErrInvitationInvalid
 	}
@@ -429,6 +443,11 @@ func (s *InvitationService) Accept(ctx context.Context, input AcceptInvitationIn
 		ids, txErr := s.newIDs(4)
 		if txErr != nil {
 			return txErr
+		}
+		if record.FirstName != "" || record.LastName != "" {
+			if txErr = tx.ApplyInvitedName(txCtx, identity.UserID, record.FirstName, record.LastName, now); txErr != nil {
+				return txErr
+			}
 		}
 		newEpoch, txErr := tx.PromoteIdentity(txCtx, identity.UserID, identity.AuthEpoch, now)
 		if txErr != nil {

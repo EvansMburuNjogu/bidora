@@ -24,6 +24,7 @@ const assignment = {
 test("invitation receipt distinguishes delivery acceptance from recipient delivery and rejects extra data", () => {
   const receipt = { id: target, email: "invited@example.test", role_key: "PLATFORM_OWNER", state: "ACTIVE", version: 1, created_at: "2026-10-18T12:00:00Z", expires_at: "2026-10-21T12:00:00Z", delivery_state: "ACCEPTED_FOR_DELIVERY", governance_change_id: null };
   assert.deepEqual(parsePlatformInvitationReceipt({ data: receipt, meta }), { id: target, state: "ACTIVE", delivery_state: "ACCEPTED_FOR_DELIVERY" });
+  assert.equal(parsePlatformInvitationReceipt({data:receipt,meta:{trace_id:"real-terminal-response"}})?.state,"ACTIVE");
   assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, delivery_state: "DELIVERED" }, meta }), null);
   assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, token: "must-not-be-returned" }, meta }), null);
 });
@@ -33,6 +34,7 @@ test("administrator change parser distinguishes pending from executed and reject
   assert.equal(parsePlatformAdministratorChange({ data: { ...pending, state: "EXECUTED" }, meta })?.state, "EXECUTED");
   assert.equal(parsePlatformAdministratorChange({ data: { ...pending, action: "DISABLE_IDENTITY", role_key: null, state: "PENDING_APPROVAL" }, meta })?.action, "DISABLE_IDENTITY");
   assert.equal(parsePlatformAdministratorChange({ data: { ...pending, action: "REACTIVATE_IDENTITY", role_key: null, state: "EXECUTED", expires_at: null }, meta })?.state, "EXECUTED");
+  assert.equal(parsePlatformAdministratorChange({data:{...pending,action:"REMOVE_IDENTITY",role_key:null,state:"EXECUTED"},meta:{trace_id:"terminal"}})?.action,"REMOVE_IDENTITY");
   assert.equal(parsePlatformAdministratorChange({ data: { ...pending, state: "SATISFIED" }, meta }), null);
   assert.equal(parsePlatformAdministratorChange({ data: { ...pending, secret: "not-allowed" }, meta }), null);
   assert.equal(parsePlatformChangePage({ data: { changes: [pending, pending] }, meta }), null);

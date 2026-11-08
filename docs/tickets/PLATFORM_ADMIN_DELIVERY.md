@@ -138,6 +138,14 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Users directory and invitation follow-up — BID-MVP-03
+
+- Fixed confirmed response-contract defect: shared Platform metadata omitted `next_cursor` for terminal/single-record responses while strict clients required nullable cursor. Backend now returns explicit null; Users/invitation clients also normalize legacy omission without accepting unknown fields. Added real HTTP JSON regression and receipt regression.
+- Removed Users Refresh control and requested explanatory copy. Invites now capture first/last names, email, role and reason; validated names persist immutably with invitations and populate only missing identity names on acceptance. Existing self-selected identity names are preserved.
+- Users uses a persistent semantic table, server-side cursor Previous/Next pagination (10/25/50/100 rows), combined filters and real empty-result row. Errors/denied reads retain the table and truthful unavailable/access messaging rather than falsely claiming zero data. Removed “Couldn’t load” wording from Platform views and standardized generic empty-record wording.
+- Added direct recently verified Owner-only Remove user action: disables identity, invalidates sessions/epoch, archives profile and writes immutable removal/audit/outbox evidence. No identity, financial, tenant or audit deletion. Self/last-effective-Owner restrictions remain; removed profiles cannot be silently reactivated (including through older application code).
+- Implementation checks: eight affected Go race suites/internal HTTP checks, Go command builds/vet, ten frontend contract/security tests, TypeScript/lint, five desktop/mobile intercepted browser workflows passed. No real invitation or user mutation performed for verification. The broader authentication/session audit remains isolated and unfinished, not included in this release.
+
 ## Users management — BID-MVP-03
 
 - Implementation: Users lists every Platform Admin account (including disabled/no-role profiles) with cursor pagination, accessible table actions, inline role management and disable/reactivate confirmations, existing cross-account session-revocation navigation, combined private exact-email/status/role filters, Clear and Refresh. Status filtering now happens in SQL before pagination. Invite User validates input, retains idempotency on uncertain retries, reports real delivery evidence, and explains that accounts appear after acceptance.

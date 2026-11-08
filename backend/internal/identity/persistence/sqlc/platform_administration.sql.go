@@ -110,7 +110,7 @@ func (q *Queries) GetPlatformIdentitySessionFacts(ctx context.Context, arg GetPl
 }
 
 const listPlatformAdministratorIdentitySummaries = `-- name: ListPlatformAdministratorIdentitySummaries :many
-SELECT u.id, u.email, u.disabled_at,
+SELECT u.id, u.email,coalesce(u.first_name,'')::text AS first_name,coalesce(u.last_name,'')::text AS last_name, u.disabled_at,
        EXISTS (SELECT 1 FROM identity.mfa_factors AS f WHERE f.user_id = u.id AND f.state = 'ACTIVE') AS totp_enrolled,
        EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.auth_epoch=u.auth_epoch AND s.revoked_at IS NULL AND s.assurance_level='AAL2' AND s.assurance_method='EMAIL_OTP' AND s.idle_expires_at>CURRENT_TIMESTAMP AND s.absolute_expires_at>CURRENT_TIMESTAMP) AS email_otp_verified
 FROM identity.users AS u
@@ -122,6 +122,8 @@ ORDER BY u.id
 type ListPlatformAdministratorIdentitySummariesRow struct {
 	ID               pgtype.UUID
 	Email            string
+	FirstName        string
+	LastName         string
 	DisabledAt       pgtype.Timestamptz
 	TotpEnrolled     bool
 	EmailOtpVerified bool
@@ -139,6 +141,8 @@ func (q *Queries) ListPlatformAdministratorIdentitySummaries(ctx context.Context
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
+			&i.FirstName,
+			&i.LastName,
 			&i.DisabledAt,
 			&i.TotpEnrolled,
 			&i.EmailOtpVerified,

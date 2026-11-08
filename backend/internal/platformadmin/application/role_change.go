@@ -19,6 +19,7 @@ const (
 )
 
 type AdministratorProfile struct {
+	Removed                    bool
 	UserID                     ID
 	ContextGeneration, Version int64
 }
@@ -70,6 +71,7 @@ type RoleChangeTx interface {
 	InsertRoleAssignment(context.Context, ID, ID, domain.Role, ID, string, time.Time) error
 	RevokeRoleAssignment(context.Context, RoleAssignment, ID, string, time.Time) error
 	AdvanceAdministratorProfile(context.Context, AdministratorProfile, time.Time) error
+	RemoveAdministratorProfile(context.Context, AdministratorProfile, time.Time) error
 	AdvanceIdentityEpoch(context.Context, AdministratorIdentity, time.Time) error
 	SetAdministratorDisabled(context.Context, AdministratorIdentity, time.Time) error
 	SetAdministratorActive(context.Context, AdministratorIdentity, time.Time) error
@@ -175,6 +177,9 @@ func (s *RoleChangeService) Change(ctx context.Context, input RoleChangeInput) (
 		profile, txErr := tx.LockAdministratorProfile(txCtx, input.TargetUserID)
 		if txErr != nil {
 			return txErr
+		}
+		if profile.Removed {
+			return ErrPlatformAccessForbidden
 		}
 		if profile.Version != input.ExpectedAdministratorVersion || profile.ContextGeneration != input.ExpectedTargetContextGeneration {
 			return ErrConcurrentChange

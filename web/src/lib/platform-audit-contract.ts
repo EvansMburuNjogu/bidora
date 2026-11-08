@@ -5,7 +5,7 @@ export const auditActions = [
  "PlatformGoogleConfigurationUpdated", "PlatformGoogleConnectionTested", "NotificationTemplateUpdated", "NotificationTemplateTested",
   "PlatformOwnerBootstrapped", "PlatformAdministratorSessionsRevoked",
   "PlatformAdministratorInvitationIssued", "PlatformAdministratorInvitationCancelled", "PlatformAdministratorInvitationAccepted", "PlatformOwnerInvitationActivated", "PlatformOwnerInvitationRejected",
-  "PlatformRoleAssignmentChanged", "PlatformRoleRevocationChanged", "PlatformAdministratorDisabled", "PlatformAdministratorReactivated",
+  "PlatformRoleAssignmentChanged", "PlatformRoleRevocationChanged", "PlatformAdministratorDisabled", "PlatformAdministratorReactivated","PlatformAdministratorRemoved",
   "PlatformIntegrationVersionCreated", "PlatformIntegrationVersionTested", "PlatformIntegrationActivationProposed", "PlatformControlAuditExport",
  "PlatformPlansRead", "PlatformPlanDraftCreated", "PlatformPlanPublished", "PlatformSubscriptionRead", "PlatformSubscriptionCancellationScheduled", "PlatformSubscriptionCancellationWithdrawn", "PlatformSubscriptionInventoryRead",
  "PlatformSupportCasesRead", "PlatformSupportCaseRead", "PlatformSupportCaseCreate", "PlatformSupportCaseAssign", "PlatformSupportCaseReply", "PlatformSupportCaseResolve", "PlatformSupportCaseReopen",

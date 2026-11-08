@@ -45,6 +45,7 @@ type roleTx struct {
 	auth                          authority
 	owners                        int64
 	targetOwner, disabled         bool
+	archived                      bool
 	writes, evidence, generations int
 	command                       *app.CommandRecord
 	stored                        app.IdentityStateChangeResult
@@ -66,7 +67,7 @@ func (s *roleTx) GetIdentityStateChange(context.Context, app.ID) (app.IdentitySt
 	return s.stored, nil
 }
 func (s *roleTx) LockAdministratorProfile(_ context.Context, id app.ID) (app.AdministratorProfile, error) {
-	return app.AdministratorProfile{UserID: id, Version: 1, ContextGeneration: 1}, nil
+	return app.AdministratorProfile{Removed: s.archived, UserID: id, Version: 1, ContextGeneration: 1}, nil
 }
 func (s *roleTx) LockAdministratorIdentity(_ context.Context, id app.ID) (app.AdministratorIdentity, error) {
 	return app.AdministratorIdentity{UserID: id, AuthEpoch: 1, Disabled: s.disabled}, nil
@@ -101,6 +102,10 @@ func (s *roleTx) InsertRoleAssignment(context.Context, app.ID, app.ID, domain.Ro
 }
 func (s *roleTx) RevokeRoleAssignment(context.Context, app.RoleAssignment, app.ID, string, time.Time) error {
 	s.writes++
+	return nil
+}
+func (s *roleTx) RemoveAdministratorProfile(context.Context, app.AdministratorProfile, time.Time) error {
+	s.archived = true
 	return nil
 }
 func (s *roleTx) AdvanceAdministratorProfile(context.Context, app.AdministratorProfile, time.Time) error {
@@ -214,6 +219,30 @@ func TestOwnerDisableAndReactivateAreDirectAndProtectContinuity(t *testing.T) {
 	_, e := s.ChangeIdentityState(context.Background(), identityInput())
 	if !errors.Is(e, app.ErrInvitationConflict) || tx.writes != 0 {
 		t.Fatal("last owner disabled", e)
+	}
+}
+func TestRemoveAdministratorArchivesActiveAndDisabledUsersAndReplays(t *testing.T) {
+	for _, disabled := range []bool{false, true} {
+		tx := &roleTx{owners: 1, disabled: disabled}
+		s, _ := app.NewRoleChangeService(roles{tx}, &ids{}, clock{})
+		in := identityInput()
+		in.Action = app.RemoveAdministrator
+		r, e := s.ChangeIdentityState(context.Background(), in)
+		if e != nil || r.State != "EXECUTED" || !tx.archived || tx.evidence != 1 || r.RevokedSessions != 2 {
+			t.Fatal("removal did not archive, revoke and audit", e)
+		}
+		r, e = s.ChangeIdentityState(context.Background(), in)
+		if e != nil || !r.Replay || tx.evidence != 1 {
+			t.Fatal("removal replay mutated evidence", e)
+		}
+	}
+	for _, tx := range []*roleTx{{owners: 1, targetOwner: true}, {owners: 2, auth: authority{role: domain.SecurityAuditAdministrator}}} {
+		s, _ := app.NewRoleChangeService(roles{tx}, &ids{}, clock{})
+		in := identityInput()
+		in.Action = app.RemoveAdministrator
+		if _, e := s.ChangeIdentityState(context.Background(), in); e == nil || tx.archived {
+			t.Fatal("last-owner or permission safeguard bypassed")
+		}
 	}
 }
 func TestSecurityAuditorCannotDirectlyDisableOwnerAndSelfDisableIsDenied(t *testing.T) {

@@ -20,7 +20,7 @@ func (f controlCompatibilityFake) GetControlRegistryCompatibility(context.Contex
 	return f.row, f.err
 }
 func compatibleControl() registrysql.GetControlRegistryCompatibilityRow {
-	return registrysql.GetControlRegistryCompatibilityRow{MigrationSet: "control_registry", SchemaVersion: 56, MinReaderGeneration: 1, MaxReaderGeneration: 1, MinWriterGeneration: 1, MaxWriterGeneration: 1}
+	return registrysql.GetControlRegistryCompatibilityRow{MigrationSet: "control_registry", SchemaVersion: 57, MinReaderGeneration: 1, MaxReaderGeneration: 1, MinWriterGeneration: 1, MaxWriterGeneration: 1}
 }
 
 func TestControlSchemaCompatibility(t *testing.T) {
@@ -35,7 +35,7 @@ func TestControlSchemaCompatibility(t *testing.T) {
 		"old schema":           func(r *registrysql.GetControlRegistryCompatibilityRow) { r.SchemaVersion = 33 },
 		"pre-audit schema":     func(r *registrysql.GetControlRegistryCompatibilityRow) { r.SchemaVersion = 35 },
 		"pre-managed settings": func(r *registrysql.GetControlRegistryCompatibilityRow) { r.SchemaVersion = 38 },
-		"future schema":        func(r *registrysql.GetControlRegistryCompatibilityRow) { r.SchemaVersion = 57 },
+		"future schema":        func(r *registrysql.GetControlRegistryCompatibilityRow) { r.SchemaVersion = 58 },
 		"reader too new":       func(r *registrysql.GetControlRegistryCompatibilityRow) { r.MinReaderGeneration = 2 },
 		"reader expired":       func(r *registrysql.GetControlRegistryCompatibilityRow) { r.MaxReaderGeneration = 0 },
 		"writer too new":       func(r *registrysql.GetControlRegistryCompatibilityRow) { r.MinWriterGeneration = 2 },

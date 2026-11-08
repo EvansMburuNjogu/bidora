@@ -74,7 +74,7 @@ VALUES (sqlc.arg(id), sqlc.arg(actor_user_id), sqlc.arg(operation), sqlc.arg(key
 ON CONFLICT (actor_user_id, operation, key_hash) DO NOTHING;
 
 -- name: FindOpenPlatformOwnerInvitation :one
-SELECT id, email, email_lookup, role_key, authorization_path, state, invited_by, reason, created_at,
+SELECT id, email, email_lookup, first_name, last_name, role_key, authorization_path, state, invited_by, reason, created_at,
        activated_at, expires_at, version
 FROM platform_administration.administrator_invitations
 WHERE role_key = 'PLATFORM_OWNER' AND state IN ('PENDING_APPROVAL','ACTIVE')
@@ -99,14 +99,14 @@ WHERE email_lookup = sqlc.arg(email_lookup) AND state IN ('PENDING_APPROVAL','AC
 
 -- name: InsertPlatformInvitation :exec
 INSERT INTO platform_administration.administrator_invitations
-(id, email, email_lookup, role_key, authorization_path, state, token_hash, invited_by, reason,
+(id, email, email_lookup, first_name, last_name, role_key, authorization_path, state, token_hash, invited_by, reason,
  created_at, activated_at, expires_at, version)
-VALUES (sqlc.arg(id), sqlc.arg(email), sqlc.arg(email_lookup), sqlc.arg(role_key), sqlc.arg(authorization_path), sqlc.arg(state),
+VALUES (sqlc.arg(id), sqlc.arg(email), sqlc.arg(email_lookup), sqlc.arg(first_name), sqlc.arg(last_name), sqlc.arg(role_key), sqlc.arg(authorization_path), sqlc.arg(state),
         sqlc.narg(token_hash), sqlc.arg(invited_by), sqlc.arg(reason), sqlc.arg(created_at),
         sqlc.narg(activated_at), sqlc.narg(expires_at), 1);
 
 -- name: GetPlatformInvitation :one
-SELECT id, email, email_lookup, role_key, authorization_path, state, invited_by, reason, created_at, activated_at,
+SELECT id, email, email_lookup, first_name, last_name, role_key, authorization_path, state, invited_by, reason, created_at, activated_at,
        expires_at, accepted_by, accepted_at, cancelled_at, replaced_at, version
 FROM platform_administration.administrator_invitations
 WHERE id = sqlc.arg(id);
@@ -119,7 +119,7 @@ ORDER BY created_at DESC, id DESC
 LIMIT 1;
 
 -- name: LockActivePlatformInvitationByToken :one
-SELECT id, email, email_lookup, role_key, authorization_path, invited_by, reason, created_at, activated_at, expires_at, version
+SELECT id, email, email_lookup, first_name, last_name, role_key, authorization_path, invited_by, reason, created_at, activated_at, expires_at, version
 FROM platform_administration.administrator_invitations
 WHERE token_hash = sqlc.arg(token_hash) AND state = 'ACTIVE' AND expires_at > sqlc.arg(observed_at)
 FOR UPDATE;
@@ -132,7 +132,7 @@ WHERE id = sqlc.arg(id) AND role_key = 'PLATFORM_OWNER' AND authorization_path =
   AND state = 'PENDING_APPROVAL' AND version = sqlc.arg(expected_version);
 
 -- name: LockCancelablePlatformInvitation :one
-SELECT id, email, email_lookup, role_key, authorization_path, state, invited_by, reason, created_at,
+SELECT id, email, email_lookup, first_name, last_name, role_key, authorization_path, state, invited_by, reason, created_at,
        activated_at, expires_at, version
 FROM platform_administration.administrator_invitations
 WHERE id = sqlc.arg(id) AND state IN ('PENDING_APPROVAL','ACTIVE')
@@ -182,7 +182,7 @@ VALUES (sqlc.arg(id), sqlc.arg(action), sqlc.narg(target_user_id), sqlc.narg(inv
 
 -- name: LockPendingOwnerInvitationChange :one
 SELECT c.id AS change_id, c.invitation_id, c.maker_id, c.reason, c.expires_at,
-       c.version AS change_version, i.id, i.email, i.email_lookup, i.role_key,
+       c.version AS change_version, i.id, i.email, i.email_lookup, i.first_name, i.last_name, i.role_key,
        i.authorization_path, i.state, i.invited_by, i.reason AS invitation_reason,
        i.created_at, i.activated_at, i.expires_at AS invitation_expires_at,
        i.version AS invitation_version
@@ -266,7 +266,7 @@ ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(page_limit);
 
 -- name: LockPlatformAdministratorProfile :one
-SELECT user_id, context_generation, version
+SELECT user_id, context_generation, version,removed_at
 FROM platform_administration.administrator_profiles
 WHERE user_id = sqlc.arg(user_id)
 FOR UPDATE;
@@ -311,9 +311,9 @@ WHERE singleton = true AND first_additional_owner_exception_consumed = false
   AND version = sqlc.arg(expected_version);
 
 -- name: ListPlatformAdministratorProfiles :many
-SELECT user_id, context_generation, version, created_at, updated_at
+SELECT user_id, context_generation, version, created_at, updated_at,removed_at
 FROM platform_administration.administrator_profiles AS p
-WHERE (sqlc.narg(filter_user_id)::uuid IS NULL OR p.user_id = sqlc.narg(filter_user_id)::uuid)
+WHERE p.removed_at IS NULL AND (sqlc.narg(filter_user_id)::uuid IS NULL OR p.user_id = sqlc.narg(filter_user_id)::uuid)
   AND (sqlc.narg(filter_state)::text IS NULL OR EXISTS (
        SELECT 1 FROM identity.users u WHERE u.id=p.user_id AND u.account_type='PLATFORM_ADMIN'
        AND ((sqlc.narg(filter_state)::text='ACTIVE' AND u.disabled_at IS NULL)
@@ -327,7 +327,7 @@ ORDER BY p.created_at DESC, p.user_id DESC
 LIMIT sqlc.arg(page_limit);
 
 -- name: GetPlatformAdministratorProfile :one
-SELECT user_id, context_generation, version, created_at, updated_at
+SELECT user_id, context_generation, version, created_at, updated_at,removed_at
 FROM platform_administration.administrator_profiles
 WHERE user_id = sqlc.arg(user_id);
 

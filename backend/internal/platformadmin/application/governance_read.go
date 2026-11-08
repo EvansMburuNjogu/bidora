@@ -27,11 +27,13 @@ type AdministratorFilter struct {
 	EmailLookup *string // Resolved from the approved mailbox policy, never an HTTP selector.
 }
 type AdministratorProfileView struct {
+	Removed                    bool
 	UserID                     ID
 	ContextGeneration, Version int64
 	CreatedAt, UpdatedAt       time.Time
 }
 type AdministratorIdentityView struct {
+	FirstName, LastName                      string
 	UserID                                   ID
 	Email                                    string
 	Disabled, TOTPEnrolled, EmailOTPVerified bool

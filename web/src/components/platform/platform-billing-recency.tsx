@@ -40,7 +40,7 @@ export function PlatformBillingRecency() {
     <h2 className="text-base font-semibold">Recent Transactions</h2>
     {visible.kind === "loading" ? <div role="status" aria-label="Loading transactions" className="grid gap-3 sm:grid-cols-2"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div> : null}
     {visible.kind === "denied" ? <p className="text-sm text-muted-foreground">You don’t have access to transactions.</p> : null}
-    {visible.kind === "error" ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"><span>Couldn’t load transactions.</span><Button type="button" variant="outline" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button></div> : null}
+    {visible.kind === "error" ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"><span>Data unavailable: transactions.</span><Button type="button" variant="outline" size="sm" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Retry</Button></div> : null}
     {visible.kind === "ready" ? <><p className="text-xs text-muted-foreground">As of {utc(visible.data.observed_at)}</p><div className="grid gap-3 lg:grid-cols-2">{sections.map(({ queue, title }) => {
       const window = visible.data.windows[queue];
       return <section key={queue} aria-label={`Recent ${title.toLowerCase()}`} className="rounded-lg border bg-card p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium">{title}</h3><Link href={`/platform/billing?queue=${queue}`} className="text-sm text-primary hover:underline">Open queue</Link></div>

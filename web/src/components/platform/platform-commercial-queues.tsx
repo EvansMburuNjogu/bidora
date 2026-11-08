@@ -58,7 +58,7 @@ export function PlatformCommercialQueues({ initialQueue, initialState, initialRe
       if (response.status === 401 || response.status === 409) { refreshSession(); return; }
       if (response.status === 403) { setState({ key, kind: "error", message: "You don’t have access to these records. You may need to verify your account.", denied: true }); return; }
       const value = response.ok ? parseCommercialPage(await response.json(), queue) : null;
-      if (!value) { if (cursor) setPageError(true); else setState({ key, kind: "error", message: "Couldn’t load records." }); return; }
+      if (!value) { if (cursor) setPageError(true); else setState({ key, kind: "error", message: "Data unavailable: records." }); return; }
       if (!cursor) setState({ key, kind: "ready", page: value });
       else {
         setState((previous) => {
@@ -70,7 +70,7 @@ export function PlatformCommercialQueues({ initialQueue, initialState, initialRe
       }
     } catch (error) {
       if (current === sequence.current && !(error instanceof DOMException && error.name === "AbortError")) {
-        if (cursor) setPageError(true); else setState({ key, kind: "error", message: "Couldn’t load records." });
+        if (cursor) setPageError(true); else setState({ key, kind: "error", message: "Data unavailable: records." });
       }
     } finally { if (current === sequence.current) setLoadingMore(false); }
   }, [queue, generation, key, stateFilter, secondaryFilter, refreshSession]);

@@ -94,7 +94,7 @@ func (s *InvitationService) Reissue(ctx context.Context, in ReissueInvitationInp
 		if e != nil {
 			return e
 		}
-		record := InvitationRecord{ID: ids[2], EmailDisplay: previous.EmailDisplay, EmailLookup: previous.EmailLookup, Role: previous.Role, AuthorizationPath: InvitationOwnerDirect, State: InvitationActive, InvitedBy: in.ActorID, Reason: in.Reason, CreatedAt: now, ActivatedAt: &now, ExpiresAt: &expires, Version: 1}
+		record := InvitationRecord{FirstName: previous.FirstName, LastName: previous.LastName, ID: ids[2], EmailDisplay: previous.EmailDisplay, EmailLookup: previous.EmailLookup, Role: previous.Role, AuthorizationPath: InvitationOwnerDirect, State: InvitationActive, InvitedBy: in.ActorID, Reason: in.Reason, CreatedAt: now, ActivatedAt: &now, ExpiresAt: &expires, Version: 1}
 		if e = tx.ReplaceOpenInvitations(c, recipient.Lookup(), now); e != nil {
 			return e
 		}

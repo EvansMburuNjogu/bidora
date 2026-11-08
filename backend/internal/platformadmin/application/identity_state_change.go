@@ -13,6 +13,7 @@ type IdentityStateAction string
 
 const (
 	DisableAdministrator    IdentityStateAction = "DISABLE_IDENTITY"
+	RemoveAdministrator     IdentityStateAction = "REMOVE_IDENTITY"
 	ReactivateAdministrator IdentityStateAction = "REACTIVATE_IDENTITY"
 )
 
@@ -90,6 +91,9 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		if txErr != nil {
 			return txErr
 		}
+		if profile.Removed {
+			return ErrPlatformAccessForbidden
+		}
 		if profile.Version != input.ExpectedAdministratorVersion || profile.ContextGeneration != input.ExpectedTargetContextGeneration {
 			return ErrConcurrentChange
 		}
@@ -125,7 +129,7 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 			if ownerErr != nil {
 				return ownerErr
 			}
-			if input.Action == DisableAdministrator {
+			if input.Action == DisableAdministrator || input.Action == RemoveAdministrator {
 				targetEffective, countErr := tx.CountEffectiveOwnerIdentities(txCtx, []ID{input.TargetUserID})
 				if countErr != nil {
 					return countErr
@@ -135,7 +139,9 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 				}
 			}
 		}
-		if input.Action == DisableAdministrator {
+		if input.Action == RemoveAdministrator && identity.Disabled {
+			txErr = tx.AdvanceIdentityEpoch(txCtx, identity, now)
+		} else if input.Action == DisableAdministrator || input.Action == RemoveAdministrator {
 			txErr = tx.SetAdministratorDisabled(txCtx, identity, now)
 		} else {
 			txErr = tx.SetAdministratorActive(txCtx, identity, now)
@@ -143,7 +149,12 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		if txErr != nil {
 			return txErr
 		}
-		if txErr = tx.AdvanceAdministratorProfile(txCtx, profile, now); txErr != nil {
+		if input.Action == RemoveAdministrator {
+			txErr = tx.RemoveAdministratorProfile(txCtx, profile, now)
+		} else {
+			txErr = tx.AdvanceAdministratorProfile(txCtx, profile, now)
+		}
+		if txErr != nil {
 			return txErr
 		}
 		revoked, txErr := tx.RevokeSessions(txCtx, identity.UserID, now)
@@ -169,7 +180,7 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		return nil
 	})
 	if err == nil && notification != nil && s.delivery != nil {
-		_ = s.delivery.DeliverPlatformIdentityStateChange(ctx, *notification, input.Action == DisableAdministrator)
+		_ = s.delivery.DeliverPlatformIdentityStateChange(ctx, *notification, input.Action != ReactivateAdministrator)
 	}
 	return result, err
 }
@@ -179,7 +190,7 @@ func validateIdentityStateInput(ctx context.Context, s *RoleChangeService, input
 	if ctx == nil || s == nil || s.uow == nil || s.ids == nil || s.clock == nil || input.ActorID.IsZero() || input.SessionID.IsZero() || input.TargetUserID.IsZero() || input.CorrelationID.IsZero() || input.IdempotencyKey.IsZero() || input.PlatformContextGeneration < 1 || input.ExpectedAdministratorVersion < 1 || input.ExpectedTargetContextGeneration < 1 || reason != input.Reason || len(reason) < 1 || len(reason) > 2000 {
 		return "", ErrInvitationInvalid
 	}
-	if input.Action != DisableAdministrator && input.Action != ReactivateAdministrator {
+	if input.Action != DisableAdministrator && input.Action != ReactivateAdministrator && input.Action != RemoveAdministrator {
 		return "", ErrInvitationInvalid
 	}
 	return reason, nil

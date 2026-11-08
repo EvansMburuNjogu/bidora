@@ -115,16 +115,18 @@ func RegisterPlatformSessionRevocationRoute(app *fiber.App, middleware *BrowserS
 
 type platformMeta struct {
 	TraceID    string  `json:"trace_id"`
-	NextCursor *string `json:"next_cursor,omitempty"`
+	NextCursor *string `json:"next_cursor"`
 }
 type platformResponse struct {
 	Data any          `json:"data"`
 	Meta platformMeta `json:"meta"`
 }
 type platformIssueRequest struct {
-	Email   string `json:"email"`
-	RoleKey string `json:"role_key"`
-	Reason  string `json:"reason"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	RoleKey   string `json:"role_key"`
+	Reason    string `json:"reason"`
 }
 type platformChangeRequest struct {
 	Action                          string `json:"action"`
@@ -362,7 +364,7 @@ func (h *PlatformAdministrationHandler) issueInvitation(c fiber.Ctx) error {
 	if err != nil {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	result, err := h.usecase.IssueInvitation(c.Context(), platformapp.IssueInvitationInput{ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, PlatformContextGeneration: common.generation, Email: body.Email, Role: role, Reason: body.Reason})
+	result, err := h.usecase.IssueInvitation(c.Context(), platformapp.IssueInvitationInput{ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, PlatformContextGeneration: common.generation, Email: body.Email, FirstName: body.FirstName, LastName: body.LastName, Role: role, Reason: body.Reason})
 	if err != nil {
 		return platformFailure(c, err)
 	}
@@ -503,7 +505,7 @@ func (h *PlatformAdministrationHandler) createChangeBounded(c fiber.Ctx, allowId
 			return platformFailure(c, e)
 		}
 		changeID, replay = r.ChangeID, r.Replay
-	case string(platformapp.DisableAdministrator), string(platformapp.ReactivateAdministrator):
+	case string(platformapp.DisableAdministrator), string(platformapp.ReactivateAdministrator), string(platformapp.RemoveAdministrator):
 		if !allowIdentityState {
 			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 		}
@@ -625,7 +627,7 @@ func (h *PlatformAdministrationHandler) dispositionBounded(c fiber.Ctx, approve,
 			r, err = h.usecase.RejectOwnerRoleChange(c.Context(), input)
 		}
 		replay = r.Replay
-	case string(platformapp.DisableAdministrator), string(platformapp.ReactivateAdministrator):
+	case string(platformapp.DisableAdministrator), string(platformapp.ReactivateAdministrator), string(platformapp.RemoveAdministrator):
 		if !allowIdentityState {
 			return fail(c, 409, "PLATFORM_CHANGE_CONFLICT", "The change cannot be disposed.", false)
 		}
@@ -881,7 +883,10 @@ func administratorJSON(row platformapp.AdministratorView) any {
 	if row.Identity.Disabled {
 		state = "DISABLED"
 	}
-	return map[string]any{"user_id": uuid.UUID(row.Profile.UserID).String(), "email": row.Identity.Email, "state": state, "user_version": row.Profile.Version, "platform_context_generation": row.Profile.ContextGeneration, "totp_enrolled": row.Identity.TOTPEnrolled, "assignments": assignments, "effective_owner": row.EffectiveOwner, "created_at": row.Profile.CreatedAt, "updated_at": row.Profile.UpdatedAt}
+	if row.Profile.Removed {
+		state = "REMOVED"
+	}
+	return map[string]any{"user_id": uuid.UUID(row.Profile.UserID).String(), "email": row.Identity.Email, "first_name": row.Identity.FirstName, "last_name": row.Identity.LastName, "state": state, "user_version": row.Profile.Version, "platform_context_generation": row.Profile.ContextGeneration, "totp_enrolled": row.Identity.TOTPEnrolled, "assignments": assignments, "effective_owner": row.EffectiveOwner, "created_at": row.Profile.CreatedAt, "updated_at": row.Profile.UpdatedAt}
 }
 func assignmentJSON(row platformapp.AssignmentView) any {
 	return map[string]any{"id": uuid.UUID(row.ID).String(), "role_key": row.Role, "state": row.State, "version": row.Version, "assigned_by": platformOptionalID(row.AssignedBy), "assigned_at": row.AssignedAt, "revoked_by": platformOptionalID(row.RevokedBy), "revoked_at": row.RevokedAt, "reason": row.Reason, "revocation_reason": row.RevocationReason}

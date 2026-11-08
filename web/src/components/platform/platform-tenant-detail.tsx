@@ -34,8 +34,8 @@ function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
         if (response.status === 404) { setState({ kind: "not_found" }); return; }
         if (response.status === 403) { setState({ kind: "error", message: "You don’t have access to this organisation. You may need to verify your account.", denied: true }); return; }
         const value = response.ok ? parsePlatformTenantDetail(await response.json(), tenantId) : null;
-        if (!controller.signal.aborted) setState(value ? { kind: "ready", value } : { kind: "error", message: "Couldn’t load organisation details." });
-      } catch { if (!controller.signal.aborted) setState({ kind: "error", message: "Couldn’t load organisation details." }); }
+        if (!controller.signal.aborted) setState(value ? { kind: "ready", value } : { kind: "error", message: "Data unavailable: organisation details." });
+      } catch { if (!controller.signal.aborted) setState({ kind: "error", message: "Data unavailable: organisation details." }); }
     }
     void load();
     return () => controller.abort();

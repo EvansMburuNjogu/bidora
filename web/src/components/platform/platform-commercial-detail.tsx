@@ -32,8 +32,8 @@ export function PlatformCommercialDetail({ queue, recordID }: { queue: string; r
       if (response.status === 404) { setState({ key, kind: "not_found" }); return; }
       if (response.status === 403) { setState({ key, kind: "error", message: "You don’t have access to this record. You may need to verify your account.", denied: true }); return; }
       const value = response.ok ? parseCommercialDetail(await response.json(), allowedQueue, recordID) : null;
-      setState(value ? { key, kind: "ready", value } : { key, kind: "error", message: "Couldn’t load this record." });
-    } catch { if (current === sequence.current) setState({ key, kind: "error", message: "Couldn’t load this record." }); }
+      setState(value ? { key, kind: "ready", value } : { key, kind: "error", message: "Data unavailable: this record." });
+    } catch { if (current === sequence.current) setState({ key, kind: "error", message: "Data unavailable: this record." }); }
   }, [allowedQueue, recordID, canRead, generation, key, refreshSession]);
   useEffect(() => { const sequenceRef = sequence; const timer = window.setTimeout(() => void load(), 0); return () => { window.clearTimeout(timer); sequenceRef.current++; }; }, [load]);
   const visible = state.key === key ? state : { key, kind: "loading" } as State;

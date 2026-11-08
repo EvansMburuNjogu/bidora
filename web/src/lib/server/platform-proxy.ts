@@ -25,9 +25,9 @@ export async function proxyPlatformAdministrators(request: Request, administrato
   const entries = [...url.searchParams.entries()];
   if (administratorID && !history && entries.length > 0) return failure(400);
   if (history && (entries.length > 1 || entries.some(([key, value]) => key !== "cursor" || !/^[A-Za-z0-9_-]{1,512}$/.test(value)))) return failure(400);
-  if (!administratorID && (entries.length > 3 || new Set(entries.map(([name]) => name)).size !== entries.length || entries.some(([key, value]) =>
+  if (!administratorID && (entries.length > 4 || new Set(entries.map(([name]) => name)).size !== entries.length || entries.some(([key, value]) =>
     key === "cursor" ? !/^[A-Za-z0-9_-]{1,512}$/.test(value) : key === "state" ? !["ACTIVE", "DISABLED"].includes(value) :
-      key === "role_key" ? !PLATFORM_ROLES.some((role) => role === value) : true))) return failure(400);
+      key === "limit" ? !["10","25","50","100"].includes(value) : key === "role_key" ? !PLATFORM_ROLES.some((role) => role === value) : true))) return failure(400);
 
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
   forwardAuditContext(request, headers);
@@ -68,16 +68,17 @@ export async function proxyPlatformInvitation(request: Request): Promise<Respons
   const generation = request.headers.get("x-bidora-platform-context-generation"), csrf = request.headers.get("x-csrf-token"), key = request.headers.get("idempotency-key");
   if (!generation || !/^[1-9]\d{0,18}$/.test(generation) || !csrf || !/^[A-Za-z0-9_-]{43}$/.test(csrf) || !key || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return failure(400);
   const length = Number(request.headers.get("content-length") ?? "0");
-  if (!Number.isFinite(length) || length > 2048) return failure(400);
+  if (!Number.isFinite(length) || length > 4096) return failure(400);
   let body: ArrayBuffer;
   try { body = await request.arrayBuffer(); } catch { return failure(400); }
-  if (body.byteLength < 2 || body.byteLength > 2048) return failure(400);
+  if (body.byteLength < 2 || body.byteLength > 4096) return failure(400);
   let value: unknown;
   try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)); } catch { return failure(400); }
   if (!value || typeof value !== "object" || Array.isArray(value)) return failure(400);
   const fields = value as Record<string, unknown>;
-  if (Object.keys(fields).some((field) => !["email", "role_key", "reason"].includes(field)) || typeof fields.email !== "string" || fields.email.length < 3 || fields.email.length > 254 ||
+  if (Object.keys(fields).some((field) => !["first_name","last_name","email", "role_key", "reason"].includes(field)) || typeof fields.email !== "string" || fields.email.length < 3 || fields.email.length > 254 ||
       !PLATFORM_ROLES.some((role) => role === fields.role_key) || typeof fields.reason !== "string" || fields.reason.trim().length < 1 || fields.reason.length > 2000) return failure(400);
+  if (["first_name","last_name"].some(name => fields[name] !== undefined && (typeof fields[name] !== "string" || !(fields[name] as string).trim() || new TextEncoder().encode(fields[name] as string).length > 100))) return failure(400);
   const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation, "X-CSRF-Token": csrf, "Idempotency-Key": key });
   forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);

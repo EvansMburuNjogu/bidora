@@ -81,7 +81,7 @@ services:
     volumes:
       - /opt/bidora-sandbox/secrets/tls/ca.crt:/run/bidora/ca.crt:ro
     entrypoint: ["/usr/local/bin/migrate"]
-    command: ["-set", "control", "-target", "56"]
+    command: ["-set", "control", "-target", "57"]
     networks: [sandbox]
   grants:
     image: bidora-sandbox/backend:latest

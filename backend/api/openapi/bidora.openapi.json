@@ -4641,6 +4641,14 @@
             "maxLength": 254,
             "type": "string"
           },
+          "first_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
           "platform_context_generation": {
             "minimum": 1,
             "type": "integer"
@@ -4648,7 +4656,8 @@
           "state": {
             "enum": [
               "ACTIVE",
-              "DISABLED"
+              "DISABLED",
+              "REMOVED"
             ],
             "type": "string"
           },
@@ -4691,7 +4700,8 @@
               "REVOKE_ROLE",
               "DISABLE_IDENTITY",
               "REACTIVATE_IDENTITY",
-              "ACTIVATE_OWNER_INVITATION"
+              "ACTIVATE_OWNER_INVITATION",
+              "REMOVE_IDENTITY"
             ],
             "type": "string"
           },
@@ -4868,6 +4878,7 @@
             "ASSIGN_ROLE": "#/components/schemas/AssignRoleChange",
             "DISABLE_IDENTITY": "#/components/schemas/IdentityStateChange",
             "REACTIVATE_IDENTITY": "#/components/schemas/IdentityStateChange",
+            "REMOVE_IDENTITY": "#/components/schemas/IdentityStateChange",
             "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"
           },
           "propertyName": "action"
@@ -5090,7 +5101,8 @@
           "action": {
             "enum": [
               "DISABLE_IDENTITY",
-              "REACTIVATE_IDENTITY"
+              "REACTIVATE_IDENTITY",
+              "REMOVE_IDENTITY"
             ],
             "type": "string"
           },
@@ -5242,6 +5254,16 @@
           "email": {
             "maxLength": 254,
             "minLength": 3,
+            "type": "string"
+          },
+          "first_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "minLength": 1,
             "type": "string"
           },
           "reason": {
@@ -5536,6 +5558,7 @@
           "PlatformRoleRevocationChanged",
           "PlatformAdministratorDisabled",
           "PlatformAdministratorReactivated",
+          "PlatformAdministratorRemoved",
           "PlatformIntegrationVersionCreated",
           "PlatformIntegrationVersionTested",
           "PlatformIntegrationActivationProposed",
@@ -11330,7 +11353,7 @@
         "x-source-status": "pa-f02-through-pa-f07-http-composed-implemented-not-verified"
       },
       "post": {
-        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY permits Platform Owner or Security and Audit authority for non-owner targets; Owner targets and REACTIVATE_IDENTITY require Platform Owner authority. Every action requires accepted administrator AAL2 no older than 15 minutes and exact target/context versions. New changes execute atomically with audit/outbox evidence and no separate checker, advance the target security context and revoke existing sessions. Final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes and self-grants are denied; role bundles cannot be edited. Legacy approval records are never auto-executed.",
+        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY permits Platform Owner or Security and Audit authority for non-owner targets; Owner targets, REACTIVATE_IDENTITY and REMOVE_IDENTITY require Platform Owner authority. REMOVE_IDENTITY disables access, revokes sessions and archives the profile without deleting identity or immutable audit evidence; removed accounts cannot be reactivated through the ordinary action. Every action requires accepted administrator AAL2 no older than 15 minutes and exact target/context versions. New changes execute atomically with audit/outbox evidence and no separate checker, advance the target security context and revoke existing sessions. Final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes and self-grants are denied; role bundles cannot be edited. Legacy approval records are never auto-executed.",
         "operationId": "createPlatformAdministratorChange",
         "parameters": [
           {
