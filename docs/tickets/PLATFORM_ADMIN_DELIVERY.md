@@ -142,6 +142,7 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 
 - Removed the replacement-invitation panel and its unused component from Communications. Invitation selection, reason/acknowledgement inputs and invitation-load errors no longer appear or trigger invitation-directory requests. Existing protected invitation APIs and normal administrator invitations are unchanged.
 - TypeScript/affected lint and the intercepted desktop/mobile Communications browser regression passed, including an account with invitation permissions, no invitation requests, private recipient search, filters, pagination, message previews and denied access. No message or invitation was sent.
+- Frontend source **`ae03fdd`** deployed healthy, zero restarts; backend remains `72c9bee`, schema/settings unchanged. The same regression passed against the deployed bundle through a loopback tunnel with all APIs intercepted. Prior web retained as `before-comms-panel-removal`.
 
 ## Integration settings form cleanup — BID-MVP-03
 
