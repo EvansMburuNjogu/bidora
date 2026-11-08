@@ -26,6 +26,7 @@ let platformError = "PLATFORM_SETTING_NOT_FOUND";
 let sessionMutation = null;
 let bootstrapMounted = true;
 let publicMinimum = 20;
+let invitationCancellation=null;
 const onboardingRequests=[];
 
 async function freePort() {
@@ -186,6 +187,18 @@ test("fresh invitation reissue BFF requires an explicit bounded command", async 
   assert.deepEqual(platformRequests.at(-1), { path: `/v1/platform/administrator-invitations/${id}/reissue`, method: "POST", generation: "7", origin: webOrigin });
 });
 
+test("invitation removal BFF requires version, Origin, CSRF and idempotency, and preserves an empty DELETE",async()=>{
+ const id="00000000-0000-4000-8000-000000000003",path="/api/platform/administrator-invitations/"+id;
+ const headers={Origin:webOrigin,"X-CSRF-Token":"A".repeat(43),"Idempotency-Key":"00000000-0000-4000-8000-000000000001","X-Bidora-Platform-Context-Generation":"7","If-Match":'"3"'};
+ invitationCancellation=null;
+ for(const name of ["Origin","X-CSRF-Token","Idempotency-Key","If-Match"]){const bad={...headers};delete bad[name];assert.equal((await fetch(webOrigin+path,{method:"DELETE",headers:bad})).status,400)}
+ assert.equal((await fetch(webOrigin+path,{method:"DELETE",headers,body:"{}"})).status,400);
+ assert.equal((await fetch(webOrigin+path,{method:"DELETE",headers:{...headers,Origin:"https://foreign.invalid"}})).status,400);
+ assert.equal(invitationCancellation,null);
+ const response=await fetch(webOrigin+path,{method:"DELETE",headers});assert.equal(response.status,204);assert.equal(await response.text(),"");
+ assert.deepEqual(invitationCancellation,{version:'"3"',csrf:headers["X-CSRF-Token"],key:headers["Idempotency-Key"]});
+});
+
 test("PA-23 BFF rejects invalid filters locally and distinguishes missing list from missing detail", async () => {
   const headers = { "X-Bidora-Platform-Context-Generation": "7" };
   const before = platformRequests.length;
@@ -341,6 +354,7 @@ test.before(async () => {
       let managedBody = ""; request.on("data", (chunk) => { if (managed) managedBody += chunk; });
       request.on("end", () => {
         if (managed) managedRequests.push({ version: request.headers["if-match"], key: request.headers["idempotency-key"], csrf: request.headers["x-csrf-token"], body: managedBody });
+        if(request.url.startsWith("/v1/platform/administrator-invitations/")&&request.method==="DELETE"){invitationCancellation={version:request.headers["if-match"],csrf:request.headers["x-csrf-token"],key:request.headers["idempotency-key"]};response.writeHead(204);response.end();return}
         const status = platformStatus === 200 ? reconciliation ? 202 : request.url === "/v1/platform/commercial/financial-adjustments" && request.method === "POST" ? 201 : request.url === "/v1/platform/administrator-invitations" || request.url === "/v1/platform/support/cases" && request.method === "POST" || request.url.startsWith("/v1/platform/commercial/plans/") && request.method === "POST" || request.url.endsWith("/reissue") && request.method === "POST" ? 201 : 200 : platformStatus;
         if (request.url.startsWith("/v1/platform/audit/actions/export?") && status === 200) {
           response.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store" });

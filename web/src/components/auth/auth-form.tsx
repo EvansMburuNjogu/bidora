@@ -527,7 +527,7 @@ function VerificationResendForm() {
 
 function AuthRouteLink({ mode, onNavigate }: { mode: Mode; onNavigate: () => void }) {
   if (mode === "login") {
-    return <div className="space-y-3 text-center"><p className="type-body text-muted-foreground">New to Bidora? <Link href="/register" onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Create an account</Link></p><p className="text-sm"><Link href="/administrator-invitation" onClick={onNavigate} className="text-primary hover:underline">Accept administrator invitation</Link></p></div>;
+    return <p className="type-body text-center text-muted-foreground">New to Bidora? <Link href="/register" onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Create an account</Link></p>;
   }
   if (mode === "register") {
     return <p className="type-body text-center text-muted-foreground">Already have an account? <Link href="/login" onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Sign in</Link></p>;

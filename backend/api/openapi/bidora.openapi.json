@@ -12067,7 +12067,7 @@
     },
     "/v1/platform/administrator-invitations/{invitation_id}/reissue": {
       "post": {
-        "description": "Requires Platform Owner, platform.admin.invite, current Platform generation, recent AAL2, CSRF/Origin and Idempotency-Key. Only active, unexpired, non-owner invitations. Atomic cancellation, fresh invitation/command, audit/outbox; one bounded SMTP attempt after commit. An idempotent replay never sends. Existing AMBIGUOUS SMTP evidence is not retried or treated as FAILED; previous token is invalidated before fresh content is delivered. Owner invitations require their separate governance workflow.",
+        "description": "Requires Platform Owner, platform.admin.invite, current Platform generation, recent AAL2, CSRF/Origin and Idempotency-Key. Any previously activated invitation still in ACTIVE state may be replaced, including PLATFORM_OWNER and expired invitations; accepted, cancelled and unactivated records are rejected. Atomic cancellation, fresh invitation/command, audit/outbox; one bounded SMTP attempt after commit. An idempotent replay never sends. Existing AMBIGUOUS SMTP evidence is not retried or treated as FAILED; previous token is invalidated before fresh content is delivered. All roles use the current direct verified-Owner invitation policy; replacing an expired record creates a new token and does not revive the old one.",
         "operationId": "postPlatformAdministratorInvitationsInvitationIdReissue",
         "parameters": [
           {
@@ -12157,7 +12157,7 @@
             "description": "Original invitation not found"
           },
           "409": {
-            "description": "Old invitation not active/current, owner-governed, expired, or idempotency conflict"
+            "description": "Old invitation not active/current or previously activated, or idempotency conflict"
           },
           "503": {
             "description": "Dependency unavailable"

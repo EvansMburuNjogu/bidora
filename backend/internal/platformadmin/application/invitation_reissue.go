@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"bidora/backend/internal/identity/email"
-	"bidora/backend/internal/platformadmin/domain"
 	platforminvite "bidora/backend/internal/platformadmin/invitation"
 )
 
 // Reissue invalidates the old invitation token and creates a completely new
 // invitation/token for the same recipient. A fingerprint is never a token.
-// Owner invitations remain on their separate governance path.
+// Every role follows the verified-Owner direct-invitation policy. Expired active
+// records may be explicitly replaced; the old token is never reactivated.
 type ReissueInvitationInput struct {
 	ActorID, SessionID, CorrelationID, IdempotencyKey, InvitationID ID
 	PlatformContextGeneration, ExpectedVersion                      int64
@@ -75,7 +75,7 @@ func (s *InvitationService) Reissue(ctx context.Context, in ReissueInvitationInp
 		}
 		// CancelInvitation locks the exact expected version; any invalid state rolls
 		// back the cancellation, its audit and the new token together.
-		if previous.Role == domain.PlatformOwner || previous.ActivatedAt == nil || previous.ExpiresAt == nil || !previous.ExpiresAt.After(now) || previous.Version != in.ExpectedVersion+1 {
+		if previous.State != InvitationCancelled || previous.ActivatedAt == nil || previous.ExpiresAt == nil || previous.Version != in.ExpectedVersion+1 {
 			return ErrInvitationConflict
 		}
 		recipient, e = email.Parse(previous.EmailDisplay)

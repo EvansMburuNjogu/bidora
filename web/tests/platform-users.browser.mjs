@@ -22,6 +22,12 @@ async function open(viewport,reader=false,grants=caps){
    const rows=state.users.filter(u=>(!filter.state||u.state===filter.state)&&(!filter.role||u.assignments.some(a=>a.state==="ACTIVE"&&a.role_key===filter.role))&&(!filter.email||u.email.toLowerCase()===filter.email.toLowerCase()));
    const more=!filter.email&&!filter.state&&!filter.role&&!url.searchParams.has("cursor")&&rows.length>2;
    data=wrap({administrators:url.searchParams.has("cursor")?rows.slice(2):more?rows.slice(0,2):rows,effective_owner_count:state.ownerCount,continuity_warning:state.ownerCount<2},more?"next-page":null);}
+  }else if(p.startsWith("/api/platform/administrators/")&&req.method()==="GET"){
+   const u=state.users.find(u=>p.includes(u.user_id));data=p.endsWith("/assignment-history")?wrap({user_id:u.user_id,assignments:[] }):wrap(u);
+  }else if(p.startsWith("/api/platform/administrator-invitations/")&&req.method()==="DELETE"){
+   state.writes.push({path:p,method:"DELETE",headers:req.headers(),body:req.postData()});state.invitations=state.invitations.filter(i=>!p.endsWith(i.id));status=204;
+  }else if(p.endsWith("/reissue")&&req.method()==="POST"){
+   state.writes.push({path:p,method:"POST",headers:req.headers(),body:req.postDataJSON()});const previous=state.invitations.find(i=>p.includes(i.id));const fresh={...previous,id:id(81),version:1,expires_at:new Date(Date.now()+86400000).toISOString()};state.invitations=[fresh];status=201;data=wrap({id:fresh.id,email:fresh.email,role_key:fresh.role_key,state:"ACTIVE",version:1,created_at:at,expires_at:fresh.expires_at,delivery_state:"ACCEPTED_FOR_DELIVERY",governance_change_id:null});
   }else if(p==="/api/platform/administrator-invitations"&&req.method()==="GET"){data={data:{invitations:state.invitations},meta:{trace_id:id(99),next_cursor:null}};
   }else if(p==="/api/platform/administrator-invitations"&&req.method()==="POST"){
    const body=req.postDataJSON();state.writes.push({path:p,body,headers:req.headers()});status=state.invitationStatus;
@@ -151,4 +157,29 @@ test("Invited users appear with names and own-account revocation is never offere
   for(const name of ["Revoke sessions","Remove user","Disable user","Manage roles"])await expect(page.getByRole("menuitem",{name,exact:true})).toHaveCount(0);
   assert.equal(state.writes.length,0);
  }finally{await browser.close()}
+});
+
+test("Owner invitations can be reissued and removed with explicit confirmation",{timeout:60000},async()=>{
+ const{browser,page,state}=await open({width:390,height:844});try{
+  state.invitations=[{id:id(80),email:"amina@example.test",first_name:"Amina",last_name:"Njoroge",role_key:"PLATFORM_OWNER",state:"ACTIVE",version:3,created_at:at,expires_at:new Date(Date.now()-86400000).toISOString(),delivery_state:"ACCEPTED_FOR_DELIVERY",governance_change_id:null}];
+  await page.goto(origin+"/platform/users");await page.getByRole("navigation",{name:"User views"}).getByRole("button",{name:"Invitations",exact:true}).click();
+  await page.getByRole("button",{name:"Reissue invitation",exact:true}).click();const dialog=page.getByRole("alertdialog");await dialog.getByLabel("Reason",{exact:true}).fill("Replace expired Owner invitation");await dialog.getByRole("button",{name:"Reissue invitation",exact:true}).click();await expect(dialog).toHaveCount(0);
+  await expect(page.locator("[data-sonner-toast]").filter({hasText:"accepted for delivery"})).toBeVisible();assert.equal(state.writes[0].body.expected_version,3);
+  await page.getByRole("button",{name:"Remove invitation for amina@example.test",exact:true}).click();await expect(dialog).toContainText("Audit history is retained");await dialog.getByRole("button",{name:"Cancel",exact:true}).click();assert.equal(state.writes.length,1);
+  await page.getByRole("button",{name:"Remove invitation for amina@example.test",exact:true}).click();await dialog.getByRole("button",{name:"Remove invitation",exact:true}).click();await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("region",{name:"Invited users"}).getByRole("cell",{name:"No data found.",exact:true})).toBeVisible();assert.equal(state.writes[1].method,"DELETE");assert.equal(state.writes[1].headers["if-match"],'"1"');assert.equal(state.writes[1].body,null);
+ }finally{await browser.close()}
+});
+test("User details present identity, role and security cards without own-account destructive controls",{timeout:60000},async()=>{
+ for(const own of [false,true]){
+  const{browser,page,state}=await open({width:390,height:844});try{
+   const u=state.users[own?0:1];u.is_current_user=own;
+   await page.goto(origin+"/platform/users/"+u.user_id);
+   await expect(page.getByRole("heading",{name:"Test User "+(own?1:2),exact:true})).toBeVisible();
+   await expect(page.getByText("Account overview",{exact:true})).toBeVisible();await expect(page.getByText("Access & security",{exact:true})).toBeVisible();await expect(page.getByRole("heading",{name:"Role history",exact:true})).toBeVisible();
+   if(own){await expect(page.getByRole("button",{name:"Revoke sessions",exact:true})).toHaveCount(0);await expect(page.getByRole("heading",{name:"Manage roles",exact:true})).toHaveCount(0);await expect(page.getByRole("link",{name:"Account security",exact:true})).toBeVisible()}
+   else await expect(page.getByRole("button",{name:"Revoke sessions",exact:true})).toBeVisible();
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  }finally{await browser.close()}
+ }
 });

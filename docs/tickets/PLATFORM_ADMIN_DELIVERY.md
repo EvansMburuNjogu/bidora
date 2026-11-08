@@ -138,6 +138,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Users design and invitation actions — BID-MVP-03 (local)
+
+- Implementation: higher-contrast icon navigation pills; responsive user-detail identity/roles/security cards with real names, status, account-security link for self and preserved self/Owner guards. Added confirmed Remove invitation action through the existing audited cancellation API (link invalidation, no physical deletion or email send).
+- Confirmed/fixed reissue defect: the old service still rejected PLATFORM_OWNER and expired ACTIVE records despite direct Owner invitations. Explicit replacement now works for every previously activated role, including expired invitations, while accepted/cancelled/unactivated records remain protected. Fresh Owner authority, expected versions, atomic old-token cancellation/new token creation, preserved recipient/names/role, audit/outbox and no-send-on-replay remain enforced. Forbidden UI actions provide an explicit verification route, not an authorization bypass.
+- Validation: focused Go reissue race tests, including Owner/expired replacement, replay/concurrency, non-Owner/freshness and invalid-state denials, passed. Eight relevant browser cases passed (detail-only rerun after semantic-link fix); BFF cancellation denies missing Origin/CSRF/idempotency/version/nonempty body and forwards the exact empty versioned DELETE; existing reissue boundary checks passed. Type generation/TypeScript and changed-file lint passed. No schema changes, real invitation/send/cancellation or deployment performed.
+
 ## Users navigation and invite feedback — BID-MVP-03 (deployed)
 
 - Implementation: Users/Invitations navigation pills show separate tables, preserving Users filters/pagination. Successful invitation creation selects Invitations and reloads its records. New/reissued invitation loading and results use Sonner, not inline success messages. Invite User has first name, last name, email and role only; a standard internal audit description preserves the existing audited API contract. Retry idempotency, delivery uncertainty and self/Owner guards remain unchanged.

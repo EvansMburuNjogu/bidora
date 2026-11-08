@@ -27,6 +27,7 @@ func (reissueTokens) Generate() (invite.Token, error) { return invite.Generate()
 
 type reissueDelivery struct {
 	calls  int
+	role   domain.Role
 	failed bool
 	mu     sync.Mutex
 }
@@ -35,7 +36,11 @@ func (d *reissueDelivery) DeliverPlatformInvitation(_ context.Context, recipient
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.calls++
-	if recipient.Lookup() != "recipient@example.test" || token.IsZero() || role != domain.SupportAdministrator || expiry.IsZero() {
+	expectedRole := d.role
+	if expectedRole == "" {
+		expectedRole = domain.SupportAdministrator
+	}
+	if recipient.Lookup() != "recipient@example.test" || token.IsZero() || role != expectedRole || expiry.IsZero() {
 		return errors.New("invalid fresh message")
 	}
 	if d.failed {
@@ -55,6 +60,7 @@ type reissueStore struct {
 	actor    app.ID
 	now      time.Time
 	role     domain.Role
+	stale    bool
 }
 
 func (s *reissueStore) WithinInvitation(ctx context.Context, fn func(context.Context, app.InvitationTx) error) error {
@@ -68,7 +74,11 @@ func (s *reissueStore) WithinInvitation(ctx context.Context, fn func(context.Con
 	return e
 }
 func (s *reissueStore) GetIdentityAuthority(_ context.Context, _ app.AuthorityQuery) (app.IdentityAuthorityFacts, error) {
-	return app.IdentityAuthorityFacts{UserID: s.actor, AuthEpoch: 1, AffiliationKey: "PLATFORM", AssuranceLevel: "AAL2", AssuranceMethod: "TOTP", AssuredAt: s.now.Add(-time.Minute)}, nil
+	assured := s.now.Add(-time.Minute)
+	if s.stale {
+		assured = s.now.Add(-16 * time.Minute)
+	}
+	return app.IdentityAuthorityFacts{UserID: s.actor, AuthEpoch: 1, AffiliationKey: "PLATFORM", AssuranceLevel: "AAL2", AssuranceMethod: "TOTP", AssuredAt: assured}, nil
 }
 func (s *reissueStore) GetPlatformAuthority(context.Context, app.ID) (app.PlatformAuthorityFacts, error) {
 	role := s.role
@@ -189,21 +199,39 @@ func TestReissueRequiresOwnerEvenWithBillingCapability(t *testing.T) {
 		t.Fatal("non-owner reissue allowed", e)
 	}
 }
-func TestReissueExcludesOwnerAndExpiredInvitations(t *testing.T) {
-	now := time.Now().UTC()
-	expiry := now.Add(-time.Minute)
-	s := &reissueStore{actor: app.ID{1}, now: now, old: app.InvitationRecord{ID: app.ID{9}, EmailDisplay: "recipient@example.test", EmailLookup: "recipient@example.test", Role: domain.SupportAdministrator, State: app.InvitationActive, ActivatedAt: &now, ExpiresAt: &expiry, Version: 1}}
-	sender := &reissueDelivery{}
-	service, _ := app.NewInvitationService(s, reissueTokens{}, &reissueIDs{}, reissueClock{now}, sender)
-	in := app.ReissueInvitationInput{ActorID: s.actor, SessionID: app.ID{2}, CorrelationID: app.ID{3}, IdempotencyKey: app.ID{4}, InvitationID: s.old.ID, PlatformContextGeneration: 1, ExpectedVersion: 1, Reason: "Explicit replacement"}
-	if _, e := service.Reissue(context.Background(), in); !errors.Is(e, app.ErrInvitationConflict) || sender.calls != 0 || s.old.State != app.InvitationActive {
-		t.Fatal("expired invitation changed", e)
+func TestReissueSupportsOwnerAndExpiredActiveInvitations(t *testing.T) {
+	for _, role := range []domain.Role{domain.PlatformOwner, domain.SupportAdministrator} {
+		for _, expired := range []bool{false, true} {
+			now := time.Now().UTC()
+			expiry := now.Add(time.Hour)
+			if expired {
+				expiry = now.Add(-time.Minute)
+			}
+			s := &reissueStore{actor: app.ID{1}, now: now, old: app.InvitationRecord{ID: app.ID{9}, EmailDisplay: "recipient@example.test", EmailLookup: "recipient@example.test", FirstName: "Amina", LastName: "Njoroge", Role: role, State: app.InvitationActive, ActivatedAt: &now, ExpiresAt: &expiry, Version: 1}}
+			sender := &reissueDelivery{role: role}
+			service, _ := app.NewInvitationService(s, reissueTokens{}, &reissueIDs{}, reissueClock{now}, sender)
+			in := app.ReissueInvitationInput{ActorID: s.actor, SessionID: app.ID{2}, CorrelationID: app.ID{3}, IdempotencyKey: app.ID{4}, InvitationID: s.old.ID, PlatformContextGeneration: 1, ExpectedVersion: 1, Reason: "Explicit replacement"}
+			result, e := service.Reissue(context.Background(), in)
+			if e != nil || result.State != app.InvitationActive || sender.calls != 1 || s.old.State != app.InvitationCancelled || s.new.Role != role || s.new.AuthorizationPath != app.InvitationOwnerDirect || s.new.FirstName != "Amina" || s.new.ExpiresAt == nil || !s.new.ExpiresAt.After(now) {
+				t.Fatal("direct reissue failed", role, expired, e)
+			}
+			replay, e := service.Reissue(context.Background(), in)
+			if e != nil || !replay.Replay || sender.calls != 1 {
+				t.Fatal("replay sent again", e)
+			}
+		}
 	}
-	s.old.Role = domain.PlatformOwner
-	s.old.ExpiresAt = &now
-	future := now.Add(time.Hour)
-	s.old.ExpiresAt = &future
-	if _, e := service.Reissue(context.Background(), in); !errors.Is(e, app.ErrInvitationConflict) || sender.calls != 0 || s.old.State != app.InvitationActive {
-		t.Fatal("owner governance bypassed", e)
+}
+func TestReissueCannotReplaceAcceptedCancelledOrUnactivatedRecords(t *testing.T) {
+	for _, state := range []app.InvitationState{app.InvitationAccepted, app.InvitationCancelled, app.InvitationPendingApproval, app.InvitationActive} {
+		now := time.Now().UTC()
+		expiry := now.Add(time.Hour)
+		s := &reissueStore{actor: app.ID{1}, now: now, old: app.InvitationRecord{ID: app.ID{9}, EmailDisplay: "recipient@example.test", EmailLookup: "recipient@example.test", Role: domain.PlatformOwner, State: state, ExpiresAt: &expiry, Version: 1}}
+		sender := &reissueDelivery{role: domain.PlatformOwner}
+		service, _ := app.NewInvitationService(s, reissueTokens{}, &reissueIDs{}, reissueClock{now}, sender)
+		_, e := service.Reissue(context.Background(), app.ReissueInvitationInput{ActorID: s.actor, SessionID: app.ID{2}, CorrelationID: app.ID{3}, IdempotencyKey: app.ID{4}, InvitationID: s.old.ID, PlatformContextGeneration: 1, ExpectedVersion: 1, Reason: "Explicit replacement"})
+		if e == nil || sender.calls != 0 || s.old.State != state {
+			t.Fatal("invalid state mutated", state, e)
+		}
 	}
 }

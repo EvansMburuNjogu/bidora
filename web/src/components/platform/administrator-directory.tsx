@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon,UsersRoundIcon,MailIcon } from "lucide-react";
 import { PlatformSelect } from "@/components/platform/platform-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +51,7 @@ export function AdministratorDirectory(){
  const value=state.kind==="ready"?state.value:null;
  return <main className="app-page">
   <div className="app-page-header flex-row items-start justify-between gap-4"><div><h1 className="type-title">Users</h1><p className="type-lead text-muted-foreground">Manage Platform Admin users.</p></div><AdministratorInvite key={generation??"none"} onCreated={()=>{changed();setView("invitations")}}/></div>
-  <nav aria-label="User views" className="mb-5 flex gap-2">{(["users","invitations"] as const).map(item=><Button key={item} type="button" variant={view===item?"secondary":"ghost"} className="rounded-full" aria-pressed={view===item} aria-controls={`platform-${item}-panel`} onClick={()=>setView(item)}>{item==="users"?"Users":"Invitations"}</Button>)}</nav>
+  <nav aria-label="User views" className="mb-6 inline-flex w-full gap-1 rounded-full border bg-muted/40 p-1 sm:w-auto">{(["users","invitations"] as const).map(item=><Button key={item} type="button" variant={view===item?"default":"ghost"} className="min-h-10 min-w-0 flex-1 gap-2 rounded-full px-5 sm:flex-none" aria-pressed={view===item} aria-controls={`platform-${item}-panel`} onClick={()=>setView(item)}>{item==="users"?<UsersRoundIcon aria-hidden="true" className="size-4"/>:<MailIcon aria-hidden="true" className="size-4"/>}{item==="users"?"Users":"Invitations"}</Button>)}</nav>
   <div id="platform-users-panel" hidden={view!=="users"}>
   <form className="mb-5 flex flex-wrap items-end gap-3" onSubmit={event=>{event.preventDefault();firstPage();setFilters({...draft,email:draft.email.trim()});}}>
    <label className="grid min-w-0 gap-1 text-sm">Email address<div className="relative"><SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input type="email" maxLength={254} className="pl-9" value={draft.email} placeholder="user@example.com" onChange={event=>setDraft({...draft,email:event.target.value})}/></div></label>
