@@ -138,6 +138,12 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
+## Platform operational deployment — BID-MVP-04 / BID-MVP-05
+
+- Source **`0e2f0fe`** committed/pushed and deployed to sandbox backend/web; migration/ledger **55** and manifest v1/107 relations applied. Private pre-change backup retained; migration rehearsed with rollback before application. Current environment and active integration metadata unchanged.
+- Both containers healthy, zero restarts; public login/password policy 200 and private Overview/reference/AI/support routes deny anonymous access. Fifteen runtime-role query plans and raw-audit-denial checks passed. Isolated web build and seven focused backend package suites passed; full QA/authenticated business acceptance is not claimed.
+- Compatible rollback backend **`45904d2`** built and readiness-checked against schema 55 without publishing a port; prior web retained. No down migration, financial transaction, provider activation, actual email or Owner-session extraction performed. Unrelated local documentation/worker/bootstrap changes were excluded and preserved.
+
 ## Platform operational implementation — BID-MVP-03 / BID-MVP-04
 
 - **Implemented locally:** permission-scoped Overview totals/activity, real Billing totals/monthly invoicing and customer names; atomic audited/idempotent organisation suspension and readiness-guarded reactivation; organisation detail/subscription continuity and cancellation confirmation; scoped organisation/support-assignee searches; support create/assign/reply/resolve/reopen usability; AI organisation/activity/inclusive UTC-date filtering before pagination; linked settlement versions for credit proposals; customer subscription names, report identity/context handling, current-capability navigation and account re-verification entry point. Existing Users, provider settings, templates, managed SMTP, audit/privacy and maker/checker boundaries retained.
