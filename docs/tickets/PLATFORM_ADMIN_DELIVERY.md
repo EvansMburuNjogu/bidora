@@ -142,6 +142,7 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 
 - Removed SMTP’s non-editable Connection security selector; STARTTLS, certificate verification and deployment trust remain mandatory in the adapter. Removed OpenAI/PesaPal’s manual Review an approval/reference-entry sections and reference display. Their existing pending requests are discoverable through the saved version’s View action, using authorized pending-change metadata instead of copied identifiers. Maker/checker, recent verification, explicit provider-test consent and activation rules are unchanged; this is not removal of backend approval policy.
 - Seven focused frontend/source/contract checks and affected Go settings/HTTP packages passed, with TypeScript and affected lint. No live setting, provider activation, paid request or mail send was performed.
+- Backend/web source **`72c9bee`** deployed healthy with zero restarts; schema 55, environment and active integrations unchanged. Deployed-bundle browser checks with all APIs intercepted confirmed requested controls absent and both pending requests accessible from Previous settings → View, with no writes. The pending-change SELECT plan passed under the actual runtime role; raw audit SELECT remains denied. Previous image pair retained as `before-settings-controls`.
 
 ## Login-code Back to sign in correction — BID-MVP-03 / BID-MVP-05
 
