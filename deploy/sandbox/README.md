@@ -23,7 +23,13 @@ docker compose -f deploy/sandbox/compose.yml up -d backend web
 docker compose -f deploy/sandbox/compose.yml ps
 ```
 
-## Current administrator invitation onboarding — schema 57
+## Current Users navigation and invite feedback — schema 57
+
+Web **`c08cf18`**, backend unchanged **`00d3ad7`**. Users/Invitations navigation pills each show their own table; successful invites select Invitations. New/reissued invitation feedback uses Sonner, with no inline success message. Invite User no longer asks for a reason; the existing audited backend command receives a standard description. Retry identity, delivery uncertainty and self/Owner protections are preserved.
+
+Production frontend build, contract freshness, source ESLint, TypeScript and all six deployed-bundle intercepted Users browser tests passed. Both services healthy, zero restarts; backend image/runtime environment unchanged, anonymous invitation reads denied. No database migration, real email or account change performed. Roll back only web using `bidora-sandbox/web:before-users-pills` (source `00d3ad7`); backend/schema remain unchanged. Private build/deploy evidence is under `/opt/bidora-sandbox/verification/*users-pills*`.
+
+## Administrator invitation onboarding — schema 57
 
 Backend/web run **`00d3ad7`**. New administrator invitation emails link directly to `/administrator-invitation` with the capability in a fragment, not a query. The page exchanges it for a short-lived HttpOnly cookie, sets a new account password, then uses the canonical email-code MFA before opening the Platform Admin Portal. Existing accounts keep their password and use authenticated acceptance. Preview does not consume invitations; existing-account credentials and tenant identities cannot be reset or converted by setup. All mail still uses active managed SMTP. Users now includes named invitations with pagination/reissue and never offers own-account role/access/session revocation; backend own-role denial also applies with multiple Owners. Older emails can use the invitation entry point on Login, or an Owner can explicitly reissue them.
 

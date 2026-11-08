@@ -138,10 +138,10 @@ Use current visual design, owner-module APIs and existing tables. Lists/history 
 | Audit Trails | Searchable real events, administrator identity and restricted IP/browser evidence with separate retention |
 | Settings | All ten sections connected to their supported backend operations and consumers |
 
-## Users navigation and invite feedback — BID-MVP-03 (local)
+## Users navigation and invite feedback — BID-MVP-03 (deployed)
 
 - Implementation: Users/Invitations navigation pills show separate tables, preserving Users filters/pagination. Successful invitation creation selects Invitations and reloads its records. New/reissued invitation loading and results use Sonner, not inline success messages. Invite User has first name, last name, email and role only; a standard internal audit description preserves the existing audited API contract. Retry idempotency, delivery uncertainty and self/Owner guards remain unchanged.
-- Validation: changed-component ESLint and all six focused desktop/mobile Users browser cases passed with APIs intercepted, including pill/table isolation, Sonner feedback, absent Reason field and retry-key preservation. No backend, schema or provider changes. Not deployed; prior live release remains unchanged.
+- Validation: changed-component ESLint and all six focused desktop/mobile Users browser cases passed with APIs intercepted, including pill/table isolation, Sonner feedback, absent Reason field and retry-key preservation. No backend, schema or provider changes. Deployment authorized and completed: web **`c08cf18`**, backend unchanged **`00d3ad7`**, schema remains 57. Production frontend build, contract freshness, source ESLint and TypeScript passed. All six focused Users browser cases also passed against the deployed bundle with APIs intercepted. Both containers healthy, zero restarts; backend image/runtime environment unchanged, anonymous invitation reads denied, no real message sent. Retained web rollback: `bidora-sandbox/web:before-users-pills` (`00d3ad7`).
 
 ## Administrator invitation onboarding — BID-MVP-03 / BID-MVP-05 (deployed)
 
