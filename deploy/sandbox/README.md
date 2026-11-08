@@ -23,7 +23,15 @@ docker compose -f deploy/sandbox/compose.yml up -d backend web
 docker compose -f deploy/sandbox/compose.yml ps
 ```
 
-## Current Users follow-up — schema 57
+## Current administrator invitation onboarding — schema 57
+
+Backend/web run **`00d3ad7`**. New administrator invitation emails link directly to `/administrator-invitation` with the capability in a fragment, not a query. The page exchanges it for a short-lived HttpOnly cookie, sets a new account password, then uses the canonical email-code MFA before opening the Platform Admin Portal. Existing accounts keep their password and use authenticated acceptance. Preview does not consume invitations; existing-account credentials and tenant identities cannot be reset or converted by setup. All mail still uses active managed SMTP. Users now includes named invitations with pagination/reissue and never offers own-account role/access/session revocation; backend own-role denial also applies with multiple Owners. Older emails can use the invitation entry point on Login, or an Owner can explicitly reissue them.
+
+No migration: schema/ledger **57**, grant manifest v1/107 relations unchanged. Private DB/environment backup and retained rollback images are available under the `invitation-onboarding*` verification/backup paths. Production builds, source lint (generated test caches excluded), TypeScript, API contracts, nine fast auth checks, previously passed 27 BFF checks and eight deployed-bundle intercepted browser cases passed. New-backend unpublished readiness and live invalid-capability/Origin/missing-cookie/access-denial probes passed. Both containers healthy, zero restarts; environment/provider versions unchanged. No real invitation or account mutation was used for verification; actual recipient/inbox acceptance remains unverified.
+
+**Rollback:** retag `bidora-sandbox/backend:before-invitation-onboarding` and `bidora-sandbox/web:before-invitation-onboarding` (both **`01d71ed`**) to their `latest` tags and recreate backend/web, retaining schema 57 and all data. No schema downgrade or new grants required. Existing created accounts remain usable through normal sign-in, but the old application does not provide the new invitation landing page. The separate unfinished session-security audit is not included in this release.
+
+## Historical Users follow-up — schema 57
 
 Backend/web run **`01d71ed`**. Users now has named invitations (first/last names, email, role, reason), a permanent table with cursor Previous/Next pagination, no Refresh control or requested explanatory copy, and guarded disable/remove actions. Removal archives access and revokes sessions without deleting identity/audit history; database guards prevent ordinary reactivation. Terminal/single-record Platform responses now include `next_cursor: null`, fixing strict-client rejection of valid invitations and final Users pages. Empty results say No data found; failed/denied reads remain distinguishable and do not fabricate empty success.
 
