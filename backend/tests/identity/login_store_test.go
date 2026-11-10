@@ -39,8 +39,15 @@ func (d *loginDB) Exec(_ context.Context, sql string, args ...any) (pgconn.Comma
 func (d *loginDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
 	return nil, errors.New("unexpected query")
 }
-func (d *loginDB) QueryRow(context.Context, string, ...any) pgx.Row {
-	return identityRow(func(...any) error { return errors.New("unexpected query row") })
+func (d *loginDB) QueryRow(_ context.Context, sql string, _ ...any) pgx.Row {
+	return identityRow(func(dest ...any) error {
+		if !strings.Contains(sql, "GetUserAccountType") || d.failFor == "GetUserAccountType" || len(dest) != 1 {
+			return errors.New("unexpected query row")
+		}
+		accountType := "TENDERPRENEUR"
+		*dest[0].(**string) = &accountType
+		return nil
+	})
 }
 
 type writeRunnerFake struct {
@@ -153,7 +160,7 @@ func TestLoginCommitterWritesSessionThenMinimalAuditInOneTransaction(t *testing.
 }
 
 func TestLoginCommitterRejectsInvalidOrPartialCommits(t *testing.T) {
-	for _, query := range []string{"InsertSession", "InsertLoginAudit"} {
+	for _, query := range []string{"GetUserAccountType", "InsertSession", "InsertLoginAudit"} {
 		t.Run(query, func(t *testing.T) {
 			db := &loginDB{failFor: query}
 			runner := &writeRunnerFake{db: db}
@@ -171,10 +178,11 @@ func TestLoginCommitterRejectsInvalidOrPartialCommits(t *testing.T) {
 	}()}
 	for i, commit := range cases {
 		t.Run(string(rune('a'+i)), func(t *testing.T) {
-			runner := &writeRunnerFake{db: &loginDB{}}
+			db := &loginDB{}
+			runner := &writeRunnerFake{db: db}
 			committer, _ := identitypersistence.NewLoginCommitter(runner)
-			if err := committer.CommitLoginSession(context.Background(), commit); err == nil || runner.calls != 0 {
-				t.Fatal("invalid login commit crossed transaction")
+			if err := committer.CommitLoginSession(context.Background(), commit); err == nil || runner.committed || len(db.sql) != 0 {
+				t.Fatal("invalid login commit wrote or committed session data")
 			}
 		})
 	}

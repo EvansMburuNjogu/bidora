@@ -414,12 +414,20 @@ func (q *Queries) GetPlatformAdministratorChangeState(ctx context.Context, chang
 const getPlatformAdministratorProfile = `-- name: GetPlatformAdministratorProfile :one
 SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles
-WHERE user_id = $1
+WHERE user_id = $1 AND removed_at IS NULL
 `
 
-func (q *Queries) GetPlatformAdministratorProfile(ctx context.Context, userID pgtype.UUID) (PlatformAdministrationAdministratorProfile, error) {
+type GetPlatformAdministratorProfileRow struct {
+	UserID            pgtype.UUID
+	ContextGeneration int64
+	Version           int64
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+func (q *Queries) GetPlatformAdministratorProfile(ctx context.Context, userID pgtype.UUID) (GetPlatformAdministratorProfileRow, error) {
 	row := q.db.QueryRow(ctx, getPlatformAdministratorProfile, userID)
-	var i PlatformAdministrationAdministratorProfile
+	var i GetPlatformAdministratorProfileRow
 	err := row.Scan(
 		&i.UserID,
 		&i.ContextGeneration,
@@ -940,7 +948,7 @@ func (q *Queries) ListPlatformAdministratorChanges(ctx context.Context, arg List
 const listPlatformAdministratorProfiles = `-- name: ListPlatformAdministratorProfiles :many
 SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles AS p
-WHERE EXISTS(SELECT 1 FROM identity.users live WHERE live.id=p.user_id AND live.account_type='PLATFORM_ADMIN')
+WHERE p.removed_at IS NULL AND EXISTS(SELECT 1 FROM identity.users live WHERE live.id=p.user_id AND live.account_type='PLATFORM_ADMIN')
  AND ($1::uuid IS NULL OR p.user_id = $1::uuid)
   AND ($2::text IS NULL OR EXISTS (
        SELECT 1 FROM identity.users u WHERE u.id=p.user_id AND u.account_type='PLATFORM_ADMIN'
@@ -964,7 +972,15 @@ type ListPlatformAdministratorProfilesParams struct {
 	PageLimit       int32
 }
 
-func (q *Queries) ListPlatformAdministratorProfiles(ctx context.Context, arg ListPlatformAdministratorProfilesParams) ([]PlatformAdministrationAdministratorProfile, error) {
+type ListPlatformAdministratorProfilesRow struct {
+	UserID            pgtype.UUID
+	ContextGeneration int64
+	Version           int64
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+func (q *Queries) ListPlatformAdministratorProfiles(ctx context.Context, arg ListPlatformAdministratorProfilesParams) ([]ListPlatformAdministratorProfilesRow, error) {
 	rows, err := q.db.Query(ctx, listPlatformAdministratorProfiles,
 		arg.FilterUserID,
 		arg.FilterState,
@@ -977,9 +993,9 @@ func (q *Queries) ListPlatformAdministratorProfiles(ctx context.Context, arg Lis
 		return nil, err
 	}
 	defer rows.Close()
-	items := []PlatformAdministrationAdministratorProfile{}
+	items := []ListPlatformAdministratorProfilesRow{}
 	for rows.Next() {
-		var i PlatformAdministrationAdministratorProfile
+		var i ListPlatformAdministratorProfilesRow
 		if err := rows.Scan(
 			&i.UserID,
 			&i.ContextGeneration,

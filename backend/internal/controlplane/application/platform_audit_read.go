@@ -84,7 +84,7 @@ var platformAuditActions = map[string]bool{
 	"UserLoggedIn": true, "EmailLoginCodeVerified": true, "MFALoginCompleted": true,
 	"PlatformOwnerBootstrapped": true, "PlatformAdministratorSessionsRevoked": true,
 	"PlatformAdministratorInvitationIssued": true, "PlatformAdministratorInvitationCancelled": true, "PlatformAdministratorInvitationAccepted": true, "PlatformOwnerInvitationActivated": true, "PlatformOwnerInvitationRejected": true,
-	"PlatformRoleAssignmentChanged": true, "PlatformRoleRevocationChanged": true, "PlatformAdministratorDisabled": true, "PlatformAdministratorReactivated": true, "PlatformAdministratorDeleted": true,
+	"PlatformRoleAssignmentChanged": true, "PlatformRoleRevocationChanged": true, "PlatformAdministratorDisabled": true, "PlatformAdministratorReactivated": true, "PlatformAdministratorRemoved": true, "PlatformAdministratorDeleted": true,
 	"PlatformIntegrationVersionCreated": true, "PlatformIntegrationVersionTested": true, "PlatformIntegrationActivationProposed": true, "PlatformControlAuditExport": true,
 	"PlatformPlansRead": true, "PlatformPlanDraftCreated": true, "PlatformPlanPublished": true,
 	"PlatformSubscriptionRead": true, "PlatformSubscriptionCancellationScheduled": true, "PlatformSubscriptionCancellationWithdrawn": true, "PlatformSubscriptionInventoryRead": true,

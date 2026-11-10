@@ -458,12 +458,15 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 		if err != nil {
 			return fail(err)
 		}
+		if composition.registration == nil {
+			return fail(errors.New("invitation_registration_unavailable"))
+		}
+		composition.registration.EnableInvitationRegistration(platformModule)
+		if err = platformModule.EnablePasswordActivation(composition.hasher); err != nil {
+			return fail(err)
+		}
+		composition.registration.EnableInvitationActivation(platformModule)
 	}
-	composition.registration.EnableInvitationRegistration(platformModule)
-	if err := platformModule.EnablePasswordActivation(composition.hasher); err != nil {
-		return nil, err
-	}
-	composition.registration.EnableInvitationActivation(platformModule)
 	if err = accountType.EnablePlatformAccess(platformPortalAdapter{platform: platformModule, mfa: composition.mfaStore}); err != nil {
 		return fail(err)
 	}

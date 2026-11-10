@@ -440,12 +440,15 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 		if buildErr != nil {
 			return fail(buildErr)
 		}
+		if registrationHandler == nil {
+			return fail(errors.New("invitation_registration_unavailable"))
+		}
+		registrationHandler.EnableInvitationRegistration(platformModule)
+		if err = platformModule.EnablePasswordActivation(identity.hasher); err != nil {
+			return fail(err)
+		}
+		registrationHandler.EnableInvitationActivation(platformModule)
 	}
-	registrationHandler.EnableInvitationRegistration(platformModule)
-	if err := platformModule.EnablePasswordActivation(identity.hasher); err != nil {
-		return nil, err
-	}
-	registrationHandler.EnableInvitationActivation(platformModule)
 	platformAdministrationHandler, err := httpapi.NewPlatformAdministrationHandler(platformModule, systemClock{})
 	if err != nil {
 		return fail(err)

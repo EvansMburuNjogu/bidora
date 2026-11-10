@@ -26,7 +26,7 @@ func TestMigrationAndGenerationInputsMatchReviewedChecksums(t *testing.T) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 197 {
+	if manifest.Status != "pre-release-reviewed-slice" || manifest.Algorithm != "sha256" || len(manifest.Files) != 199 {
 		t.Fatal("unexpected manifest scope")
 	}
 	for name, want := range manifest.Files {
@@ -441,7 +441,7 @@ func TestBrowserSessionsAreHashedBoundedAndRevocable(t *testing.T) {
 			t.Fatal("session query missing", name)
 		}
 	}
-	for _, required := range []string{"u.email_verified_at IS NOT NULL", "u.disabled_at IS NULL", "u.auth_epoch=s.auth_epoch", "s.revoked_at IS NULL", "LEAST(s.idle_expires_at,s.last_seen_at+make_interval", "LEAST(s.absolute_expires_at,s.created_at+make_interval", "s.last_seen_at<=sqlc.arg(observed_at)", "policy_idle_seconds", "policy_absolute_seconds", "admin_idle_seconds", "admin_absolute_seconds", "u.account_type='PLATFORM_ADMIN'", "s.assurance_level='AAL2'"} {
+	for _, required := range []string{"u.email_verified_at IS NOT NULL", "u.disabled_at IS NULL", "u.auth_epoch=s.auth_epoch", "s.revoked_at IS NULL", "LEAST(s.idle_expires_at,s.last_seen_at+make_interval", "LEAST(s.absolute_expires_at,s.created_at+make_interval", "last_seen_at=GREATEST(s.last_seen_at,sqlc.arg(observed_at))", "policy_idle_seconds", "policy_absolute_seconds", "admin_idle_seconds", "admin_absolute_seconds", "u.account_type='PLATFORM_ADMIN'", "s.assurance_level='AAL2'"} {
 		if !strings.Contains(queries, required) {
 			t.Fatal("session refresh guard missing", required)
 		}

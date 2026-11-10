@@ -1054,6 +1054,7 @@ type PlatformAdministrationAdministratorProfile struct {
 	Version           int64
 	CreatedAt         pgtype.Timestamptz
 	UpdatedAt         pgtype.Timestamptz
+	RemovedAt         pgtype.Timestamptz
 }
 
 type PlatformAdministrationCommand struct {

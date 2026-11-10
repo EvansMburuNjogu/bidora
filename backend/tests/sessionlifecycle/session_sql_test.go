@@ -16,7 +16,6 @@ import (
 	identitypersistence "bidora/backend/internal/identity/persistence"
 	identitysql "bidora/backend/internal/identity/persistence/sqlc"
 	"bidora/backend/internal/identity/securitypolicy"
- "bidora/backend/internal/identity/session"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

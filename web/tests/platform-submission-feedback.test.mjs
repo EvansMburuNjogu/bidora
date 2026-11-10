@@ -45,7 +45,10 @@ test("one shared Toaster and connected action components retain deduplication an
   const layout = await readFile(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
   assert.equal((layout.match(/<Toaster\b/g) ?? []).length, 1);
   for (const value of ['position="top-right"', "mobileOffset", "duration={5000}", "visibleToasts={3}"]) assert.ok(layout.includes(value), value);
-  for (const name of ["google-login-settings", "notifications-settings", "platform-information-form", "platform-security-policy", "administrator-role-change", "administrator-identity-state", "administrator-approvals", "administrator-detail", "smtp-configuration"]) {
+  const administratorDetail = await readFile(new URL("../src/components/platform/administrator-detail.tsx", import.meta.url), "utf8");
+  assert.ok(administratorDetail.includes("<AdministratorRoleChange"));
+  assert.ok(administratorDetail.includes("<AdministratorIdentityState"));
+  for (const name of ["google-login-settings", "notifications-settings", "platform-information-form", "platform-security-policy", "administrator-role-change", "administrator-identity-state", "smtp-configuration"]) {
     const source = await readFile(new URL(`../src/components/platform/${name}.tsx`, import.meta.url), "utf8");
     for (const value of ["submitting.current", "Loader2Icon", "submissionErrorMessage", "toast.", "id:"]) assert.ok(source.includes(value), `${name}: ${value}`);
   }

@@ -778,7 +778,7 @@ func (tx *governanceReadTx) ListAdministratorProfiles(ctx context.Context, filte
 	}
 	result := make([]platformapp.AdministratorProfileView, len(rows))
 	for i, row := range rows {
-		view, viewErr := profileView(row)
+		view, viewErr := profileView(platformsql.PlatformAdministrationAdministratorProfile{UserID: row.UserID, ContextGeneration: row.ContextGeneration, Version: row.Version, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 		if viewErr != nil {
 			return nil, viewErr
 		}
@@ -794,7 +794,7 @@ func (tx *governanceReadTx) GetAdministratorProfile(ctx context.Context, userID 
 	if err != nil {
 		return platformapp.AdministratorProfileView{}, err
 	}
-	return profileView(row)
+	return profileView(platformsql.PlatformAdministrationAdministratorProfile{UserID: row.UserID, ContextGeneration: row.ContextGeneration, Version: row.Version, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
 }
 func (tx *governanceReadTx) ListAdministratorIdentities(ctx context.Context, userIDs []platformapp.ID) ([]platformapp.AdministratorIdentityView, error) {
 	ids := make([]identityapp.ID, len(userIDs))

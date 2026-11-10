@@ -313,7 +313,7 @@ WHERE singleton = true AND first_additional_owner_exception_consumed = false
 -- name: ListPlatformAdministratorProfiles :many
 SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles AS p
-WHERE EXISTS(SELECT 1 FROM identity.users live WHERE live.id=p.user_id AND live.account_type='PLATFORM_ADMIN')
+WHERE p.removed_at IS NULL AND EXISTS(SELECT 1 FROM identity.users live WHERE live.id=p.user_id AND live.account_type='PLATFORM_ADMIN')
  AND (sqlc.narg(filter_user_id)::uuid IS NULL OR p.user_id = sqlc.narg(filter_user_id)::uuid)
   AND (sqlc.narg(filter_state)::text IS NULL OR EXISTS (
        SELECT 1 FROM identity.users u WHERE u.id=p.user_id AND u.account_type='PLATFORM_ADMIN'
@@ -330,7 +330,7 @@ LIMIT sqlc.arg(page_limit);
 -- name: GetPlatformAdministratorProfile :one
 SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles
-WHERE user_id = sqlc.arg(user_id);
+WHERE user_id = sqlc.arg(user_id) AND removed_at IS NULL;
 
 -- name: ListLatestPlatformRoleAssignments :many
 SELECT DISTINCT ON (role_key) id, user_id, role_key, state, source, assigned_by,
