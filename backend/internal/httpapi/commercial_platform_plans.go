@@ -59,7 +59,8 @@ func (h *PlatformPlanHandler) list(c fiber.Ctx) error {
 		if item.Draft != nil {
 			draft = platformPlanConfigView(*item.Draft)
 		}
-		result = append(result, fiber.Map{"plan_key": item.Published.Key, "published": platformPlanConfigView(item.Published), "draft": draft, "active_version": item.Head.ActiveVersion, "head_version": item.Head.HeadVersion})
+		independentPublisher := item.Draft != nil && !item.Draft.CreatedBy.IsZero() && item.Draft.CreatedBy != subject.UserID
+		result = append(result, fiber.Map{"plan_key": item.Published.Key, "published": platformPlanConfigView(item.Published), "draft": draft, "independent_publisher": independentPublisher, "active_version": item.Head.ActiveVersion, "head_version": item.Head.HeadVersion})
 	}
 	return c.JSON(fiber.Map{"data": fiber.Map{"plans": result}, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
 }

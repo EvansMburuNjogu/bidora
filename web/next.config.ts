@@ -15,6 +15,8 @@ if (testDistDir && !/^\.next-auth-test-[1-9][0-9]*$/.test(testDistDir)) {
 const nextConfig: NextConfig = {
   output: "standalone",
   distDir: testDistDir || ".next",
+  // An inherited config keeps Next.js from appending exact PID-specific type paths.
+  typescript: { tsconfigPath: testDistDir ? "tsconfig.auth-test.json" : "tsconfig.json" },
   poweredByHeader: false,
   async headers() {
     return [

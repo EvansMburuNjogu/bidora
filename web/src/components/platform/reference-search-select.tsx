@@ -36,7 +36,7 @@ export function ReferenceSearchSelect({ id, label, value, options, onChange, inv
         if (event.key === "ArrowUp" && visible.length) { event.preventDefault(); openList(); setActive((index) => Math.max(0, index - 1)); }
         if (event.key === "Home" && open && visible.length) { event.preventDefault(); setActive(0); }
         if (event.key === "End" && open && visible.length) { event.preventDefault(); setActive(visible.length - 1); }
-        if (event.key === "Enter" && open && visible[active]) { event.preventDefault(); choose(visible[active]); }
+        if (event.key === "Enter" && open) { event.preventDefault(); if (visible[active]) choose(visible[active]); }
       }} /><ChevronDownIcon aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /></div>
     {open && <div id={`${id}-options`} role="listbox" aria-label={label} className={`absolute z-50 max-h-60 w-full overscroll-contain overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg animate-in fade-in-0 zoom-in-95 ${above ? "bottom-full mb-1" : "top-full mt-1"}`}>
       {visible.map((option, index) => <button type="button" role="option" id={`${id}-option-${index}`} aria-selected={option.value === value} key={option.value} className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none ${index === active ? "bg-accent" : ""}`}

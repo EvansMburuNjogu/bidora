@@ -2012,7 +2012,7 @@
           "type": "string"
         },
         "capabilities": {
-          "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for all other account types. Every platform operation still rechecks current authority.",
+          "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for other account types and for primary-only rotated administrator sessions awaiting reauthentication. Every platform operation still rechecks current authority.",
           "items": {
             "minLength": 1,
             "type": "string"
@@ -3124,9 +3124,9 @@
       "additionalProperties": false,
       "properties": {
         "token": {
+          "description": "Secret invitation link context plus six digits, or a legacy strong token. Retains expiry, one-time use, email binding and rate limits.",
           "maxLength": 43,
-          "minLength": 43,
-          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "minLength": 29,
           "type": "string"
         }
       },
@@ -3207,6 +3207,7 @@
             "REVOKE_ROLE",
             "DISABLE_IDENTITY",
             "REACTIVATE_IDENTITY",
+            "DELETE_IDENTITY",
             "ACTIVATE_OWNER_INVITATION"
           ],
           "type": "string"
@@ -3382,6 +3383,7 @@
       "discriminator": {
         "mapping": {
           "ASSIGN_ROLE": "#/components/schemas/AssignRoleChange",
+          "DELETE_IDENTITY": "#/components/schemas/IdentityStateChange",
           "DISABLE_IDENTITY": "#/components/schemas/IdentityStateChange",
           "REACTIVATE_IDENTITY": "#/components/schemas/IdentityStateChange",
           "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"
@@ -3606,7 +3608,8 @@
         "action": {
           "enum": [
             "DISABLE_IDENTITY",
-            "REACTIVATE_IDENTITY"
+            "REACTIVATE_IDENTITY",
+            "DELETE_IDENTITY"
           ],
           "type": "string"
         },
@@ -3664,6 +3667,11 @@
             "null"
           ]
         },
+        "first_name": {
+          "description": "Immutable invitation name; empty on historical invitations.",
+          "maxLength": 100,
+          "type": "string"
+        },
         "governance_change_id": {
           "format": "uuid",
           "type": [
@@ -3673,6 +3681,11 @@
         },
         "id": {
           "format": "uuid",
+          "type": "string"
+        },
+        "last_name": {
+          "description": "Immutable invitation name; empty on historical invitations.",
+          "maxLength": 100,
           "type": "string"
         },
         "role_key": {
@@ -3754,13 +3767,47 @@
     },
     "platform_administrator_lifecycle__IssueInvitationRequest": {
       "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "reason"
+          ]
+        },
+        {
+          "required": [
+            "first_name",
+            "last_name"
+          ]
+        }
+      ],
+      "dependentRequired": {
+        "first_name": [
+          "last_name"
+        ],
+        "last_name": [
+          "first_name"
+        ]
+      },
       "properties": {
         "email": {
           "maxLength": 254,
           "minLength": 3,
           "type": "string"
         },
+        "first_name": {
+          "description": "First name, at most 100 UTF-8 bytes. Supply with last_name.",
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "last_name": {
+          "description": "Last name, at most 100 UTF-8 bytes. Supply with first_name.",
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
         "reason": {
+          "description": "Optional legacy audit reason; omitted reasons use the server-generated Platform administrator invitation reason.",
           "maxLength": 2000,
           "minLength": 1,
           "type": "string"
@@ -3771,8 +3818,7 @@
       },
       "required": [
         "email",
-        "role_key",
-        "reason"
+        "role_key"
       ],
       "type": "object"
     },
@@ -6496,6 +6542,13 @@
           "minimum": 300,
           "multipleOf": 60,
           "type": "integer"
+        },
+        "step_up_seconds": {
+          "description": "Sensitive Platform action verification window, default 900 seconds. Omission in legacy requests preserves the saved value; ordinary navigation does not use this timer.",
+          "maximum": 3600,
+          "minimum": 300,
+          "multipleOf": 60,
+          "type": "integer"
         }
       },
       "required": [
@@ -7003,6 +7056,51 @@
         },
         "meta": {
           "$ref": "#/$defs/session_inventory__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "session_renewal__SessionRenewalResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "absolute_expires_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "idle_expires_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "observed_at": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          "required": [
+            "idle_expires_at",
+            "absolute_expires_at",
+            "observed_at"
+          ],
+          "type": "object"
+        },
+        "meta": {
+          "additionalProperties": false,
+          "properties": {
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "trace_id"
+          ],
+          "type": "object"
         }
       },
       "required": [

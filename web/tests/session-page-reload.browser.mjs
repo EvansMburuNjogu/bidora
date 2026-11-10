@@ -17,7 +17,7 @@ try {
       account_type: "PLATFORM_ADMIN", portal: { key: "PLATFORM_ADMIN", path: "/platform" }, platform_context_generation: 1,
       capabilities: ["platform.tenant.read"], required_actions: [], session: { assurance_level: "AAL2", idle_expires_at: new Date(Date.now() + 900_000).toISOString(), absolute_expires_at: new Date(Date.now() + 3600_000).toISOString() },
     }, meta: { trace_id: "fixture" } }) });
-    if (path === "/api/platform/tenants") {
+    if (path === "/api/platform/overview") {
       tenantReads++;
       beforeConflictCheck = bootstrapReads;
       return route.fulfill({ status: 409, contentType: "application/json", body: "{}" });
@@ -26,7 +26,7 @@ try {
   });
   await page.goto((process.env.BIDORA_TEST_WEB_ORIGIN || "http://127.0.0.1:3000") + "/platform");
   await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
-  await page.getByText("Unavailable for this session.", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Refresh", exact: true }).waitFor();
   await page.waitForTimeout(2000);
   assert.equal(tenantReads, 1, "conflicting page request must not remount and repeat");
   assert.equal(bootstrapReads, beforeConflictCheck + 1, "page conflict should trigger one session recheck, not a refresh loop");

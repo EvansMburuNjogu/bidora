@@ -34,7 +34,7 @@ function SupportCaseWorkspace({ caseID }: { caseID: string }) {
       if (current !== sequence.current) return;
       if (response.status === 401 || response.status === 409) { refresh(); return; }
       const result = response.ok ? parseSupportDetail(await response.json(), caseID) : null;
-      if (!result) { setError(response.status === 403 ? "A verified Support session is required." : "The case could not be confirmed."); return; }
+      if (!result) { setError(response.status === 403 ? "You do not have permission to view this support case." : "The case could not be confirmed."); return; }
       setDetail({ ...result, generation }); setAssignee(result.case.assigned_to ?? "");
     } catch { if (current === sequence.current) setError("The case is unavailable."); }
     finally { if (current === sequence.current) setBusy(false); }

@@ -150,7 +150,7 @@ func (q *Queries) InvalidateActivePasswordRecoveryChallenges(ctx context.Context
 }
 
 const lockValidPasswordRecoveryChallenge = `-- name: LockValidPasswordRecoveryChallenge :one
-SELECT c.id AS challenge_id,c.user_id,p.credential_version,u.auth_epoch
+SELECT c.id AS challenge_id,c.user_id,p.credential_version,u.auth_epoch,u.email_lookup
 FROM identity.password_recovery_challenges c JOIN identity.users u ON u.id=c.user_id JOIN identity.authentication_identities p ON p.user_id=u.id
 WHERE c.token_hash=$1 AND c.purpose='PASSWORD_RECOVERY' AND c.consumed_at IS NULL AND c.expires_at>$2
  AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL FOR UPDATE OF c,u,p
@@ -166,6 +166,7 @@ type LockValidPasswordRecoveryChallengeRow struct {
 	UserID            pgtype.UUID
 	CredentialVersion int64
 	AuthEpoch         int64
+	EmailLookup       string
 }
 
 func (q *Queries) LockValidPasswordRecoveryChallenge(ctx context.Context, arg LockValidPasswordRecoveryChallengeParams) (LockValidPasswordRecoveryChallengeRow, error) {
@@ -176,6 +177,7 @@ func (q *Queries) LockValidPasswordRecoveryChallenge(ctx context.Context, arg Lo
 		&i.UserID,
 		&i.CredentialVersion,
 		&i.AuthEpoch,
+		&i.EmailLookup,
 	)
 	return i, err
 }

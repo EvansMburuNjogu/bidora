@@ -32,7 +32,7 @@ func (f *historyScopeFixture) AppendHistoryReadAudit(context.Context, domain.ID,
 	return nil
 }
 
-func TestAllNotificationHistoryRequiresFreshPlatformAuthority(t *testing.T) {
+func TestAllNotificationHistoryRequiresCurrentPlatformAuthority(t *testing.T) {
 	at := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 	subject := app.HistorySubject{UserID: domain.ID{1}, SessionID: domain.ID{2}, CorrelationID: domain.ID{3}, ContextGeneration: 1}
 	f := &historyScopeFixture{facts: platformapp.AuthorityFacts{UserID: platformapp.ID(subject.UserID), ContextGeneration: 1, AssuranceLevel: "AAL2", AssuranceMethod: "EMAIL_OTP", AssuredAt: at}}
@@ -49,12 +49,12 @@ func TestAllNotificationHistoryRequiresFreshPlatformAuthority(t *testing.T) {
 		t.Fatal("authorized global metadata not audited", err)
 	}
 	f.facts.AssuredAt = at.Add(-16 * time.Minute)
-	if _, err = service.List(context.Background(), subject, 25, nil); !errors.Is(err, app.ErrHistoryForbidden) || f.reads != 1 {
-		t.Fatal("stale assurance read history")
+	if _, err = service.List(context.Background(), subject, 25, nil); err != nil || f.reads != 2 {
+		t.Fatal("valid older administrator could not navigate history", err)
 	}
 	f.facts.AssuredAt = at
 	f.facts.ContextGeneration++
-	if _, err = service.List(context.Background(), subject, 25, nil); !errors.Is(err, app.ErrHistoryForbidden) || f.reads != 1 {
+	if _, err = service.List(context.Background(), subject, 25, nil); !errors.Is(err, app.ErrHistoryForbidden) || f.reads != 2 {
 		t.Fatal("stale context read history")
 	}
 }

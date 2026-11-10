@@ -9,6 +9,8 @@ FROM commercial.subscriptions s
 LEFT JOIN commercial.subscription_terms t ON t.id=s.current_term_id AND t.subscription_id=s.id
 WHERE s.id>sqlc.arg(after_id)::uuid
  AND (sqlc.arg(state_filter)::text='' OR CASE WHEN EXISTS(SELECT 1 FROM commercial.subscription_access_holds h WHERE h.subscription_id=s.id AND h.state='ACTIVE') THEN 'SUSPENDED' ELSE s.state END=sqlc.arg(state_filter)::text)
+ AND (sqlc.arg(plan_filter)::text='' OR COALESCE(t.plan_key,s.pending_plan_key,'')=sqlc.arg(plan_filter)::text)
+ AND (sqlc.arg(cadence_filter)::text='' OR COALESCE(t.cadence,s.pending_cadence,'')=sqlc.arg(cadence_filter)::text)
 ORDER BY s.id ASC LIMIT sqlc.arg(row_limit);
 
 -- name: InsertPlatformSubscriptionInventoryRead :exec

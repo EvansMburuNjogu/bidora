@@ -151,7 +151,7 @@ func (s *InformationService) Save(ctx context.Context, in InformationSave) (resu
 		if e != nil {
 			return e
 		}
-		if !canReadInformation(auth, at) || !auth.EffectiveOwner {
+		if !canReadInformation(auth, at) || !auth.EffectiveOwner || !recent(ctx, auth, at) {
 			return ErrInformationForbidden
 		}
 		current, e := tx.ReadInformation(c, true)
@@ -231,7 +231,7 @@ func validInformationSubject(ctx context.Context, s Subject) bool {
 	return ctx != nil && !s.ActorID.IsZero() && !s.SessionID.IsZero() && s.ContextGeneration > 0
 }
 func canReadInformation(a Authority, at time.Time) bool {
-	return a.Capabilities["platform.admin.read"] && platformpolicy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) && !a.AssuredAt.IsZero() && !a.AssuredAt.After(at) && !a.AssuredAt.Before(at.Add(-15*time.Minute))
+	return a.Capabilities["platform.admin.read"] && platformpolicy.CurrentAdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod, a.AssuredAt, at)
 }
 func validSupportWebsite(mail, site string) bool {
 	if _, err := email.Parse(mail); err != nil {

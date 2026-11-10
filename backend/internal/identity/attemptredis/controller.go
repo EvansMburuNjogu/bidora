@@ -122,6 +122,25 @@ func (c *Controller) Begin(ctx context.Context, scopes attempt.Scopes) (identity
 	return &reservation{policy: p, controller: c, identityFailureKey: keys[0], identityBlockKey: keys[1], reservationKey: keys[5]}, nil
 }
 
+// ClearRecoveredIdentity removes only this identity's password failures and
+// lock. Network budgets, network blocks and email-code controls are untouched.
+func (c *Controller) ClearRecoveredIdentity(ctx context.Context, key attempt.Key) error {
+	if ctx == nil || key.IsZero() || c == nil || c.runner == nil {
+		return errors.New("redis_attempt_scope_invalid")
+	}
+	base := c.prefix + ":{login-attempt}:i:"
+	suffix := hex.EncodeToString(key[:])
+	result, err := c.runner.Eval(ctx, `return redis.call("DEL", KEYS[1], KEYS[2])`, []string{base + "fail:" + suffix, base + "block:" + suffix})
+	if err != nil {
+		return err
+	}
+	value, ok := integer(result)
+	if !ok || value < 0 || value > 2 {
+		return errors.New("redis_attempt_result_invalid")
+	}
+	return nil
+}
+
 type reservation struct {
 	policy                                               attempt.Policy
 	controller                                           *Controller

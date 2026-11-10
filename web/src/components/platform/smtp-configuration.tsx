@@ -81,7 +81,7 @@ export function SMTPConfiguration() {
       if (response.status === 401 || response.status === 409) {
         setStatus({ kind: "error", message: "SMTP access could not be confirmed." }); refresh(); return;
       }
-      if (response.status === 403) { setStatus({ kind: "error", message: "SMTP settings require current integration access and recent email verification." }); return; }
+      if (response.status === 403) { setStatus({ kind: "error", message: "You do not have permission to view SMTP settings." }); return; }
       if (response.status !== 404 && !active || active && active.state !== "ACTIVE") {
         setStatus({ kind: "error", message: "SMTP settings are temporarily unavailable." }); return;
       }

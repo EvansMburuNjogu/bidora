@@ -18,6 +18,7 @@ type EmailVerificationUseCase interface {
 }
 
 type EmailVerificationHandler struct {
+	codes        *EmailCodes
 	verification EmailVerificationUseCase
 	protection   *browser.Protection
 }
@@ -29,6 +30,7 @@ func NewEmailVerificationHandler(verification EmailVerificationUseCase, protecti
 	return &EmailVerificationHandler{verification: verification, protection: protection}, nil
 }
 
+func (h *EmailVerificationHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
 func (h *EmailVerificationHandler) Handle(c fiber.Ctx) error {
 	if c == nil {
 		return errors.New("email_verification_http_context_required")
@@ -51,7 +53,27 @@ func (h *EmailVerificationHandler) Handle(c fiber.Ctx) error {
 	if !ok || !validJSONMediaType(contentType) {
 		return fail(c, 415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json.", false)
 	}
-	token, err := decodeVerification(c.Body())
+	var reference string
+	var token string
+	var err error
+	if h.codes != nil {
+		var body struct {
+			Token     string `json:"token"`
+			Reference string `json:"challenge_ref"`
+		}
+		if e := decodeRecoveryJSON(c, &body); e != nil {
+			return e
+		}
+		if c.Response().StatusCode() >= 400 {
+			return nil
+		}
+		if !requireWorkflowFields(c.Body(), []string{"token"}, "challenge_ref") {
+			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+		}
+		token, reference = body.Token, body.Reference
+	} else {
+		token, err = decodeVerification(c.Body())
+	}
 	if err != nil {
 		return fail(c, errorStatus(err.Error()), err.Error(), "The request is invalid.", false)
 	}
@@ -59,9 +81,25 @@ func (h *EmailVerificationHandler) Handle(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	if _, err = h.verification.Verify(c.Context(), identityapp.EmailVerificationInput{Token: token, CorrelationID: correlationID}); err != nil {
+	var reservation identityapp.AttemptReservation
+	if len(token) == 6 && h.codes != nil {
+		token, reservation, err = h.codes.redeem(c, "verify", reference, token)
+		if err != nil {
+			if !invalidEmailCode(err) {
+				return fail(c, 503, "VERIFICATION_UNAVAILABLE", "Email verification is temporarily unavailable.", true)
+			}
+			return fail(c, 400, "VERIFICATION_INVALID", "The code is invalid, expired or temporarily blocked.", false)
+		}
+	}
+	_, err = h.verification.Verify(c.Context(), identityapp.EmailVerificationInput{Token: token, CorrelationID: correlationID})
+	if reservation != nil {
+		if finishErr := reservation.Finish(c.Context(), err == nil); finishErr != nil {
+			return fail(c, 503, "VERIFICATION_UNAVAILABLE", "Email verification is temporarily unavailable.", true)
+		}
+	}
+	if err != nil {
 		if err.Error() == "verification_invalid" {
-			return fail(c, 400, "VERIFICATION_INVALID", "The verification token is invalid.", false)
+			return fail(c, 400, "VERIFICATION_INVALID", "The verification code is invalid or expired.", false)
 		}
 		return fail(c, 503, "VERIFICATION_UNAVAILABLE", "Email verification is temporarily unavailable.", true)
 	}

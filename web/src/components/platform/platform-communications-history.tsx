@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlatformSelect } from "@/components/platform/platform-select";
+import { SearchableFilterSelect } from "@/components/platform/searchable-filter-select";
 import { isAcceptedEmail } from "@/lib/auth-validation";
 import { useSession } from "@/components/session/session-provider";
 
@@ -73,11 +73,11 @@ export function PlatformCommunicationsHistory() {
   function clearFilters() { setFilterError(""); setFilters({ ...emptyFilters }); setApplied({ ...emptyFilters }); setCursors([null]); }
   return <main className="app-page min-w-0 space-y-5">
     <div className="app-page-header"><h1 className="type-title">Communications</h1><p className="text-sm text-muted-foreground">Recipients, message previews and recorded send outcomes. Secret codes and links are redacted. SMTP acceptance does not confirm inbox delivery.</p></div>
-    <form onSubmit={apply} aria-label="Communication filters" className="space-y-3 rounded-lg border bg-card p-4">
+    <form onSubmit={apply} aria-label="Communication filters" className="relative z-10 space-y-3 rounded-lg border bg-card p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="grid gap-2"><Label htmlFor="communication-recipient">Recipient email</Label><Input id="communication-recipient" type="email" maxLength={254} autoComplete="off" placeholder="Exact email address" value={filters.recipient} onChange={event => setFilters(old => ({...old, recipient:event.target.value}))} /></div>
-        <div className="grid gap-2"><Label htmlFor="communication-category">Category</Label><PlatformSelect id="communication-category" value={filters.category} onChange={event => setFilters(old => ({ ...old, category: event.target.value }))}><option value="">All categories</option>{categories.map(value => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</PlatformSelect></div>
-        <div className="grid gap-2"><Label htmlFor="communication-status">Outcome</Label><PlatformSelect id="communication-status" value={filters.status} onChange={event => setFilters(old => ({ ...old, status: event.target.value }))}><option value="">All outcomes</option>{Object.entries(outcomes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</PlatformSelect></div>
+        <SearchableFilterSelect id="communication-category" label="Category" value={filters.category} options={[{ value: "", label: "All categories" }, ...categories.map(value => ({ value, label: value.replaceAll("_", " ") }))]} onChange={category => setFilters(old => ({ ...old, category }))} />
+        <SearchableFilterSelect id="communication-status" label="Outcome" value={filters.status} options={[{ value: "", label: "All outcomes" }, ...Object.entries(outcomes).map(([value, label]) => ({ value, label }))]} onChange={status => setFilters(old => ({ ...old, status }))} />
         <div className="grid gap-2"><Label htmlFor="communication-from">From date (UTC)</Label><Input id="communication-from" type="date" value={filters.from} onChange={event => setFilters(old => ({ ...old, from: event.target.value }))} /></div>
         <div className="grid gap-2"><Label htmlFor="communication-to">To date (UTC)</Label><Input id="communication-to" type="date" value={filters.to} onChange={event => setFilters(old => ({ ...old, to: event.target.value }))} /></div>
       </div>
@@ -85,7 +85,7 @@ export function PlatformCommunicationsHistory() {
       <div className="flex flex-wrap gap-2"><Button type="submit">Apply filters</Button><Button type="button" variant="outline" onClick={clearFilters}>Clear filters</Button><Button type="button" variant="outline" onClick={() => void load()}><RotateCcwIcon aria-hidden="true" />Refresh</Button></div>
     </form>
     {view.kind === "loading" ? <Skeleton className="h-36 w-full" /> : null}
-    {view.kind === "denied" ? <p role="alert" className="text-sm">Only authorised Platform Administrators with recent verification can view notification records.</p> : null}
+    {view.kind === "denied" ? <p role="alert" className="text-sm">You do not have permission to view notification records.</p> : null}
     {view.kind === "error" ? <div role="alert" className="flex items-center gap-3 text-sm">History could not be loaded. <Button type="button" variant="outline" onClick={() => void load()}>Retry</Button></div> : null}
     {view.kind === "ready" ? <>
       <div className="overflow-x-auto rounded-lg border bg-card"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-muted/40"><tr>{["Recipient", "Message", "Category", "Send outcome", "Started (UTC)", "Finished (UTC)"].map(label => <th key={label} scope="col" className="px-4 py-3">{label}</th>)}</tr></thead><tbody>{view.page.data.map((row, index) => <tr key={`${row.started_at}-${index}`} className="border-t align-top">

@@ -16,7 +16,7 @@ type EmailVerificationResendInput struct {
 	NetworkScope  attempt.Key
 }
 
-type EmailVerificationResendResult struct{ Accepted bool }
+type EmailVerificationResendResult struct{ Accepted, VerificationIssued bool }
 
 type EmailVerificationResendService struct {
 	credentials  CredentialReader
@@ -56,7 +56,7 @@ func (s *EmailVerificationResendService) Resend(ctx context.Context, input Email
 	}
 	if err = s.attempts.Allow(ctx, attempt.Scopes{Identity: identityScope, Network: input.NetworkScope}); err != nil {
 		if errors.Is(err, ErrRegistrationAttemptDenied) {
-			return EmailVerificationResendResult{}, safe("verification_resend_attempt_denied", nil)
+			return EmailVerificationResendResult{}, safe("verification_resend_attempt_denied", err)
 		}
 		return EmailVerificationResendResult{}, safe("verification_resend_unavailable", err)
 	}
@@ -76,6 +76,7 @@ func (s *EmailVerificationResendService) Resend(ctx context.Context, input Email
 	}
 	// Delivery ambiguity is intentionally concealed. Issuance invalidates the
 	// previous active challenge atomically before the delivery attempt.
-	_, _ = s.verification.Issue(ctx, EmailVerificationIssueInput{UserID: record.UserID, CorrelationID: input.CorrelationID})
+	_, issueErr := s.verification.Issue(ctx, EmailVerificationIssueInput{UserID: record.UserID, CorrelationID: input.CorrelationID})
+	accepted.VerificationIssued = issueErr == nil
 	return accepted, nil
 }

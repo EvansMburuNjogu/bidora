@@ -22,7 +22,28 @@ func RecoveryAction(origin, userID, code string) Action {
 	return Action{Label: "Reset password", URL: u.String()}
 }
 
-func contentAction(c Content) Action {
+// ActionFor keeps HTML buttons and plain-text action links consistent.
+func ActionFor(c Content) Action {
+	if (c.Key == "identity.email_verification" || c.Key == "identity.password_recovery") && len(c.Code) == 6 && c.ChallengeRef != "" {
+		ref, err := uuid.Parse(c.ChallengeRef)
+		action := QuickAction(c.Origin, c.Key)
+		if err != nil || ref == uuid.Nil || action.URL == "" {
+			return Action{}
+		}
+		u, _ := url.Parse(action.URL)
+		if c.Key == "identity.password_recovery" && c.RecoveryUserID != "" {
+			if id, e := uuid.Parse(c.RecoveryUserID); e == nil && id != uuid.Nil {
+				u.Path = "/recovery_email/" + id.String()
+			}
+		}
+		q := u.Query()
+		q.Set("challenge_ref", ref.String())
+		u.RawQuery = q.Encode()
+		return Action{Label: action.Label, URL: u.String()}
+	}
+	if (c.Key == "platform.invitation.issued" || c.Key == "tenant.invitation") && c.Code != "" {
+		return InvitationAction(c.Origin, c.Key, c.Code)
+	}
 	if c.Key == "identity.password_recovery" && c.RecoveryUserID != "" {
 		return RecoveryAction(c.Origin, c.RecoveryUserID, c.Code)
 	}

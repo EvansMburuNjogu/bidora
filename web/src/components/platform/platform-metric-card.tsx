@@ -6,8 +6,10 @@ import {
 
 const icons: Record<string, LucideIcon> = {
   "Total Tenderpreneurs": Building2Icon,
+  Organisations: Building2Icon,
   "Active Subscriptions": CreditCardIcon,
   "Outstanding Payments": WalletIcon,
+  "Outstanding invoices": WalletIcon,
   Outstanding: WalletIcon,
   "Open Support Tickets": HeadsetIcon,
   "Total Invoiced": BanknoteIcon,

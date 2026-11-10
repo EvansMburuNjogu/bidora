@@ -192,6 +192,7 @@ func (tx *bootstrapTx) AppendBootstrapEvidence(ctx context.Context, evidence pla
 }
 
 type invitationTx struct {
+	db postgres.DBTX
 	*bootstrapTx
 	authority *authorityTx
 }
@@ -205,9 +206,12 @@ func newInvitationTx(db postgres.DBTX) (*invitationTx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &invitationTx{bootstrapTx: bootstrap, authority: authority}, nil
+	return &invitationTx{db: db, bootstrapTx: bootstrap, authority: authority}, nil
 }
 
+func (tx *invitationTx) ContinueInvitationSession(ctx context.Context, userID platformapp.ID, epoch int64, v platformapp.InvitationSession) error {
+	return identitypersistence.CommitLoginSessionWithin(ctx, tx.db, identityapp.SessionCommit{SessionID: identityapp.ID(v.SessionID), AuditID: identityapp.ID(v.AuditID), UserID: identityapp.ID(userID), CorrelationID: identityapp.ID(v.CorrelationID), AuthEpoch: epoch, SessionHash: v.SessionHash, CSRFHash: v.CSRFHash, AuthenticationMethod: identityapp.AuthenticationMethodSessionContinuation, AssuranceLevel: "AAL2", AssuranceMethod: "EMAIL_OTP", AssuredAt: v.AssuredAt, CreatedAt: v.CreatedAt, IdleExpiresAt: v.IdleExpiresAt, AbsoluteExpiresAt: v.AbsoluteExpiresAt})
+}
 func (tx *invitationTx) GetIdentityAuthority(ctx context.Context, query platformapp.AuthorityQuery) (platformapp.IdentityAuthorityFacts, error) {
 	return tx.authority.GetIdentityAuthority(ctx, query)
 }
@@ -287,7 +291,7 @@ func (tx *invitationTx) InsertInvitation(ctx context.Context, record platformapp
 		hash = tokenHash[:]
 	}
 	return tx.platform.InsertPlatformInvitation(ctx, platformsql.InsertPlatformInvitationParams{
-		ID: platformID(record.ID), Email: record.EmailDisplay, EmailLookup: record.EmailLookup,
+		ID: platformID(record.ID), FirstName: record.FirstName, LastName: record.LastName, Email: record.EmailDisplay, EmailLookup: record.EmailLookup,
 		RoleKey: string(record.Role), AuthorizationPath: string(record.AuthorizationPath), State: string(record.State), TokenHash: hash,
 		InvitedBy: platformID(record.InvitedBy), Reason: record.Reason, CreatedAt: platformTime(record.CreatedAt),
 		ActivatedAt: optionalPlatformTime(record.ActivatedAt), ExpiresAt: optionalPlatformTime(record.ExpiresAt),
@@ -515,7 +519,7 @@ func (tx *roleChangeTx) GetIdentityStateChange(ctx context.Context, changeID pla
 		return platformapp.IdentityStateChangeResult{}, err
 	}
 	action := platformapp.IdentityStateAction(row.Action)
-	if !row.TargetUserID.Valid || (action != platformapp.DisableAdministrator && action != platformapp.ReactivateAdministrator) || (row.State != "EXECUTED" && row.State != "PENDING_APPROVAL" && row.State != "REJECTED") {
+	if !row.TargetUserID.Valid || (action != platformapp.DisableAdministrator && action != platformapp.ReactivateAdministrator && action != platformapp.DeleteAdministrator) || (row.State != "EXECUTED" && row.State != "PENDING_APPROVAL" && row.State != "REJECTED") {
 		return platformapp.IdentityStateChangeResult{}, errors.New("platform_identity_state_change_result_invalid")
 	}
 	return platformapp.IdentityStateChangeResult{TargetUserID: platformAppID(row.TargetUserID), Action: action, State: row.State}, nil
@@ -842,7 +846,7 @@ func (tx *governanceReadTx) ListInvitations(ctx context.Context, page platformap
 		if row.State == "PENDING_APPROVAL" {
 			delivery = platformapp.DeliveryNotReady
 		}
-		result[i] = platformapp.InvitationView{ID: platformAppID(row.ID), Email: row.Email, Role: role, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), ExpiresAt: platformTimePointer(row.ExpiresAt), Delivery: delivery, GovernanceChangeID: platformIDPointer(row.GovernanceChangeID)}
+		result[i] = platformapp.InvitationView{FirstName: row.FirstName, LastName: row.LastName, ID: platformAppID(row.ID), Email: row.Email, Role: role, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), ExpiresAt: platformTimePointer(row.ExpiresAt), Delivery: delivery, GovernanceChangeID: platformIDPointer(row.GovernanceChangeID)}
 	}
 	return result, nil
 }
@@ -869,7 +873,7 @@ func (tx *governanceReadTx) GetInvitation(ctx context.Context, id platformapp.ID
 	if row.State == "PENDING_APPROVAL" {
 		delivery = platformapp.DeliveryNotReady
 	}
-	return platformapp.InvitationView{ID: platformAppID(row.ID), Email: row.Email, Role: role, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), ExpiresAt: platformTimePointer(row.ExpiresAt), Delivery: delivery, GovernanceChangeID: changeID}, nil
+	return platformapp.InvitationView{FirstName: row.FirstName, LastName: row.LastName, ID: platformAppID(row.ID), Email: row.Email, Role: role, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), ExpiresAt: platformTimePointer(row.ExpiresAt), Delivery: delivery, GovernanceChangeID: changeID}, nil
 }
 func (tx *governanceReadTx) ListChanges(ctx context.Context, state *string, page platformapp.PageCursor, observedAt time.Time) ([]platformapp.ChangeView, error) {
 	beforeTime, beforeID := readCursor(page)
@@ -946,13 +950,20 @@ func invitationFromFind(row platformsql.FindOpenPlatformOwnerInvitationRow) (pla
 	return invitationRecord(row.ID, row.Email, row.EmailLookup, row.RoleKey, row.AuthorizationPath, row.State, row.InvitedBy, row.Reason, row.CreatedAt, row.ActivatedAt, row.ExpiresAt, row.Version)
 }
 func invitationFromGet(row platformsql.GetPlatformInvitationRow) (platformapp.InvitationRecord, error) {
-	return invitationRecord(row.ID, row.Email, row.EmailLookup, row.RoleKey, row.AuthorizationPath, row.State, row.InvitedBy, row.Reason, row.CreatedAt, row.ActivatedAt, row.ExpiresAt, row.Version)
+	record, err := invitationRecord(row.ID, row.Email, row.EmailLookup, row.RoleKey, row.AuthorizationPath, row.State, row.InvitedBy, row.Reason, row.CreatedAt, row.ActivatedAt, row.ExpiresAt, row.Version)
+	record.FirstName, record.LastName = row.FirstName, row.LastName
+	return record, err
 }
 func invitationFromCancelable(row platformsql.LockCancelablePlatformInvitationRow) (platformapp.InvitationRecord, error) {
 	return invitationRecord(row.ID, row.Email, row.EmailLookup, row.RoleKey, row.AuthorizationPath, row.State, row.InvitedBy, row.Reason, row.CreatedAt, row.ActivatedAt, row.ExpiresAt, row.Version)
 }
 func invitationFromActive(row platformsql.LockActivePlatformInvitationByTokenRow) (platformapp.InvitationRecord, error) {
-	return invitationRecord(row.ID, row.Email, row.EmailLookup, row.RoleKey, row.AuthorizationPath, string(platformapp.InvitationActive), row.InvitedBy, row.Reason, row.CreatedAt, row.ActivatedAt, row.ExpiresAt, row.Version)
+	record, err := invitationRecord(row.ID, row.Email, row.EmailLookup, row.RoleKey, row.AuthorizationPath, string(platformapp.InvitationActive), row.InvitedBy, row.Reason, row.CreatedAt, row.ActivatedAt, row.ExpiresAt, row.Version)
+	if err != nil {
+		return platformapp.InvitationRecord{}, err
+	}
+	record.FirstName, record.LastName = row.FirstName, row.LastName
+	return record, nil
 }
 func invitationRecord(id pgtype.UUID, emailDisplay, emailLookup, roleKey, authorizationPath, state string, invitedBy pgtype.UUID, reason string, createdAt, activatedAt, expiresAt pgtype.Timestamptz, version int64) (platformapp.InvitationRecord, error) {
 	role, err := platformdomain.ParseRole(roleKey)

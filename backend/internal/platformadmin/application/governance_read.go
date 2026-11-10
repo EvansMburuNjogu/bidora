@@ -54,15 +54,16 @@ type AdministratorView struct {
 	EffectiveOwner bool
 }
 type InvitationView struct {
-	ID                 ID
-	Email              string
-	Role               domain.Role
-	State              string
-	Version            int64
-	CreatedAt          time.Time
-	ExpiresAt          *time.Time
-	Delivery           DeliveryState
-	GovernanceChangeID *ID
+	FirstName, LastName string
+	ID                  ID
+	Email               string
+	Role                domain.Role
+	State               string
+	Version             int64
+	CreatedAt           time.Time
+	ExpiresAt           *time.Time
+	Delivery            DeliveryState
+	GovernanceChangeID  *ID
 }
 type ChangeView struct {
 	ID                                                                                 ID
@@ -227,6 +228,9 @@ func (s *GovernanceReadService) Administrator(ctx context.Context, auth ReadAuth
 		if readErr != nil {
 			return readErr
 		}
+		if len(identities) == 0 {
+			return ErrAuthorityNotFound
+		}
 		assignments, readErr := tx.ListLatestAssignments(txCtx, []ID{userID})
 		if readErr != nil {
 			return readErr
@@ -349,7 +353,7 @@ func (s *GovernanceReadService) withRead(ctx context.Context, auth ReadAuthority
 		if !facts.Grants("platform.admin.read") {
 			return ErrPlatformAccessForbidden
 		}
-		if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(auth.ObservedAt) || facts.AssuredAt.Before(auth.ObservedAt.Add(-recentPlatformAssurance)) {
+		if !platformpolicy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, auth.ObservedAt) {
 			return ErrPlatformAssuranceRequired
 		}
 		if governance && !facts.Grants("platform.governance.approve") && !facts.Grants("platform.governance.review") {

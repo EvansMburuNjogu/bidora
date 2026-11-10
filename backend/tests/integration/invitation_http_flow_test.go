@@ -3,9 +3,7 @@ package integration_test
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,8 +13,6 @@ import (
 
 	"bidora/backend/internal/authorization/invitation"
 	"bidora/backend/internal/httpapi"
-	"bidora/backend/internal/identity/deliverysmtp"
-	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/identity/password"
 	"bidora/backend/internal/identity/session"
 	"bidora/backend/internal/pilot"
@@ -71,11 +67,7 @@ func TestLivePilotInvitationIssueAcceptAndAuthorizedCaptureJourney(t *testing.T)
 		t.Fatal(err)
 	}
 	smtpFixture := newPilotSMTPFixture(t, inviteeEmail)
-	sender, err := email.Parse("noreply@example.invalid")
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.Runtime.Registration = &pilot.RegistrationConfig{SMTP: deliverysmtp.Config{Host: "127.0.0.1", Port: uint16(smtpFixture.listener.Addr().(*net.TCPAddr).Port), Username: "smtp-user", Password: "smtp-password", Sender: sender, TLS: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "localhost", RootCAs: smtpFixture.roots}, Timeout: time.Second}}
+	configureManagedSMTPFixture(t, &config.Runtime, smtpFixture, 0)
 	deployment, err := pilot.Open(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)

@@ -1,7 +1,7 @@
 export type ManagedPlanKey = "BASIC" | "GROWTH" | "PROFESSIONAL";
 export type ManagedMoney = { currency: "KES"; amount: string; amount_minor_units: number };
 export type ManagedPlan = { version: number; head_version: number; monthly_price: ManagedMoney; annual_price: ManagedMoney; additional_licence_monthly_price: ManagedMoney; bid_workspaces: number; included_licences: number; storage_bytes: number; document_versions: number; ai_credits: number; concurrent_ai_jobs: number };
-export type ManagedPlanItem = { plan_key: ManagedPlanKey; published: ManagedPlan; draft: ManagedPlan | null; active_version: number; head_version: number };
+export type ManagedPlanItem = { plan_key: ManagedPlanKey; published: ManagedPlan; draft: ManagedPlan | null; independent_publisher: boolean; active_version: number; head_version: number };
 const keys: ManagedPlanKey[] = ["BASIC", "GROWTH", "PROFESSIONAL"];
 function record(v: unknown): Record<string, unknown> | null { return v !== null && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null; }
 function integer(v: unknown): v is number { return Number.isSafeInteger(v) && Number(v) > 0; }
@@ -16,8 +16,8 @@ export function parseManagedPlans(v: unknown): ManagedPlanItem[] | null {
   const items: ManagedPlanItem[] = [];
   for (const raw of data.plans) { const item = record(raw); if (!item || !keys.includes(item.plan_key as ManagedPlanKey) || items.some((p) => p.plan_key === item.plan_key) || !integer(item.head_version) || !integer(item.active_version)) return null;
     const published = plan(item.published), draft = item.draft === null ? null : plan(item.draft);
-    if (!published || published.version !== item.active_version || published.head_version !== item.head_version || (item.draft !== null && (!draft || draft.version <= published.version))) return null;
-    items.push({ plan_key: item.plan_key as ManagedPlanKey, published, draft, active_version: item.active_version as number, head_version: item.head_version as number });
+    if (item.independent_publisher !== undefined && typeof item.independent_publisher !== "boolean" || item.independent_publisher === true && item.draft === null || !published || published.version !== item.active_version || published.head_version !== item.head_version || (item.draft !== null && (!draft || draft.version <= published.version))) return null;
+    items.push({ plan_key: item.plan_key as ManagedPlanKey, published, draft, independent_publisher: item.independent_publisher === true, active_version: item.active_version as number, head_version: item.head_version as number });
   }
   return items;
 }

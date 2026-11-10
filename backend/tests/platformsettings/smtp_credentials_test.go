@@ -88,7 +88,8 @@ func TestSMTPUsernameIsResolvedOnlyAfterCurrentPlatformAuthorization(t *testing.
 	}
 	f.authority.Capabilities["platform.integration.read"] = true
 	f.authority.AssuredAt = at.Add(-16 * time.Minute)
-	if _, err = service.Active(context.Background(), subject, domain.SMTP); !errors.Is(err, app.ErrForbidden) || f.usernameReads != 1 {
-		t.Fatal("stale assurance read username", err)
+	v, err = service.Active(context.Background(), subject, domain.SMTP)
+	if err != nil || v.SMTP.Username != nil || f.usernameReads != 1 {
+		t.Fatal("ordinary settings read must not reveal protected username without fresh assurance", err)
 	}
 }

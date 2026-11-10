@@ -3,8 +3,6 @@ package integration_test
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,8 +10,6 @@ import (
 	"time"
 
 	"bidora/backend/internal/httpapi"
-	"bidora/backend/internal/identity/deliverysmtp"
-	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/identity/session"
 	"bidora/backend/internal/identity/verification"
 	"bidora/backend/internal/pilot"
@@ -25,19 +21,7 @@ func TestLivePilotCompositionDeliversRegistrationAndKeepsDuplicatesGeneric(t *te
 	config := recoveryDeploymentConfig(t, redisFixture)
 	emailValue := "pilot-delivery-" + uuid.NewString() + "@example.invalid"
 	smtpFixture := newPilotSMTPFixture(t, emailValue)
-	sender, err := email.Parse("noreply@example.invalid")
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.Runtime.Registration = &pilot.RegistrationConfig{SMTP: deliverysmtp.Config{
-		Host:     "127.0.0.1",
-		Port:     uint16(smtpFixture.listener.Addr().(*net.TCPAddr).Port),
-		Username: "smtp-user",
-		Password: "smtp-password",
-		Sender:   sender,
-		TLS:      &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "localhost", RootCAs: smtpFixture.roots},
-		Timeout:  time.Second,
-	}}
+	configureManagedSMTPFixture(t, &config.Runtime, smtpFixture, 0)
 	deployment, err := pilot.Open(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
@@ -235,19 +219,8 @@ func TestLivePilotCompositionDeliversRegistrationAndKeepsDuplicatesGeneric(t *te
 func TestLivePilotCompositionRegistersPasswordIdentityAndChallengeBeforeSMTPFailure(t *testing.T) {
 	redisFixture := redisIntegration(t)
 	config := recoveryDeploymentConfig(t, redisFixture)
-	sender, err := email.Parse("noreply@example.invalid")
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.Runtime.Registration = &pilot.RegistrationConfig{SMTP: deliverysmtp.Config{
-		Host:     "localhost",
-		Port:     1,
-		Username: "synthetic-user",
-		Password: "synthetic-password",
-		Sender:   sender,
-		TLS:      &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "localhost", RootCAs: config.Runtime.Redis.TLS.RootCAs},
-		Timeout:  100 * time.Millisecond,
-	}}
+	smtpFixture := newPilotSMTPFixture(t, "unused@example.invalid")
+	configureManagedSMTPFixture(t, &config.Runtime, smtpFixture, 1)
 	deployment, err := pilot.Open(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)

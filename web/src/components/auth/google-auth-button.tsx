@@ -1,11 +1,14 @@
 "use client";
 
+import {useSearchParams} from "next/navigation";
+import {emailCodeReference} from "@/lib/email-code-challenge";
 import { useEffect, useState } from "react";
 import { GoogleIcon } from "@/components/auth/google-icon";
 import { Button } from "@/components/ui/button";
 import { FieldSeparator } from "@/components/ui/field";
 
 export function GoogleAuthButton({ registration, disabled }: { registration: boolean; disabled: boolean }) {
+  const flow=emailCodeReference(useSearchParams().get("invitation"));
   const [availability, setAvailability] = useState<{ enabled: boolean; allow_signup: boolean } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -17,5 +20,5 @@ export function GoogleAuthButton({ registration, disabled }: { registration: boo
     return () => { controller.abort(); document.removeEventListener("visibilitychange", visible); };
   }, []);
   if (!availability?.enabled || registration && !availability.allow_signup) return null;
-  return <><FieldSeparator>Or continue with</FieldSeparator><form action="/api/auth/google-start" method="post"><Button type="submit" variant="outline" size="lg" className="w-full justify-center" disabled={disabled}><GoogleIcon />Continue with Google</Button></form></>;
+  return <><FieldSeparator>Or continue with</FieldSeparator><form action="/api/auth/google-start" method="post">{flow&&<input type="hidden" name="invitation" value={flow}/>}<Button type="submit" variant="outline" size="lg" className="w-full justify-center" disabled={disabled}><GoogleIcon />Continue with Google</Button></form></>;
 }

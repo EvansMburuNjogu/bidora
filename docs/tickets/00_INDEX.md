@@ -3,13 +3,9 @@
 > **Historical ticket index.** Current full-stack scope, execution policy and the five active parent tickets live in [Platform Admin delivery](PLATFORM_ADMIN_DELIVERY.md) and [root instructions](../../AGENTS.md). Dated permission limits, status totals and approval procedures below are historical evidence, not current development gates.
 
 
-## Purpose and current authorization
+## Historical navigation
 
-This backlog was created as documentation-only planning. A subsequently authorized local Go ↔ Next.js health slice is now implemented and technically verified; see [execution evidence](12_HEALTH_SLICE_EVIDENCE.md) and [startup commands](../../README.md). Other tickets remain plans, not implemented business software. The original backlog-generation task changed only `docs/tickets/`. Subsequent authorized decision synchronization also updated BID-ADR-006 in the technical-design register and the implementation strategy. The bounded health implementation and its dependencies were subsequently authorized. Business features, database/service provisioning, production deployment, Git initialization and product-source editing remain outside that scope.
-
-Approved roots (BID-ADR-005): `web/` and `backend/`, now containing the local health slice; `frontend/` remains absent and must not be created as a duplicate. BID-ADR-008 approves Goose and npm; exact version verification remains pending.
-
-The user subsequently approved [packet 13's local-only backend foundation plan](13_BACKEND_FOUNDATION_UNBLOCKING.md), with 2 CPUs, 2 GiB RAM and a 10 GiB storage budget. [FND-004](foundation/BID-FND-004.md) records the bounded child; runtime, exact-pin/security and contract-review blockers remain. This does not approve production, identity or procurement policy, and no web work is authorized.
+The inventory below records the original planning backlog and dated permissions, not today's implementation state. For active work use [Platform Admin delivery](PLATFORM_ADMIN_DELIVERY.md); for actual runtime entry points use the [root README](../../README.md). Do not use this index as an authorization or status queue.
 
 ## Navigation
 
@@ -54,9 +50,9 @@ The user subsequently approved [packet 13's local-only backend foundation plan](
 
 As of 2026-10-20, the backend-only Phase 1 queue contains **25 remaining work packets**: 13 functional umbrellas, 10 frozen Option A verification packets and 2 Phase 1 acceptance tickets. The exact basis and exclusions are recorded in [the Phase 1 gap audit](14_PHASE_1_PORTAL_GAP_AUDIT.md#2-reconciled-active-backend-count--2026-10-20). The 110-file inventory and its original status totals are historical planning metadata, not the active remaining count.
 
-## Authority and readiness
+## Original authority and readiness (historical snapshot)
 
-Read [AGENTS](../../AGENTS.md), [product index](../product/00_MASTER_INDEX.md), [technical index](../technical_design/00_INDEX.md), [implementation index](../implementation/00_INDEX.md), [canonical decisions](../technical_design/27_ARCHITECTURE_DECISIONS.md), and [design quality report](../technical_design/QUALITY_REPORT.md).
+Current authority: [AGENTS](../../AGENTS.md). The following text records the original decision context; it does not describe current implementation or permissions. Historical references: [product index](../product/00_MASTER_INDEX.md), [technical index](../technical_design/00_INDEX.md), [implementation index](../implementation/00_INDEX.md), [decision register](../technical_design/27_ARCHITECTURE_DECISIONS.md), [design quality report](../technical_design/QUALITY_REPORT.md).
 
 Approved architecture is Go/Fiber modular monolith, Next.js/TypeScript/Tailwind/shadcn, PostgreSQL/pgx/sqlc database-per-organization, NATS JetStream, Redis as ephemeral cache, S3 and separate Python/FastAPI/Pydantic AI when authorized. Existing design documents are not proof of a running system; only the bounded health-slice report records executed runtime verification. Goose and npm have since been explicitly approved. Production providers, same-origin deployment details and business policies must not be inferred approved from recommendations.
 

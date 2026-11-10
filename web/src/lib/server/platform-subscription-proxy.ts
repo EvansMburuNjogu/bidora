@@ -10,7 +10,7 @@ export async function proxyPlatformSubscriptionInventory(request: Request): Prom
   const browser=webOrigin(),backend=apiOrigin(),generation=request.headers.get("x-bidora-platform-context-generation");
   if(!browser||!backend)return failed(503);
   const url=new URL(request.url),entries=[...url.searchParams.entries()];
-  if(request.method!=="GET"||request.body!==null||!generation||!/^[1-9]\d{0,18}$/.test(generation)||entries.length>3||new Set(entries.map(([name])=>name)).size!==entries.length||entries.some(([name,value])=>name==="limit"?!/^(?:[1-9]|[1-4]\d|50)$/.test(value):name==="cursor"?!uuidPattern.test(value):name==="state"?!states.includes(value):true))return failed(400);
+  if(request.method!=="GET"||request.body!==null||!generation||!/^[1-9]\d{0,18}$/.test(generation)||entries.length>5||new Set(entries.map(([name])=>name)).size!==entries.length||entries.some(([name,value])=>name==="limit"?!/^(?:[1-9]|[1-4]\d|50)$/.test(value):name==="cursor"?!uuidPattern.test(value):name==="state"?!states.includes(value):name==="plan"?!["TRIAL","BASIC","GROWTH","PROFESSIONAL","ENTERPRISE"].includes(value):name==="cadence"?!["TRIAL","MONTHLY","ANNUAL","CONTRACT"].includes(value):true))return failed(400);
   const headers=new Headers({Accept:"application/json",Origin:browser,"X-Bidora-Platform-Context-Generation":generation});
   forwardAuditContext(request, headers);
   const cookie=backendCookieHeader(request.headers.get("cookie"),browser);if(cookie)headers.set("Cookie",cookie);

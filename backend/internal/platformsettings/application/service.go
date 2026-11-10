@@ -2,6 +2,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"crypto/sha256"
@@ -145,7 +146,7 @@ func (s *Service) AuthorizeCreate(ctx context.Context, subject Subject, kind dom
 		if e != nil {
 			return e
 		}
-		if !authority.Capabilities[manageCapability(kind)] || !recent(authority, at) || kind == domain.SMTP && (!authority.EffectiveOwner || !authority.Capabilities[activateCapability(kind)]) {
+		if !authority.Capabilities[manageCapability(kind)] || !recent(ctx, authority, at) || kind == domain.SMTP && (!authority.EffectiveOwner || !authority.Capabilities[activateCapability(kind)]) {
 			return ErrForbidden
 		}
 		return nil
@@ -192,7 +193,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (result domain.Ver
 		if e != nil {
 			return e
 		}
-		if !authority.Capabilities[manageCapability(in.Configuration.Kind)] || !recent(authority, at) || in.Configuration.Kind == domain.SMTP && (!authority.EffectiveOwner || !authority.Capabilities[activateCapability(domain.SMTP)]) {
+		if !authority.Capabilities[manageCapability(in.Configuration.Kind)] || !recent(ctx, authority, at) || in.Configuration.Kind == domain.SMTP && (!authority.EffectiveOwner || !authority.Capabilities[activateCapability(domain.SMTP)]) {
 			return ErrForbidden
 		}
 		replay, found, e := tx.GetCommand(txCtx, in.Subject.ActorID, "CREATE_VERSION", keyHash)
@@ -315,7 +316,7 @@ func (s *Service) Test(ctx context.Context, in TestInput) (result TestExecution,
 		if prepared.ID.IsZero() {
 			return ErrConflict
 		}
-		if !authority.Capabilities[testCapability(prepared.Kind)] || !recent(authority, at) {
+		if !authority.Capabilities[testCapability(prepared.Kind)] || !recent(ctx, authority, at) {
 			return ErrForbidden
 		}
 		existing, found, e := tx.GetCommand(txCtx, in.Subject.ActorID, "TEST_VERSION", keyHash)
@@ -374,7 +375,7 @@ func (s *Service) Test(ctx context.Context, in TestInput) (result TestExecution,
 		if e != nil {
 			return e
 		}
-		if !found || current.Version != in.ExpectedVersion || current.ConfigurationHash != prepared.ConfigurationHash || !authority.Capabilities[testCapability(current.Kind)] || !recent(authority, finished) {
+		if !found || current.Version != in.ExpectedVersion || current.ConfigurationHash != prepared.ConfigurationHash || !authority.Capabilities[testCapability(current.Kind)] || !recent(ctx, authority, finished) {
 			return ErrConflict
 		}
 		ids, e := newIDs(s.ids, 3)
@@ -439,7 +440,7 @@ func (s *Service) Propose(ctx context.Context, in ProposeInput) (result domain.C
 		if in.Action == domain.Activate && !authority.Capabilities[needed] {
 			return ErrForbidden
 		}
-		if !recent(authority, at) {
+		if !recent(ctx, authority, at) {
 			return ErrForbidden
 		}
 		replay, exists, e := tx.GetCommand(txCtx, in.Subject.ActorID, "PROPOSE_ACTIVATION", keyHash)
@@ -513,7 +514,7 @@ func (s *Service) Decide(ctx context.Context, in DecideInput) (result domain.Cha
 		if e != nil {
 			return e
 		}
-		if !authority.EffectiveOwner || !authority.Capabilities["platform.governance.approve"] || !recent(authority, at) {
+		if !authority.EffectiveOwner || !authority.Capabilities["platform.governance.approve"] || !recent(ctx, authority, at) {
 			return ErrForbidden
 		}
 		replay, exists, e := tx.GetCommand(txCtx, in.Subject.ActorID, operation, keyHash)
@@ -645,8 +646,8 @@ func validSubject(v Subject) bool {
 func currentAAL2(a Authority, at time.Time) bool {
 	return platformpolicy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) && !a.AssuredAt.IsZero() && !a.AssuredAt.After(at)
 }
-func recent(a Authority, at time.Time) bool {
-	return currentAAL2(a, at) && at.Sub(a.AssuredAt) <= 15*time.Minute
+func recent(ctx context.Context, a Authority, at time.Time) bool {
+	return currentAAL2(a, at) && securitypolicy.Recent(ctx, a.AssuredAt, at)
 }
 func text(v string, max int) bool {
 	return utf8.ValidString(v) && len(v) <= max && strings.TrimSpace(v) != ""

@@ -120,8 +120,8 @@ func NewPlatformFinancialQueueService(uow PlatformFinancialQueueUnitOfWork, ids 
 	return &PlatformFinancialQueueService{uow: uow, ids: ids, clock: clock}, nil
 }
 
-// ListAIUsage exposes only measured, settled credits. A current Billing Administrator
-// with fresh TOTP is required; Platform Owner and invoice-read alone are insufficient.
+// ListAIUsage exposes only measured, settled credits to a current Billing
+// Administrator or Platform Owner with financial read authority and administrator assurance.
 func (s *PlatformFinancialQueueService) ListAIUsage(ctx context.Context, in PlatformQueueRequest) (out PlatformAIUsagePage, err error) {
 	if invalidPlatformQueueRequest(ctx, in) || in.StateFilter != "" || in.SecondaryFilter != "" || in.AIUsageFilter.Kind != "" && !domain.ValidAIUsageKind(domain.AIUsageKind(in.AIUsageFilter.Kind)) || !in.AIUsageFilter.From.IsZero() && !in.AIUsageFilter.Before.IsZero() && !in.AIUsageFilter.Before.After(in.AIUsageFilter.From) {
 		return out, ErrPlatformFinancialQueueInvalid
@@ -136,7 +136,7 @@ func (s *PlatformFinancialQueueService) ListAIUsage(ctx context.Context, in Plat
 		if x != nil {
 			return x
 		}
-		if tie || !facts.BillingAdministrator || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
+		if tie || (!facts.BillingAdministrator && !facts.PlatformOwner) || (!facts.InvoiceReader && !facts.PaymentReader) || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || in.Actor.SupportSession {
 			return ErrPlatformFinancialQueueNotAuthorized
 		}
 		var items []PlatformAIUsageItem
@@ -243,7 +243,7 @@ func (s *PlatformFinancialQueueService) run(ctx context.Context, in PlatformQueu
 			return x
 		}
 		allowed := (capability == "platform.invoice.read" && facts.InvoiceReader) || (capability == "platform.payment.read" && facts.PaymentReader)
-		if tie || !allowed || (!facts.BillingAdministrator && !facts.PlatformOwner) || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) || in.Actor.SupportSession {
+		if tie || !allowed || (!facts.BillingAdministrator && !facts.PlatformOwner) || facts.UserID != in.Actor.UserID || facts.ContextGeneration != in.Actor.ContextGeneration || !assurance.Platform(facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || in.Actor.SupportSession {
 			return ErrPlatformFinancialQueueNotAuthorized
 		}
 		count, more, x := load(c, tx)

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter,useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRightIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -16,11 +16,13 @@ import { VerificationCodeInput } from "@/components/auth/verification-code-input
 import { useLoginChallenge } from "@/components/auth/login-challenge-provider";
 import { challengeDeadline, countdownLabel, maskLoginEmail } from "@/lib/login-challenge";
 import { submitAuth, type AuthOperation } from "@/lib/auth-client";
+import {withInvitation,invitationNext} from "@/lib/invitation-code";
+import { emailCodeQuery, emailCodeReference } from "@/lib/email-code-challenge";
 import { isAcceptedEmail, isAcceptedPersonalName, isEmailCode, validatePassword } from "@/lib/auth-validation";
 
 type Mode = Exclude<AuthOperation, "verification-resend" | "login-code-resend">;
 type AuthField = "first_name" | "last_name" | "email" | "password" | "confirm_password" | "token" | "code" | "policy";
-type AuthFieldError = { field: AuthField; message: string };
+type AuthFieldError = { field: AuthField; message: string; cooldown?: boolean };
 
 const config: Record<Mode, { submit: string }> = {
   login: { submit: "Sign in" },
@@ -32,6 +34,7 @@ const config: Record<Mode, { submit: string }> = {
 };
 
 export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?: string }) {
+ const flow=emailCodeReference(useSearchParams().get("invitation"));
   const recoveryTokenInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (mode !== "password-reset" || !recoveryUserId) return;
@@ -57,9 +60,16 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
 
   useEffect(() => {
     if (mode !== "login-code" && mode !== "password-recovery") return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    const timer = window.setInterval(() => {
+      const at = Date.now();
+      setNow(at);
+      if (mode === "password-recovery" && resendUntil > 0 && at >= resendUntil) {
+        setResendUntil(0);
+        setFieldError(current => current?.cooldown ? null : current);
+      }
+    }, 1000);
     return () => window.clearInterval(timer);
-  }, [mode]);
+  }, [mode, resendUntil]);
   const resendSeconds = Math.max(0, Math.ceil((resendUntil - now) / 1000));
   const challengeExpired = mode === "login-code" && hint.expiresAt !== null && now > 0 && now >= hint.expiresAt;
 
@@ -80,7 +90,9 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
     const email = String(data.get("email") ?? "");
     const password = String(data.get("password") ?? "");
     const confirmPassword = String(data.get("confirm_password") ?? "");
-    const token = String(data.get("token") ?? "").trim();
+    const enteredCode = String(data.get("code") ?? "").trim();
+    const token = /^\d{6}$/.test(enteredCode) ? enteredCode : String(data.get("token") || enteredCode || "").trim();
+    const challengeRef = emailCodeReference(new URLSearchParams(window.location.search).get("challenge_ref"));
     const code = String(data.get("code") ?? "");
     const normalizedCode = code.trim().toUpperCase();
 
@@ -111,8 +123,12 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
       setFieldError({ field: "confirm_password", message: "Passwords do not match. Enter the same password again." });
       return;
     }
-    if (needsToken && !isEmailCode(token)) {
-      setFieldError({ field: "token", message: "Paste the complete code from your Bidora email." });
+    if (needsToken && !isEmailCode(token) && !/^\d{6}$/.test(token)) {
+      setFieldError({ field: "token", message: "Enter the six-digit code from your email." });
+      return;
+    }
+    if (needsToken && /^\d{6}$/.test(token) && !challengeRef) {
+      setFieldError({ field: "token", message: "Open the latest email link or request a new code." });
       return;
     }
     if (needsCode && !/^\d{6}$/.test(normalizedCode)) {
@@ -134,10 +150,10 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
           response = await submitAuth("password-recovery", { email });
           break;
         case "password-reset":
-          response = await submitAuth("password-reset", { token, new_password: password, ...(recoveryUserId ? { user_id: recoveryUserId } : {}) });
+          response = await submitAuth("password-reset", { token, new_password: password, ...(challengeRef ? { challenge_ref: challengeRef } : {}), ...(recoveryUserId ? { user_id: recoveryUserId } : {}) });
           break;
         case "verify-email":
-          response = await submitAuth("verify-email", { token });
+          response = await submitAuth("verify-email", { token, ...(challengeRef ? { challenge_ref: challengeRef } : {}) });
           break;
         case "login-code":
           response = await submitAuth("login-code", { code: normalizedCode, method: "EMAIL_OTP" });
@@ -151,30 +167,40 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
         }
         setHint({ maskedEmail: maskLoginEmail(email), expiresAt });
         form.reset();
-        router.push("/auth/login-code");
+        router.push(withInvitation("/auth/login-code",flow));
         return;
       }
       if ((mode === "login" || mode === "login-code") && response.status === 204) {
         if (mode === "login-code") setCompleted(true);
         setHint({ maskedEmail: null, expiresAt: null });
-        router.push("/auth/resolve");
+        const next=invitationNext(response.headers.get("X-Bidora-Invitation-Next"));
+        if(next)window.location.assign(next);
+        else router.push("/auth/resolve");
         return;
       }
       if (mode === "register" && response.status === 202) {
         form.reset();
         toast.success("Check your email", { description: "Enter the verification code to continue." });
-        router.push("/verify-email");
+        router.push(withInvitation("/verify-email" + emailCodeQuery(response),flow));
         return;
       }
       if (mode === "password-recovery" && response.status === 202) {
         form.reset();
-        router.replace("/forgot-password/check-email");
+        const query = emailCodeQuery(response);
+        router.replace(withInvitation(query ? "/reset-password" + query : "/forgot-password/check-email",flow));
         return;
       }
       if ((mode === "password-reset" || mode === "verify-email") && response.status === 204) {
         form.reset();
         toast.success(mode === "password-reset" ? "Password reset" : "Email verified");
-        router.push("/login");
+        const next=invitationNext(response.headers.get("X-Bidora-Invitation-Next"));
+        if(mode==="verify-email"&&next)window.location.assign(next);
+        else router.push(withInvitation("/login",flow));
+        return;
+      }
+      if (mode === "verify-email" && response.status === 400) {
+        setVerificationAttempt(value => value + 1);
+        setFieldError({ field: "token", message: "Invalid or expired code. Check your email or resend a code." });
         return;
       }
       if ((mode === "register" || mode === "password-reset") && response.status === 400) passwordPolicy.retry();
@@ -183,7 +209,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
         return;
       }
       if (mode === "password-reset" && response.status === 503) {
-        toast.error("Password reset unavailable", { description: "Please try again later." });
+        toast.error("Password reset could not be confirmed", { description: "Try signing in with your new password. If you still cannot sign in, request a new recovery email." });
         return;
       }
       if (mode === "login-code" && response.status === 401) {
@@ -194,9 +220,11 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
       }
       if (mode === "password-recovery" && response.status === 429) {
         const retry = Number(response.headers.get("Retry-After"));
-        setNow(Date.now());
-        setResendUntil(Date.now() + (Number.isFinite(retry) && retry > 0 && retry <= 3600 ? retry : 900) * 1000);
-        setFieldError({ field: "email", message: "Too many recovery requests. Wait before requesting another link." });
+        // eslint-disable-next-line react-hooks/purity -- This runs only in the async form-submit handler after a 429, never during render.
+        const at=Date.now();
+        setNow(at);
+        setResendUntil(at + (Number.isFinite(retry) && retry > 0 && retry <= 3600 ? retry : 900) * 1000);
+        setFieldError({ field: "email", message: "Too many recovery requests. Wait before requesting another link.", cooldown: true });
         return;
       }
       if (mode === "password-recovery" && response.status === 503) {
@@ -207,7 +235,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
         description: response.status === 429 ? "Please wait before trying again." : "Check what you entered and try again.",
       });
     } catch {
-      toast.error("Bidora is unavailable", { description: "Nothing was changed. Please try again." });
+      toast.error("Bidora is unavailable", { description: "The request could not be confirmed. Please try again." });
     } finally {
       setPending(false);
     }
@@ -330,22 +358,9 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
 
           {needsToken && (
             <Field data-invalid={fieldError?.field === "token"}>
-              <FieldLabel htmlFor={`${mode}-token`}>{mode === "password-reset" ? "Recovery code" : "Verification code"}</FieldLabel>
-              <Input
-                id={`${mode}-token`}
-                ref={recoveryTokenInput}
-                name="token"
-                type="text"
-                autoComplete="one-time-code"
-                placeholder="Paste the code from your email"
-                minLength={43}
-                maxLength={43}
-                disabled={pending}
-                required
-                aria-invalid={fieldError?.field === "token" || undefined}
-                onChange={() => fieldError?.field === "token" && setFieldError(null)}
-              />
-              <FieldDescription>{recoveryUserId ? "Your recovery code is filled in from the email link." : "Copy and paste the full code exactly as it appears in the email."}</FieldDescription>
+              <FieldLabel>{mode === "password-reset" ? "Recovery code" : "Verification code"}</FieldLabel>
+              <input ref={recoveryTokenInput} name="token" type="hidden" />
+              <VerificationCodeInput key={verificationAttempt} disabled={pending} invalid={fieldError?.field === "token"} allowAutoComplete={verificationAttempt === 0} onEdit={() => { if (recoveryTokenInput.current) recoveryTokenInput.current.value = ""; if (fieldError?.field === "token") setFieldError(null); }} onLegacyPaste={value => { if (recoveryTokenInput.current) recoveryTokenInput.current.value = value; toast.message("Code added from your email."); }} />
               {fieldError?.field === "token" && <FieldError>{fieldError.message}</FieldError>}
             </Field>
           )}
@@ -357,7 +372,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
                   {mode === "password-reset" ? "New password" : "Password"}
                 </FieldLabel>
                 {mode === "login" && (
-                  <Link href="/forgot-password" className="type-meta text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  <Link href={withInvitation("/forgot-password",flow)} className="type-meta text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
                     Forgot password?
                   </Link>
                 )}
@@ -454,10 +469,11 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
         <GoogleAuthButton registration={mode === "register"} disabled={mode === "register" && (!termsAccepted || !privacyAccepted)} />
       )}
 
-      {mode === "verify-email" && <VerificationResendForm />}
+      {(mode==="verify-email"||mode==="password-reset")&&<VerificationResendForm mode={mode} onResent={()=>setVerificationAttempt(value=>value+1)}/>}
 
       <AuthRouteLink
         mode={mode}
+        flow={flow}
         onNavigate={() => {
           setFieldError(null);
           if (mode === "login-code") setVerificationAttempt((value) => value + 1);
@@ -467,71 +483,36 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
   );
 }
 
-function VerificationResendForm() {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-
-  async function resend(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    const form = event.currentTarget;
-    const email = String(new FormData(form).get("email") ?? "");
-    if (!isAcceptedEmail(email)) {
-      setError("Enter a valid email address.");
-      return;
-    }
-    setPending(true);
-    try {
-      const response = await submitAuth("verification-resend", { email });
-      if (response.status === 202) {
-        form.reset();
-        toast.success("Request received", { description: "If verification is available for this account, check your email for a replacement code." });
-        return;
-      }
-      toast.error(response.status === 429 ? "Try again later" : "Unable to resend", {
-        description: response.status === 429 ? "Please wait before trying again." : "Nothing was changed. Please try again.",
-      });
-    } catch {
-      toast.error("Bidora is unavailable", { description: "Nothing was changed. Please try again." });
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <form onSubmit={resend} noValidate className="rounded-lg border border-border p-4">
-      <FieldGroup className="gap-3">
-        <Field data-invalid={Boolean(error)}>
-          <FieldLabel htmlFor="verification-resend-email">Need a new code?</FieldLabel>
-          <Input
-            id="verification-resend-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="name@company.com"
-            maxLength={254}
-            disabled={pending}
-            required
-            aria-invalid={Boolean(error) || undefined}
-            onChange={() => error && setError("")}
-          />
-          {error && <FieldError>{error}</FieldError>}
-        </Field>
-        <Button type="submit" variant="outline" className="w-full" disabled={pending}>
-          {pending ? "Sending…" : "Send replacement code"}
-        </Button>
-      </FieldGroup>
-    </form>
-  );
+function VerificationResendForm({mode,onResent}:{mode:"verify-email"|"password-reset";onResent:()=>void}) {
+ const router=useRouter();
+ const [pending,setPending]=useState(false),[error,setError]=useState("");
+ const locked=useRef(false);
+ async function resend(){
+  if(locked.current)return;locked.current=true;setPending(true);setError("");
+  try{
+   const challenge_ref=emailCodeReference(new URLSearchParams(window.location.search).get("challenge_ref"));
+   const response=await submitAuth(mode==="password-reset"?"password-recovery":"verification-resend",{...(challenge_ref?{challenge_ref}:{})});
+   if(response.status===202){
+    const query=emailCodeQuery(response);if(query)router.replace(withInvitation((mode==="password-reset"?"/reset-password":"/verify-email")+query,emailCodeReference(new URLSearchParams(window.location.search).get("invitation"))));
+    onResent();toast.success("Code requested",{description:"Check your email for the latest code."});return;
+   }
+   setError(response.status===429?"Please wait before requesting another code.":response.status===400?"Reopen your invitation to request another code.":"Unable to resend your code. Please try again.");
+  }catch{setError("Unable to resend your code. Please try again.")}
+  finally{locked.current=false;setPending(false)}
+ }
+ return <div className="flex flex-col items-center gap-2">
+  <Button type="button" variant="link" disabled={pending} onClick={()=>void resend()}>{pending?"Sending…":"Resend code"}</Button>
+  {error&&<p role="alert" className="type-meta text-destructive">{error}</p>}
+ </div>;
 }
 
-function AuthRouteLink({ mode, onNavigate }: { mode: Mode; onNavigate: () => void }) {
+function AuthRouteLink({ mode, flow,onNavigate }: { mode: Mode;flow:string|null; onNavigate: () => void }) {
   if (mode === "login") {
-    return <p className="type-body text-center text-muted-foreground">New to Bidora? <Link href="/register" onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Create an account</Link></p>;
+    return <p className="type-body text-center text-muted-foreground">New to Bidora? <Link href={withInvitation("/register",flow)} onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Create an account</Link></p>;
   }
   if (mode === "register") {
-    return <p className="type-body text-center text-muted-foreground">Already have an account? <Link href="/login" onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Sign in</Link></p>;
+    return <p className="type-body text-center text-muted-foreground">Already have an account? <Link href={withInvitation("/login",flow)} onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Sign in</Link></p>;
   }
-  if (mode === "login-code") return null;
-  return <p className="type-body text-center text-muted-foreground"><Link href="/login" onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Back to sign in</Link></p>;
+  if (mode === "login-code"||mode==="verify-email") return null;
+  return <p className="type-body text-center text-muted-foreground"><Link href={withInvitation("/login",flow)} onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Back to sign in</Link></p>;
 }

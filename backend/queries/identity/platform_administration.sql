@@ -104,3 +104,7 @@ SET disabled_at = NULL, auth_epoch = auth_epoch + 1, updated_at = sqlc.arg(at)
 WHERE id = sqlc.arg(user_id) AND account_type = 'PLATFORM_ADMIN'
   AND email_verified_at IS NOT NULL AND disabled_at IS NOT NULL
   AND auth_epoch = sqlc.arg(expected_auth_epoch);
+
+-- name: DeleteDisabledPlatformIdentity :execrows
+DELETE FROM identity.users WHERE id=sqlc.arg(user_id) AND auth_epoch=sqlc.arg(expected_auth_epoch)
+ AND disabled_at IS NOT NULL AND account_type='PLATFORM_ADMIN';

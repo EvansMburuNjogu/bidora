@@ -8,6 +8,9 @@ import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 const operations = {
   login: { path: "/v1/auth/login", body: true, cookie: false, csrf: false },
   register: { path: "/v1/auth/register", body: true, cookie: false, csrf: false },
+  "invitation-register": { path: "/v1/auth/invitation-register", body: true, cookie: false, csrf: false },
+  "invitation-activate": {path:"/v1/auth/invitation-activate",body:true,cookie:false,csrf:false},
+  "invitation-details": { path: "/v1/auth/invitation-details", body: true, cookie: false, csrf: false },
   "password-recovery": { path: "/v1/auth/password-recovery", body: true, cookie: false, csrf: false },
   "password-reset": { path: "/v1/auth/password-recovery/reset", body: true, cookie: false, csrf: false },
   "verify-email": { path: "/v1/auth/verify-email", body: true, cookie: false, csrf: false },
@@ -16,6 +19,8 @@ const operations = {
   "login-code-resend": { path: "/v1/auth/login-code/resend", body: true, cookie: true, csrf: false },
   "login-code-cancel": { path: "/v1/auth/login-code/cancel", body: false, cookie: true, csrf: false },
   "google-start": { path: "/v1/auth/google/start", body: false, cookie: false, csrf: false },
+  "platform-invitation-accept": { path: "/v1/platform/administrator-invitations/accept", body: true, cookie: true, csrf: true },
+  "tenant-invitation-accept": { path: "/v1/shared/invitations/accept", body: true, cookie: true, csrf: true },
   logout: { path: "/v1/auth/logout", body: false, cookie: true, csrf: true },
   "password-change": { path: "/v1/auth/password", body: true, cookie: true, csrf: true },
 } as const;
@@ -65,7 +70,7 @@ function safeFailure(status: 400 | 403 | 413 | 415 | 503): Response {
   );
 }
 
-async function readBoundedBody(request: Request): Promise<ArrayBuffer | null> {
+export async function readBoundedBody(request: Request): Promise<ArrayBuffer | null> {
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > 4096) return null;
   if (!request.body) return null;
@@ -96,7 +101,7 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
   const contract = operations[operation];
   const headers = new Headers({ Accept: "application/json", Origin: browser });
   forwardAuditContext(request, headers);
-  const networkOperations = new Set<ProxyOperation>(["login", "login-code", "login-code-resend", "register", "password-recovery", "password-change"]);
+  const networkOperations = new Set<ProxyOperation>(["login", "login-code", "login-code-resend", "register", "invitation-register", "invitation-activate", "invitation-details", "password-recovery", "password-reset", "verify-email", "verification-resend", "password-change", "platform-invitation-accept", "tenant-invitation-accept"]);
   if (networkOperations.has(operation)) {
     const network = clientNetwork(request);
     if (!network.ok) return safeFailure(503);
@@ -128,6 +133,12 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     headers.set("X-CSRF-Token", csrf);
   }
 
+  if (operation === "platform-invitation-accept" || operation === "tenant-invitation-accept" || operation==="invitation-activate") {
+    const key = request.headers.get("idempotency-key");
+    if (!key || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return safeFailure(400);
+    headers.set("Idempotency-Key", key);
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(origin + contract.path, {
@@ -150,6 +161,8 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
+  const codeChallenge = upstream.headers.get("x-bidora-code-challenge");
+  if (upstream.status === 202 && codeChallenge && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(codeChallenge)) responseHeaders.set("X-Bidora-Code-Challenge", codeChallenge);
   const challengeExpiry = upstream.headers.get("x-bidora-challenge-expires-at");
   if (upstream.status === 202 && (operation === "login" || operation === "login-code-resend") && challengeExpiry && Number.isFinite(Date.parse(challengeExpiry))) {
     responseHeaders.set("X-Bidora-Challenge-Expires-At", new Date(challengeExpiry).toISOString());
@@ -182,7 +195,7 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
 
   // These commands deliberately return a generic, bodyless acknowledgement.
   // Fiber's SendStatus(202) can carry text/plain "Accepted", not JSON.
-  const acknowledged = upstream.status === 202 && ["register", "password-recovery", "verification-resend", "login-code-resend"].includes(operation);
+  const acknowledged = upstream.status === 202 && ["register", "invitation-register", "password-recovery", "verification-resend", "login-code-resend"].includes(operation);
   if (acknowledged || upstream.status === 204 || (upstream.status >= 300 && upstream.status < 400)) {
     await upstream.body?.cancel();
     return new Response(null, { status: upstream.status, headers: responseHeaders });

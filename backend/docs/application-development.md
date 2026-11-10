@@ -1,4 +1,4 @@
-> **Historical application evidence/reference.** The current full-stack delivery queue is [the five-ticket MVP tracker](../../docs/tickets/PLATFORM_ADMIN_DELIVERY.md); [root instructions](../../AGENTS.md) supersede dated backend-only, deferred-testing and routine implementation approval limits below. Preserve this evidence without treating old blockers as today's development policy.
+> **Historical application evidence/reference.** The current full-stack delivery queue is [the five-ticket MVP tracker](../../docs/tickets/PLATFORM_ADMIN_DELIVERY.md); [root instructions](../../AGENTS.md) supersede dated backend-only, deferred-testing and routine implementation approval limits below. Preserve this evidence without treating old blockers as today's development policy. Unmounted worker/monitor packages mentioned below were removed in BE-SIM-01; application reconciliation code remains.
 
 # Application development and verification evidence
 

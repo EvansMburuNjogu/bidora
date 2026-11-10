@@ -104,7 +104,7 @@ func (s *SessionPolicyService) Save(ctx context.Context, in SessionPolicySave) (
 		if e != nil {
 			return e
 		}
-		if !canReadInformation(auth, at) || !auth.EffectiveOwner {
+		if !canReadInformation(auth, at) || !auth.EffectiveOwner || !recent(ctx, auth, at) {
 			return ErrInformationForbidden
 		}
 		current, e := tx.ReadSessionPolicy(c, true)
@@ -122,6 +122,9 @@ func (s *SessionPolicyService) Save(ctx context.Context, in SessionPolicySave) (
 			out = current
 			return nil
 		}
+		if in.Policy.Security.StepUpSeconds == 0 {
+			in.Policy.Security.StepUpSeconds = current.Security.StepUpSeconds
+		}
 		if current.Version != in.Policy.Version {
 			return ErrInformationConflict
 		}
@@ -134,14 +137,14 @@ func (s *SessionPolicyService) Save(ctx context.Context, in SessionPolicySave) (
 		if affected != 1 {
 			return ErrInformationConflict
 		}
-		// Persist tightened bounds and revoke other sessions atomically. A later
-		// relaxation cannot resurrect a session invalidated by an earlier rule.
+		// Persist tighter bounds atomically; revoke only invalid or excess sessions.
+		// A later relaxation cannot resurrect a previously expired session.
 		before, _ := json.Marshal(current.Security)
 		after, _ := json.Marshal(in.Policy.Security)
 		var oldFields, newFields map[string]any
 		_ = json.Unmarshal(before, &oldFields)
 		_ = json.Unmarshal(after, &newFields)
-		for _, field := range []string{"failed_login_attempts", "failure_window_seconds", "lockout_seconds", "minimum_password_bytes", "password_reset_seconds", "allow_multiple_sessions", "admin_idle_seconds", "admin_absolute_seconds"} {
+		for _, field := range []string{"failed_login_attempts", "failure_window_seconds", "lockout_seconds", "minimum_password_bytes", "password_reset_seconds", "allow_multiple_sessions", "admin_idle_seconds", "admin_absolute_seconds", "step_up_seconds"} {
 			in.Changes = append(in.Changes, settingChange(field, fmt.Sprint(oldFields[field]), fmt.Sprint(newFields[field]))...)
 		}
 		revoked, e := tx.ApplySessionPolicy(c, in, at)

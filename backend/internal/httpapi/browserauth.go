@@ -52,8 +52,8 @@ func SessionPrincipalFrom(c fiber.Ctx) (identityapp.SessionPrincipal, bool) {
 	principal, ok := c.Locals(principalKey{}).(identityapp.SessionPrincipal)
 	return principal, ok && !principal.SessionID.IsZero() && !principal.UserID.IsZero()
 }
-func (m *BrowserSessionMiddleware) Handle(c fiber.Ctx) error    { return m.handle(c, false, true) }
-func (m *BrowserSessionMiddleware) Bootstrap(c fiber.Ctx) error { return m.handle(c, true, true) }
+func (m *BrowserSessionMiddleware) Handle(c fiber.Ctx) error    { return m.handle(c, false, browser.RequiresCSRF(c.Method())) }
+func (m *BrowserSessionMiddleware) Bootstrap(c fiber.Ctx) error { return m.handle(c, true, false) }
 func (m *BrowserSessionMiddleware) NoTouch(c fiber.Ctx) error   { return m.handle(c, false, false) }
 
 // OriginBound validates the approved Origin for authenticated browser requests;
@@ -68,7 +68,7 @@ func (m *BrowserSessionMiddleware) OriginBound(c fiber.Ctx) error {
 	if err := m.protection.ValidateOrigin(c.Get("Origin")); err != nil {
 		return fail(c, 403, "BROWSER_REQUEST_FORBIDDEN", "The browser request was rejected.", false)
 	}
-	return m.handle(c, false, true)
+	return m.handle(c, false, browser.RequiresCSRF(c.Method()))
 }
 
 // Platform retains the named Platform Administration middleware boundary.

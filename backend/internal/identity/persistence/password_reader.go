@@ -37,6 +37,30 @@ func (r *PasswordReader) GetRecoveryAccountFacts(ctx context.Context, userID ide
 	})
 	return result, err
 }
+
+// LookupInvitationIdentity reads the identity independently of its sign-in method.
+func (r *PasswordReader) LookupInvitationIdentity(ctx context.Context, lookup string) (facts identityapp.RecoveryAccountFacts, err error) {
+	if ctx == nil || r == nil || r.runner == nil {
+		return facts, errors.New("invitation_identity_unavailable")
+	}
+	err = r.runner.WithinReadOnlyTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
+		q := identitysql.New(db)
+		id, e := q.GetUserByEmailLookupForGoogleLink(txCtx, lookup)
+		if errors.Is(e, pgx.ErrNoRows) {
+			return identityapp.ErrCredentialNotFound
+		}
+		if e != nil {
+			return e
+		}
+		row, e := q.GetCurrentAccountRecoveryPreparation(txCtx, id)
+		if e != nil {
+			return e
+		}
+		facts = identityapp.RecoveryAccountFacts{EmailVerified: row.EmailVerified, AccountDisabled: row.AccountDisabled, PasswordCredentialPresent: row.PasswordCredentialPresent, GoogleIdentityPresent: row.GoogleIdentityPresent}
+		return nil
+	})
+	return facts, err
+}
 func (r *PasswordReader) LookupPasswordCredential(ctx context.Context, lookup string) (identityapp.CredentialRecord, error) {
 	if ctx == nil {
 		return identityapp.CredentialRecord{}, errors.New("password_lookup_invalid")

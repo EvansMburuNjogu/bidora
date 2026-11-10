@@ -691,6 +691,104 @@
           }
         },
         {
+          "description": "`activatePlatformInvitationAccount` — source: `api/openapi/drafts/platform-invitation-activation.json`",
+          "name": "Set the invited account password and activate administrator access",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"token\": \"{{recovery_token}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/invitation-activate"
+            }
+          }
+        },
+        {
+          "description": "`postAuthInvitationDetails` — source: `api/openapi/drafts/platform-invitation-details.json`",
+          "name": "Read masked email and role for a valid administrator invitation",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"token\": \"{{recovery_token}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/invitation-details"
+            }
+          }
+        },
+        {
+          "description": "`postAuthInvitationRegister` — source: `api/openapi/drafts/platform-invitation-registration.json`",
+          "name": "Register or verify the identity named in an administrator invitation",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"token\": \"{{recovery_token}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/invitation-register"
+            }
+          }
+        },
+        {
           "description": "`getPublicPasswordRequirements` — source: `api/openapi/drafts/platform-session-policy.json`",
           "name": "Read current requirements for creating a password",
           "request": {
@@ -858,6 +956,31 @@
               "path": [],
               "query": [],
               "raw": "{{base_url}}/v1/auth/sessions"
+            }
+          }
+        },
+        {
+          "description": "`renewSessionLease` — source: `api/openapi/drafts/session-renewal.json`",
+          "name": "Renew a valid session lease after user activity",
+          "request": {
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/auth/session/renew"
             }
           }
         },
@@ -1784,7 +1907,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"role_key\": \"PLATFORM_OWNER\",\n  \"reason\": \"replace-with-synthetic-value\"\n}"
+              "raw": "null"
             },
             "header": [
               {
@@ -4098,6 +4221,16 @@
                   "disabled": true,
                   "key": "state",
                   "value": "{{google_state}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "plan",
+                  "value": "{{plan}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "cadence",
+                  "value": "{{cadence}}"
                 }
               ],
               "raw": "{{base_url}}/v1/platform/commercial/subscriptions"
@@ -4217,6 +4350,16 @@
                   "disabled": true,
                   "key": "cursor",
                   "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "state",
+                  "value": "{{google_state}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "assignment",
+                  "value": "{{assignment}}"
                 }
               ],
               "raw": "{{base_url}}/v1/platform/support/cases"
@@ -8135,6 +8278,10 @@
       "value": ""
     },
     {
+      "key": "assignment",
+      "value": ""
+    },
+    {
       "key": "audit_id",
       "value": "00000000-0000-0000-0000-000000000000"
     },
@@ -8145,6 +8292,10 @@
     {
       "key": "bid_id",
       "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "key": "cadence",
+      "value": ""
     },
     {
       "key": "case_id",
@@ -8277,6 +8428,10 @@
     {
       "key": "payment_id",
       "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "key": "plan",
+      "value": ""
     },
     {
       "key": "plan_key",

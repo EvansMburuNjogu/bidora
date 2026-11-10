@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -16,8 +14,6 @@ import (
 
 	"bidora/backend/internal/health"
 	"bidora/backend/internal/httpapi"
-	"bidora/backend/internal/identity/deliverysmtp"
-	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/identity/mfa"
 	"bidora/backend/internal/identity/password"
 	"bidora/backend/internal/identity/session"
@@ -46,10 +42,6 @@ func TestLiveIdentityCompositionRegistrationVerificationAndVerifiedLogin(t *test
 	}
 	emailValue := "identity-composition-" + uuid.NewString() + "@example.invalid"
 	smtpFixture := newPilotSMTPFixtureMessages(t, emailValue, 2)
-	sender, err := email.Parse("noreply@example.invalid")
-	if err != nil {
-		t.Fatal(err)
-	}
 	state := &health.State{}
 	redisPrefix := "bidora:test:identity:" + uuid.NewString()
 	config := pilot.Config{
@@ -58,8 +50,8 @@ func TestLiveIdentityCompositionRegistrationVerificationAndVerifiedLogin(t *test
 		RedisPrefix:    redisPrefix,
 		AllowedOrigins: []string{"https://app.example.test"},
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, MFAKeyRing: keyRing,
-		Registration: &pilot.RegistrationConfig{SMTP: deliverysmtp.Config{Host: "127.0.0.1", Port: uint16(smtpFixture.listener.Addr().(*net.TCPAddr).Port), Username: "smtp-user", Password: "smtp-password", Sender: sender, TLS: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "localhost", RootCAs: smtpFixture.roots}, Timeout: time.Second}},
 	}
+	configureManagedSMTPFixture(t, &config, smtpFixture, 0)
 	runtime, err := pilot.BuildIdentityRuntime(config, state, control)
 	if err != nil {
 		t.Fatal(err)

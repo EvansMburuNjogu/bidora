@@ -103,7 +103,7 @@ var googleClientIDPattern = regexp.MustCompile(`^[0-9]+-[a-z0-9_-]+\.apps\.googl
 var googleDomainPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$`)
 
 func canReadGoogleConfiguration(a Authority, at time.Time) bool {
-	return a.Capabilities["platform.integration.read"] && recent(a, at)
+	return a.Capabilities["platform.integration.read"] && currentAAL2(a, at)
 }
 
 func ValidGoogleConfiguration(c GoogleConfiguration) bool {
@@ -260,7 +260,7 @@ func (s *GoogleService) Save(ctx context.Context, in GoogleSave) (out GoogleConf
 		if e != nil {
 			return e
 		}
-		if !canReadGoogleConfiguration(auth, at) || !auth.EffectiveOwner {
+		if !canReadGoogleConfiguration(auth, at) || !auth.EffectiveOwner || !recent(ctx, auth, at) {
 			return ErrInformationForbidden
 		}
 		// Owner/identity changes use this same governance fence. Never disable the
@@ -279,7 +279,7 @@ func (s *GoogleService) Save(ctx context.Context, in GoogleSave) (out GoogleConf
 		if e != nil {
 			return e
 		}
-		if !canReadGoogleConfiguration(auth, at) || !auth.EffectiveOwner {
+		if !canReadGoogleConfiguration(auth, at) || !auth.EffectiveOwner || !recent(ctx, auth, at) {
 			return ErrInformationForbidden
 		}
 		current, e := tx.ReadGoogle(c)
@@ -380,7 +380,7 @@ func (s *GoogleService) Test(ctx context.Context, subject Subject, version int64
 		if e != nil {
 			return e
 		}
-		if !canReadGoogleConfiguration(a, at) || !a.EffectiveOwner {
+		if !canReadGoogleConfiguration(a, at) || !a.EffectiveOwner || !recent(ctx, a, at) {
 			return ErrInformationForbidden
 		}
 		if e = tx.LockGoogle(c); e != nil {
@@ -390,7 +390,7 @@ func (s *GoogleService) Test(ctx context.Context, subject Subject, version int64
 		if e != nil {
 			return e
 		}
-		if !canReadGoogleConfiguration(a, at) || !a.EffectiveOwner {
+		if !canReadGoogleConfiguration(a, at) || !a.EffectiveOwner || !recent(ctx, a, at) {
 			return ErrInformationForbidden
 		}
 		stored, e = tx.ReadGoogle(c)
@@ -436,7 +436,7 @@ func (s *GoogleService) Test(ctx context.Context, subject Subject, version int64
 		if e != nil {
 			return e
 		}
-		if !canReadGoogleConfiguration(a, s.clock.Now()) || !a.EffectiveOwner {
+		if !canReadGoogleConfiguration(a, s.clock.Now()) || !a.EffectiveOwner || !recent(ctx, a, s.clock.Now()) {
 			return ErrInformationForbidden
 		}
 		if e = tx.FinishGoogleTest(c, subject.ActorID, key, result); e != nil {

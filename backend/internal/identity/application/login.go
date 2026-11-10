@@ -36,6 +36,7 @@ type SessionCommit struct {
 func (SessionCommit) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED session commit]") }
 
 type LoginResult struct {
+	SessionID                        ID // Internal committed session identity; never serialized by login handlers.
 	Session                          session.SessionToken
 	CSRF                             session.CSRFToken
 	IdleExpiresAt, AbsoluteExpiresAt time.Time

@@ -1,5 +1,7 @@
 # Document AI reservation recheck and completion accounting
 
+> Historical implementation evidence: the unmounted `completionworker` package was removed in BE-SIM-01; the application completion runner remains.
+
 Status: **IMPLEMENTED_NOT_VERIFIED — UNMOUNTED**
 
 Date: 2026-10-20

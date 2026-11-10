@@ -11,13 +11,26 @@ import (
 	"time"
 )
 
-type PasswordRecoveryStore struct{ runner writeRunner }
+// RecoveryLoginUnlocker clears only password-attempt state for an identity
+// proven by a successfully committed, single-use email recovery challenge.
+type RecoveryLoginUnlocker interface {
+	ClearRecoveryLoginLock(context.Context, string) error
+}
 
-func NewPasswordRecoveryStore(runner writeRunner) (*PasswordRecoveryStore, error) {
-	if runner == nil {
+type PasswordRecoveryStore struct {
+	runner   writeRunner
+	unlocker RecoveryLoginUnlocker
+}
+
+func NewPasswordRecoveryStore(runner writeRunner, unlockers ...RecoveryLoginUnlocker) (*PasswordRecoveryStore, error) {
+	if runner == nil || len(unlockers) > 1 || (len(unlockers) == 1 && unlockers[0] == nil) {
 		return nil, errors.New("password_recovery_store_invalid")
 	}
-	return &PasswordRecoveryStore{runner}, nil
+	store := &PasswordRecoveryStore{runner: runner}
+	if len(unlockers) == 1 {
+		store.unlocker = unlockers[0]
+	}
+	return store, nil
 }
 func (s *PasswordRecoveryStore) IssuePasswordRecovery(ctx context.Context, c identityapp.PasswordRecoveryIssueCommand) (result identityapp.PasswordRecoveryIssuance, err error) {
 	if ctx == nil || c.ChallengeID.IsZero() || c.AuditID.IsZero() || c.CorrelationID.IsZero() || c.Email.IsZero() || c.TokenHash == [32]byte{} || c.CreatedAt.IsZero() {
@@ -50,7 +63,8 @@ func (s *PasswordRecoveryStore) CommitPasswordRecoveryReset(ctx context.Context,
 	if ctx == nil || c.AuditID.IsZero() || c.CorrelationID.IsZero() || c.TokenHash == [32]byte{} || c.PasswordPHC == "" || c.ResetAt.IsZero() {
 		return errors.New("password_recovery_reset_invalid")
 	}
-	return s.runner.WithinTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
+	var lookup string
+	err = s.runner.WithinTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
 		q := identitysql.New(db)
 		row, err := q.LockValidPasswordRecoveryChallenge(txCtx, identitysql.LockValidPasswordRecoveryChallengeParams{TokenHash: c.TokenHash[:], At: identityTime(c.ResetAt)})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -76,6 +90,19 @@ func (s *PasswordRecoveryStore) CommitPasswordRecoveryReset(ctx context.Context,
 		if err != nil || affected != 1 {
 			return identityapp.ErrPasswordRecoveryInvalid
 		}
-		return q.InsertPasswordRecoveredAudit(txCtx, identitysql.InsertPasswordRecoveredAuditParams{ID: identityID(c.AuditID), UserID: row.UserID, At: identityTime(c.ResetAt), CorrelationID: identityID(c.CorrelationID)})
+		if err = q.InsertPasswordRecoveredAudit(txCtx, identitysql.InsertPasswordRecoveredAuditParams{ID: identityID(c.AuditID), UserID: row.UserID, At: identityTime(c.ResetAt), CorrelationID: identityID(c.CorrelationID)}); err != nil {
+			return err
+		}
+		lookup = row.EmailLookup
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if s.unlocker != nil {
+		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancel()
+		return s.unlocker.ClearRecoveryLoginLock(unlockCtx, lookup)
+	}
+	return nil
 }

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -32,6 +33,10 @@ type SupportMessage struct {
 type SupportDetail struct {
 	Case     SupportCase
 	Messages []SupportMessage
+}
+type SupportFilter struct{ State, Assignment string }
+type filteredSupportTx interface {
+	ListFilteredCases(context.Context, int32, *PlatformAuditCursor, SupportFilter) ([]SupportCase, error)
 }
 type SupportPage struct {
 	Cases []SupportCase
@@ -96,7 +101,7 @@ func (s *SupportService) authorize(ctx context.Context, tx SupportTx, subject Pl
 	if err != nil {
 		return err
 	}
-	if !facts.Grants(capability) || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+	if !facts.Grants(capability) || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) || capability != "platform.support.case.read" && !securitypolicy.Recent(ctx, facts.AssuredAt, at) {
 		return ErrSupportForbidden
 	}
 	return nil
@@ -118,8 +123,11 @@ func (s *SupportService) newID() (ID, error) {
 	}
 	return id, nil
 }
-func (s *SupportService) List(ctx context.Context, subject PlatformAuditSubject, limit int32, cursor *PlatformAuditCursor) (out SupportPage, err error) {
-	if s == nil || ctx == nil || !validAuditSubject(subject) || limit < 1 || limit > 50 || cursor != nil && (cursor.ID.IsZero() || cursor.OccurredAt.IsZero()) {
+func (s *SupportService) List(ctx context.Context, subject PlatformAuditSubject, limit int32, cursor *PlatformAuditCursor) (SupportPage, error) {
+	return s.ListFiltered(ctx, subject, limit, cursor, SupportFilter{})
+}
+func (s *SupportService) ListFiltered(ctx context.Context, subject PlatformAuditSubject, limit int32, cursor *PlatformAuditCursor, filter SupportFilter) (out SupportPage, err error) {
+	if s == nil || ctx == nil || !validAuditSubject(subject) || limit < 1 || limit > 50 || cursor != nil && (cursor.ID.IsZero() || cursor.OccurredAt.IsZero()) || filter.State != "" && filter.State != "OPEN" && filter.State != "RESOLVED" || filter.Assignment != "" && filter.Assignment != "ASSIGNED" && filter.Assignment != "UNASSIGNED" {
 		return out, ErrSupportInvalid
 	}
 	at := s.clock.Now().UTC()
@@ -131,7 +139,17 @@ func (s *SupportService) List(ctx context.Context, subject PlatformAuditSubject,
 		if x := s.authorize(c, tx, subject, at, "platform.support.case.read"); x != nil {
 			return x
 		}
-		rows, x := tx.ListCases(c, limit+1, cursor)
+		var rows []SupportCase
+		var x error
+		if filter != (SupportFilter{}) {
+			filtered, ok := tx.(filteredSupportTx)
+			if !ok {
+				return ErrSupportUnavailable
+			}
+			rows, x = filtered.ListFilteredCases(c, limit+1, cursor, filter)
+		} else {
+			rows, x = tx.ListCases(c, limit+1, cursor)
+		}
 		if x != nil {
 			return x
 		}

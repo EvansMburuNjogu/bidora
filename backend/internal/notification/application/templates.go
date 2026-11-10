@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"bidora/backend/internal/emailhtml"
+	"bidora/backend/internal/invitationcode"
 	"bidora/backend/internal/notification/domain"
 )
 
@@ -100,7 +101,7 @@ var templateDefinitions = map[string]templateDefinition{
 	"identity.password_recovery":   {"PASSWORD_RECOVERY", true, []string{"platform_name", "token", "expires_at"}, []string{"token", "expires_at"}},
 	"identity.login_code":          {"EMAIL_LOGIN", true, []string{"platform_name", "code", "expires_at"}, []string{"code", "expires_at"}},
 	"tenant.invitation":            {"TENANT_INVITATION", true, []string{"platform_name", "role", "token", "expires_at"}, []string{"token", "expires_at", "role"}},
-	"platform.invitation.issued":   {"PLATFORM_INVITATION", true, []string{"platform_name", "role", "token", "expires_at"}, []string{"token", "expires_at", "role"}},
+	"platform.invitation.issued":   {"PLATFORM_INVITATION", true, []string{"platform_name", "role", "token", "expires_at"}, []string{"expires_at", "role"}},
 	"platform.invitation.reminder": {"PLATFORM_INVITATION_REMINDER", false, []string{"platform_name", "role", "expires_at"}, []string{"role", "expires_at"}},
 	"platform.session_revocation":  {"PLATFORM_SESSION_REVOCATION", true, []string{"platform_name", "occurred_at"}, []string{"occurred_at"}},
 	"platform.identity_state":      {"PLATFORM_IDENTITY_STATE_CHANGE", true, []string{"platform_name", "action", "occurred_at"}, []string{"action", "occurred_at"}},
@@ -306,7 +307,7 @@ var minimalSeedCopy = map[string]struct{ legacy, plain, intro string }{
 	"identity.password_recovery":   {"Use this password recovery token: {{token}}. Expires: {{expires_at}}.", "Recovery code: {{token}}\nExpires {{expires_at}}.", ""},
 	"identity.login_code":          {"Your sign-in code is {{code}}. Expires: {{expires_at}}.", "Sign-in code: {{code}}\nExpires {{expires_at}}.", "Enter this code to sign in."},
 	"tenant.invitation":            {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Enter this code to accept."},
-	"platform.invitation.issued":   {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "{{role}} invitation.\nCode: {{token}}\nExpires {{expires_at}}.", "You're invited as {{role}}. Enter this code to accept."},
+	"platform.invitation.issued":   {"You were invited as {{role}}. Invitation code: {{token}}. Expires: {{expires_at}}.", "You're invited as {{role}}.\nOpen your invitation to set up your account.\nExpires {{expires_at}}.", "You're invited as {{role}}. Open your invitation to set up your account."},
 	"platform.invitation.reminder": {"Your {{role}} administrator invitation is awaiting acceptance. Expires: {{expires_at}}.", "Your {{role}} invitation is awaiting acceptance. Expires {{expires_at}}.", ""},
 	"platform.session_revocation":  {"Your administrator sessions were revoked at {{occurred_at}}. Sign in again and complete TOTP. Contact an authorised Platform Owner if unexpected.", "Your sessions were signed out at {{occurred_at}}. Sign in again.", ""},
 	"platform.identity_state":      {"Your administrator access was {{action}} at {{occurred_at}}. Contact an authorised Platform Owner if unexpected.", "Administrator access {{action}} at {{occurred_at}}.", ""},
@@ -325,6 +326,14 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		out := placeholderPattern.ReplaceAllStringFunc(text, func(m string) string {
 			k := placeholderPattern.FindStringSubmatch(m)[1]
 			v, ok := values[k]
+			if k == "token" && t.Key == "platform.invitation.issued" {
+				v = "the secure invitation link"
+			} else if k == "token" && t.Key == "tenant.invitation" {
+				v = invitationcode.Display(v)
+			}
+			if k == "role" && strings.HasPrefix(t.Key, "platform.invitation.") {
+				v = emailhtml.InvitationRoleLabel(v)
+			}
 			if !ok || len(v) > 2048 {
 				missing = true
 			}
@@ -335,7 +344,8 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		}
 		return out, nil
 	}
-	subject, e := render(t.Subject)
+	subjectSource := t.Subject
+	subject, e := render(subjectSource)
 	if e != nil || len(subject) > 512 || strings.ContainsAny(subject, "\r\n\x00") {
 		return RenderedTemplate{}, ErrTemplateInvalid
 	}
@@ -344,6 +354,9 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 	seed := copy.legacy != "" && t.Body == copy.legacy
 	if seed {
 		plain = copy.plain
+	}
+	if t.Key == "platform.invitation.issued" {
+		plain = strings.ReplaceAll(plain, "Enter this code to accept.", "Open your invitation to continue.")
 	}
 	body, e := render(plain)
 	if e != nil {
@@ -358,6 +371,9 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 	}
 	if t.Key == "identity.password_recovery" {
 		instructions := "Open the secure one-time recovery link below, then set and confirm your new password."
+		if values["challenge_ref"] != "" {
+			instructions = "Enter the six-digit recovery code, then set and confirm your new password."
+		}
 		body += "\n\n" + instructions
 		if seed {
 			displayBody = instructions
@@ -366,21 +382,31 @@ func RenderTemplate(t Template, values map[string]string) (RenderedTemplate, err
 		}
 	}
 	body += "\n\n" + emailhtml.SafetyNote(t.Key)
-	action := emailhtml.QuickAction(values["web_origin"], t.Key)
-	if t.Key == "identity.password_recovery" && values["user_id"] != "" {
-		action = emailhtml.RecoveryAction(values["web_origin"], values["user_id"], values["token"])
-	}
-	if action.URL != "" {
-		body += "\n\n" + action.Label + ": " + action.URL
-	}
-	code := values["code"]
-	if code == "" {
+	code := ""
+	switch t.Key {
+	case "identity.login_code":
+		code = values["code"]
+	case "identity.email_verification", "identity.password_recovery", "tenant.invitation", "platform.invitation.issued":
 		code = values["token"]
 	}
 	if code != "" {
 		displayBody = strings.ReplaceAll(displayBody, code, "the code below")
+		if t.Key == "platform.invitation.issued" || t.Key == "tenant.invitation" {
+			displayBody = strings.ReplaceAll(displayBody, invitationcode.Display(code), "the code below")
+		}
 	}
-	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key, SupportEmail: values["support_email"], RecoveryUserID: values["user_id"]}), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
+	content := emailhtml.Content{Brand: values["platform_name"], Title: subject, Body: displayBody, Code: code, Expiry: values["expires_at"], Origin: values["web_origin"], Key: t.Key, SupportEmail: values["support_email"], RecoveryUserID: values["user_id"], ChallengeRef: values["challenge_ref"]}
+	if t.Key == "platform.invitation.issued" || t.Key == "tenant.invitation" {
+		body = strings.ReplaceAll(body, code, invitationcode.Display(code))
+	}
+	action := emailhtml.ActionFor(content)
+	if _, _, short := invitationcode.Split(code); (t.Key == "platform.invitation.issued" && code != "" || short && t.Key == "tenant.invitation") && action.URL == "" {
+		return RenderedTemplate{}, ErrTemplateInvalid
+	}
+	if action.URL != "" {
+		body += "\n\n" + action.Label + ": " + action.URL
+	}
+	return RenderedTemplate{Subject: subject, Text: body, HTML: emailhtml.Render(content), Version: t.Version, Category: templateDefinitions[t.Key].category, Key: t.Key}, nil
 }
 func (s *TemplateService) Render(ctx context.Context, key string, values map[string]string) (out RenderedTemplate, err error) {
 	if s == nil || ctx == nil || !SupportedTemplate(key) {

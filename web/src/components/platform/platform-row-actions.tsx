@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { BanIcon, CheckIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, RotateCcwIcon } from "lucide-react";
+import { BanIcon, CheckIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Action = { label: string; href: string; onSelect?: never; destructive?: boolean } | { label: string; onSelect: () => void; href?: never; destructive?: boolean };
 
 function ActionIcon({ label, destructive }: { label: string; destructive?: boolean }) {
-  const Icon = destructive ? BanIcon : /edit|change/i.test(label) ? PencilIcon : /retry/i.test(label) ? RotateCcwIcon : /enable|approve/i.test(label) ? CheckIcon : EyeIcon;
+  const Icon = /delete/i.test(label)?Trash2Icon:destructive ? BanIcon : /edit|change/i.test(label) ? PencilIcon : /retry/i.test(label) ? RotateCcwIcon : /enable|approve/i.test(label) ? CheckIcon : EyeIcon;
   return <Icon aria-hidden="true" className="size-4" />;
 }
 

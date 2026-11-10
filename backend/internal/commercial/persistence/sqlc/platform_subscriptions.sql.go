@@ -171,13 +171,17 @@ FROM commercial.subscriptions s
 LEFT JOIN commercial.subscription_terms t ON t.id=s.current_term_id AND t.subscription_id=s.id
 WHERE s.id>$1::uuid
  AND ($2::text='' OR CASE WHEN EXISTS(SELECT 1 FROM commercial.subscription_access_holds h WHERE h.subscription_id=s.id AND h.state='ACTIVE') THEN 'SUSPENDED' ELSE s.state END=$2::text)
-ORDER BY s.id ASC LIMIT $3
+ AND ($3::text='' OR COALESCE(t.plan_key,s.pending_plan_key,'')=$3::text)
+ AND ($4::text='' OR COALESCE(t.cadence,s.pending_cadence,'')=$4::text)
+ORDER BY s.id ASC LIMIT $5
 `
 
 type ListPlatformSubscriptionInventoryParams struct {
-	AfterID     pgtype.UUID
-	StateFilter string
-	RowLimit    int32
+	AfterID       pgtype.UUID
+	StateFilter   string
+	PlanFilter    string
+	CadenceFilter string
+	RowLimit      int32
 }
 
 type ListPlatformSubscriptionInventoryRow struct {
@@ -195,7 +199,13 @@ type ListPlatformSubscriptionInventoryRow struct {
 }
 
 func (q *Queries) ListPlatformSubscriptionInventory(ctx context.Context, arg ListPlatformSubscriptionInventoryParams) ([]ListPlatformSubscriptionInventoryRow, error) {
-	rows, err := q.db.Query(ctx, listPlatformSubscriptionInventory, arg.AfterID, arg.StateFilter, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listPlatformSubscriptionInventory,
+		arg.AfterID,
+		arg.StateFilter,
+		arg.PlanFilter,
+		arg.CadenceFilter,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -106,8 +106,12 @@ func TestPlatformInformationOwnerSaveReplayAndConflict(t *testing.T) {
 		t.Fatalf("nonowner write: %v", err)
 	}
 	f.authority.AssuredAt = at.Add(-16 * time.Minute)
-	if _, err = svc.Read(context.Background(), subject); !errors.Is(err, settings.ErrInformationForbidden) {
-		t.Fatalf("stale TOTP read: %v", err)
+	if _, err = svc.Read(context.Background(), subject); err != nil {
+		t.Fatalf("valid older administrator session could not read information: %v", err)
+	}
+	f.authority.EffectiveOwner = true
+	if _, err = svc.Save(context.Background(), input); !errors.Is(err, settings.ErrInformationForbidden) || f.writes != 1 {
+		t.Fatal("stale verification permitted a security-sensitive write", err)
 	}
 }
 func TestPlatformInformationPreservesLegacyCommittedReplay(t *testing.T) {

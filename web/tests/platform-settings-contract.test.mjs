@@ -10,6 +10,7 @@ test("platform identity parser accepts current shared contacts and rejects unsaf
 });
 test("session policy parser preserves hard security ceilings and rejects unsupported controls", () => {
   const data = { idle_seconds: 300, absolute_seconds: 3600, security: { failed_login_attempts: 5, failure_window_seconds: 900, lockout_seconds: 900, minimum_password_bytes: 12, password_reset_seconds: 1800, allow_multiple_sessions: true, admin_idle_seconds: 604800, admin_absolute_seconds: 604800 }, version: 2 };
-  assert.deepEqual(parsePlatformSessionPolicy({ data, meta: { trace_id: "synthetic", next_cursor: null } }), data);
+  assert.deepEqual(parsePlatformSessionPolicy({ data, meta: { trace_id: "synthetic", next_cursor: null } }), { ...data, security: { ...data.security, step_up_seconds: 900 } });
+  for (const step_up_seconds of [0,299,3601,NaN,null]) assert.equal(parsePlatformSessionPolicy({ data:{...data,security:{...data.security,step_up_seconds}},meta:{trace_id:"synthetic"} }),null);
   for (const change of [{ idle_seconds: 3600 }, { absolute_seconds: 604800 }, { mfa_required: false }, { version: 0 }]) assert.equal(parsePlatformSessionPolicy({ data: { ...data, ...change }, meta: { trace_id: "synthetic" } }), null);
 });

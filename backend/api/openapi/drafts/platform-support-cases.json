@@ -35,7 +35,9 @@
               "type": "string",
               "maxLength": 384
             }
-          }
+          },
+          { "name": "state", "in": "query", "schema": { "type": "string", "enum": ["OPEN", "RESOLVED"] } },
+          { "name": "assignment", "in": "query", "schema": { "type": "string", "enum": ["ASSIGNED", "UNASSIGNED"] } }
         ],
         "responses": {
           "200": {

@@ -44,22 +44,23 @@ func readSessionSecurity(ctx context.Context, db postgres.DBTX, legacy SessionPo
 	return p, e
 }
 
-// Revoke every other session and persist tightened bounds on the caller. This
-// prevents relaxation later from resurrecting an expired administrator session.
+// Apply changed limits to every stored session without mass sign-out. Only
+// expired/revoked identities or excess concurrent sessions are invalidated;
+// persisted tightening prevents later relaxation from resurrecting a session.
 func (t *SessionPolicyRevokerTx) ApplySessionPolicy(ctx context.Context, current [16]byte, p securitypolicy.Policy, at time.Time) (int64, error) {
 	if t == nil || ctx == nil || current == ([16]byte{}) || !securitypolicy.Valid(p) || at.IsZero() {
 		return 0, errors.New("session_policy_revoker_invalid")
 	}
 	q := identitysql.New(t.db)
 	id := pgtype.UUID{Bytes: current, Valid: true}
-	revoked, e := q.RevokeOtherSessionsForPolicy(ctx, identitysql.RevokeOtherSessionsForPolicyParams{At: identityTime(at), CurrentSessionID: id})
+	_, e := q.TightenSessionsForPolicy(ctx, identitysql.TightenSessionsForPolicyParams{IdleSeconds: p.IdleSeconds, AbsoluteSeconds: p.AbsoluteSeconds, AdminIdleSeconds: p.AdminIdleSeconds, AdminAbsoluteSeconds: p.AdminAbsoluteSeconds})
 	if e != nil {
 		return 0, e
 	}
-	expired, e := q.RevokeExpiredPolicySession(ctx, identitysql.RevokeExpiredPolicySessionParams{At: identityTime(at), CurrentSessionID: id, AdminIdleSeconds: p.AdminIdleSeconds, AdminAbsoluteSeconds: p.AdminAbsoluteSeconds})
+	expired, e := q.RevokeExpiredSessionsForPolicy(ctx, identityTime(at))
 	if e != nil {
 		return 0, e
 	}
-	_, e = q.TightenCurrentPolicySession(ctx, identitysql.TightenCurrentPolicySessionParams{CurrentSessionID: id, AdminIdleSeconds: p.AdminIdleSeconds, AdminAbsoluteSeconds: p.AdminAbsoluteSeconds})
-	return revoked + expired, e
+	excess, e := q.RevokeExcessSessionsForPolicy(ctx, identitysql.RevokeExcessSessionsForPolicyParams{At: identityTime(at), CurrentSessionID: id, AllowMultipleSessions: p.AllowMultipleSessions})
+	return expired + excess, e
 }

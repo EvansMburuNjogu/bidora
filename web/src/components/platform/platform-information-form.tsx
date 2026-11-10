@@ -59,7 +59,7 @@ export function PlatformInformationForm() {
       if (response.status === 401 || response.status === 409) { refresh(); return; }
       const value = response.ok ? parsePlatformInformation(await response.json()) : null;
       if (sequence.current !== request) return;
-      if (!value) { setMessage({ kind: "error", text: response.status === 403 ? "Recent verification is required to view these settings." : "Saved details unavailable." }); return; }
+      if (!value) { setMessage({ kind: "error", text: response.status === 403 ? "You do not have permission to view these settings." : "Saved details unavailable." }); return; }
       setLoaded({ value, generation }); setDraft(fromServer(value)); setServerErrors({}); setTouched({});
     } catch { if (sequence.current === request) setMessage({ kind: "error", text: "Saved details unavailable." }); }
     finally { if (sequence.current === request) setLoading(false); }

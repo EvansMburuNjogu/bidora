@@ -1,6 +1,6 @@
 # Bidora technical design index
 
-Status: substantive design baseline for review; no application implementation. Approved stack/principles are distinguished from proposed contracts and Pending Approval policies in the decision register. Existing [product specifications](../product/00_MASTER_INDEX.md) remain authoritative and unchanged.
+Status: historical design baseline, not a description of current source or implementation permissions. The application now exists in `backend/` and `web/`; use [current development instructions](../../AGENTS.md), [the single delivery tracker](../tickets/PLATFORM_ADMIN_DELIVERY.md) and [runtime/API references](../../README.md) for active work. Approved stack/principles and historical decisions remain preserved below.
 
 ## Reading order and authority
 

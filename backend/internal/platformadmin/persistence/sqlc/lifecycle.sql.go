@@ -477,7 +477,7 @@ func (q *Queries) GetPlatformCommand(ctx context.Context, arg GetPlatformCommand
 }
 
 const getPlatformInvitation = `-- name: GetPlatformInvitation :one
-SELECT id, email, email_lookup, role_key, authorization_path, state, invited_by, reason, created_at, activated_at,
+SELECT id, first_name, last_name, email, email_lookup, role_key, authorization_path, state, invited_by, reason, created_at, activated_at,
        expires_at, accepted_by, accepted_at, cancelled_at, replaced_at, version
 FROM platform_administration.administrator_invitations
 WHERE id = $1
@@ -485,6 +485,8 @@ WHERE id = $1
 
 type GetPlatformInvitationRow struct {
 	ID                pgtype.UUID
+	FirstName         string
+	LastName          string
 	Email             string
 	EmailLookup       string
 	RoleKey           string
@@ -507,6 +509,8 @@ func (q *Queries) GetPlatformInvitation(ctx context.Context, id pgtype.UUID) (Ge
 	var i GetPlatformInvitationRow
 	err := row.Scan(
 		&i.ID,
+		&i.FirstName,
+		&i.LastName,
 		&i.Email,
 		&i.EmailLookup,
 		&i.RoleKey,
@@ -628,15 +632,17 @@ func (q *Queries) InsertPlatformAdministratorProfile(ctx context.Context, arg In
 
 const insertPlatformInvitation = `-- name: InsertPlatformInvitation :exec
 INSERT INTO platform_administration.administrator_invitations
-(id, email, email_lookup, role_key, authorization_path, state, token_hash, invited_by, reason,
+(id, first_name, last_name, email, email_lookup, role_key, authorization_path, state, token_hash, invited_by, reason,
  created_at, activated_at, expires_at, version)
-VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10,
-        $11, $12, 1)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12,
+        $13, $14, 1)
 `
 
 type InsertPlatformInvitationParams struct {
 	ID                pgtype.UUID
+	FirstName         string
+	LastName          string
 	Email             string
 	EmailLookup       string
 	RoleKey           string
@@ -653,6 +659,8 @@ type InsertPlatformInvitationParams struct {
 func (q *Queries) InsertPlatformInvitation(ctx context.Context, arg InsertPlatformInvitationParams) error {
 	_, err := q.db.Exec(ctx, insertPlatformInvitation,
 		arg.ID,
+		arg.FirstName,
+		arg.LastName,
 		arg.Email,
 		arg.EmailLookup,
 		arg.RoleKey,
@@ -932,7 +940,8 @@ func (q *Queries) ListPlatformAdministratorChanges(ctx context.Context, arg List
 const listPlatformAdministratorProfiles = `-- name: ListPlatformAdministratorProfiles :many
 SELECT user_id, context_generation, version, created_at, updated_at
 FROM platform_administration.administrator_profiles AS p
-WHERE ($1::uuid IS NULL OR p.user_id = $1::uuid)
+WHERE EXISTS(SELECT 1 FROM identity.users live WHERE live.id=p.user_id AND live.account_type='PLATFORM_ADMIN')
+ AND ($1::uuid IS NULL OR p.user_id = $1::uuid)
   AND ($2::text IS NULL OR EXISTS (
        SELECT 1 FROM identity.users u WHERE u.id=p.user_id AND u.account_type='PLATFORM_ADMIN'
        AND (($2::text='ACTIVE' AND u.disabled_at IS NULL)
@@ -989,7 +998,7 @@ func (q *Queries) ListPlatformAdministratorProfiles(ctx context.Context, arg Lis
 }
 
 const listPlatformInvitations = `-- name: ListPlatformInvitations :many
-SELECT i.id, i.email, i.role_key, i.state, i.invited_by, i.reason, i.created_at, i.activated_at,
+SELECT i.id, i.first_name, i.last_name, i.email, i.role_key, i.state, i.invited_by, i.reason, i.created_at, i.activated_at,
        i.expires_at, i.accepted_by, i.accepted_at, i.cancelled_at, i.replaced_at, i.version,
        (SELECT c.id FROM platform_administration.administrator_changes AS c
         WHERE c.invitation_id = i.id AND c.action = 'ACTIVATE_OWNER_INVITATION'
@@ -1010,6 +1019,8 @@ type ListPlatformInvitationsParams struct {
 
 type ListPlatformInvitationsRow struct {
 	ID                 pgtype.UUID
+	FirstName          string
+	LastName           string
 	Email              string
 	RoleKey            string
 	State              string
@@ -1037,6 +1048,8 @@ func (q *Queries) ListPlatformInvitations(ctx context.Context, arg ListPlatformI
 		var i ListPlatformInvitationsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.FirstName,
+			&i.LastName,
 			&i.Email,
 			&i.RoleKey,
 			&i.State,
@@ -1119,7 +1132,7 @@ func (q *Queries) ListPlatformRoleAssignmentHistory(ctx context.Context, arg Lis
 }
 
 const lockActivePlatformInvitationByToken = `-- name: LockActivePlatformInvitationByToken :one
-SELECT id, email, email_lookup, role_key, authorization_path, invited_by, reason, created_at, activated_at, expires_at, version
+SELECT id, email, email_lookup, first_name, last_name, role_key, authorization_path, invited_by, reason, created_at, activated_at, expires_at, version
 FROM platform_administration.administrator_invitations
 WHERE token_hash = $1 AND state = 'ACTIVE' AND expires_at > $2
 FOR UPDATE
@@ -1134,6 +1147,8 @@ type LockActivePlatformInvitationByTokenRow struct {
 	ID                pgtype.UUID
 	Email             string
 	EmailLookup       string
+	FirstName         string
+	LastName          string
 	RoleKey           string
 	AuthorizationPath string
 	InvitedBy         pgtype.UUID
@@ -1151,6 +1166,8 @@ func (q *Queries) LockActivePlatformInvitationByToken(ctx context.Context, arg L
 		&i.ID,
 		&i.Email,
 		&i.EmailLookup,
+		&i.FirstName,
+		&i.LastName,
 		&i.RoleKey,
 		&i.AuthorizationPath,
 		&i.InvitedBy,

@@ -13,6 +13,8 @@ SELECT EXISTS(
 SELECT id,tenant_id,title,description,state,assigned_to,created_by,version,created_at,updated_at
 FROM bidora_support.cases
 WHERE (sqlc.narg(cursor_at)::timestamptz IS NULL OR (updated_at,id)<(sqlc.narg(cursor_at)::timestamptz,sqlc.narg(cursor_id)::uuid))
+ AND (sqlc.arg(state_filter)::text = '' OR state = sqlc.arg(state_filter)::text)
+ AND (sqlc.arg(assignment_filter)::text = '' OR (sqlc.arg(assignment_filter)::text = 'ASSIGNED' AND assigned_to IS NOT NULL) OR (sqlc.arg(assignment_filter)::text = 'UNASSIGNED' AND assigned_to IS NULL))
 ORDER BY updated_at DESC,id DESC LIMIT sqlc.arg(page_limit);
 
 -- name: GetSupportCase :one

@@ -54,7 +54,10 @@ func mapSupportCase(row qsql.BidoraSupportCase) (app.SupportCase, error) {
 	return app.SupportCase{ID: app.ID(row.ID.Bytes), TenantID: app.ID(row.TenantID.Bytes), AssignedTo: app.ID(row.AssignedTo.Bytes), CreatedBy: app.ID(row.CreatedBy.Bytes), Title: row.Title, Description: row.Description, State: row.State, Version: row.Version, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}, nil
 }
 func (t *supportTx) ListCases(c context.Context, limit int32, cursor *app.PlatformAuditCursor) ([]app.SupportCase, error) {
-	arg := qsql.ListSupportCasesParams{PageLimit: limit}
+	return t.ListFilteredCases(c, limit, cursor, app.SupportFilter{})
+}
+func (t *supportTx) ListFilteredCases(c context.Context, limit int32, cursor *app.PlatformAuditCursor, filter app.SupportFilter) ([]app.SupportCase, error) {
+	arg := qsql.ListSupportCasesParams{PageLimit: limit, StateFilter: filter.State, AssignmentFilter: filter.Assignment}
 	if cursor != nil {
 		arg.CursorAt = supportTime(cursor.OccurredAt)
 		arg.CursorID = supportUUID(cursor.ID)

@@ -50,6 +50,24 @@ func (q *Queries) CountEffectivePlatformIdentities(ctx context.Context, userIds 
 	return column_1, err
 }
 
+const deleteDisabledPlatformIdentity = `-- name: DeleteDisabledPlatformIdentity :execrows
+DELETE FROM identity.users WHERE id=$1 AND auth_epoch=$2
+ AND disabled_at IS NOT NULL AND account_type='PLATFORM_ADMIN'
+`
+
+type DeleteDisabledPlatformIdentityParams struct {
+	UserID            pgtype.UUID
+	ExpectedAuthEpoch int64
+}
+
+func (q *Queries) DeleteDisabledPlatformIdentity(ctx context.Context, arg DeleteDisabledPlatformIdentityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDisabledPlatformIdentity, arg.UserID, arg.ExpectedAuthEpoch)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const findPlatformAdministratorByEmailLookup = `-- name: FindPlatformAdministratorByEmailLookup :one
 SELECT id FROM identity.users
 WHERE email_lookup = $1

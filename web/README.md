@@ -2,21 +2,11 @@
 
 Bidora’s web application uses Next.js App Router, React, strict TypeScript, Tailwind CSS v4, and ReUI/shadcn `base-nova` components.
 
-## Current implementation
+## Everyday development
 
-`WEB-AUTH-001` establishes the authentication surface:
+Read the root [AGENTS.md](../AGENTS.md) first; use [docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md) only for relevant runtime/command details. Preserve [generated Next.js instructions](AGENTS.md).
 
-- email/password sign-in and open registration;
-- Google sign-in initiation;
-- password recovery and reset;
-- email verification;
-- TOTP or one-time recovery-code login challenge;
-- password visibility controls and explicit input guidance across every authentication form;
-- a server-only authentication proxy that preserves backend cookies, redirects, generic failures, request limits, and `private, no-store` behavior;
-- a same-origin Google callback bridge plus explicit completion and generic failure destinations;
-- canonical session and membership contract projections;
-- backend-authoritative portal resolution;
-- a responsive Tenderpreneur shell with explicit, memory-only organization selection from `GET /v1/me/memberships`.
+Authentication pages use server-only proxies that preserve backend cookies, safe redirects, generic failures, request limits and `private, no-store` behavior. Session/membership contracts and backend-authoritative portal resolution connect the portal UI to the Go runtime; see the active delivery tracker for current authentication behavior rather than historical feature evidence.
 
 The UI intentionally does not grant tenant or platform access. Portal resolution, memberships, capabilities, tenant context, account recovery delivery, provider acceptance, and production route activation remain backend/deployment-owned gates.
 
@@ -28,17 +18,13 @@ When deployment enables the backend Google flow, register the exact public `${BI
 
 Authentication network limits require an explicit BFF client-address mode. `direct-peer` is development-only and forwards no browser-supplied address. Production must set `BIDORA_BFF_CLIENT_IP_MODE=trusted-header`; the deployment ingress must prevent direct access to Next.js and strip/overwrite `X-Bidora-Client-IP` with exactly one validated IP. The BFF rejects missing, lists and malformed addresses, then forwards the value to a Go peer that must itself be in the explicit trusted-proxy CIDRs. Deployment evidence for both boundaries remains mandatory.
 
-## Checks
+## Development validation — tests opt-in
 
-```bash
-npm ci
-npm run contracts:check
-npm run lint
-npm run test:auth
-npm run build
-# Or run the complete source/BFF authentication sequence:
-npm run verify:auth
-npm audit --omit=dev
-```
+Do not automatically run or generate unit, integration, BFF or browser tests, or repair unrelated tests. Preserve existing test files. Use affected-file lint, `npm run typecheck` or `npm run contracts:check` only when necessary; these do not execute suites. `npm ci` is setup/dependency work, not routine validation.
 
-The application is not started by these commands. No frontend UAT, accessibility acceptance, provider acceptance, or deployment acceptance is implied by a successful build.
+- `npm run verify:auth` → `verify:auth:fast` → contract freshness only.
+- `npm run verify:auth:full` → contracts, lint, TypeScript and production build, **without tests**. This is not a default development step.
+- `npm run verify:auth:with-tests` preserves the original full pipeline, including auth tests, for an explicit testing request.
+- Existing `test:auth*`, `test:platform` and browser scripts remain available manually; run them only when explicitly requested.
+
+See [re-enabling automation](../docs/DEVELOPMENT.md#verification-scripts-and-re-enabling-tests). No tests were deleted and no runtime security controls are disabled. Static checks/builds alone do not prove browser, provider, accessibility, persistence or release acceptance.

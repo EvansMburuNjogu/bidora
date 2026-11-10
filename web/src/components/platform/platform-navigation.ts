@@ -31,7 +31,7 @@ export const platformNavigation: readonly PlatformNavigationGroup[] = [
     { label: "Support", icon: CircleHelpIcon, capabilities: ["platform.support.case.read"], href: "/platform/support", available: true },
   ] },
   { label: "Insights", items: [
-    { label: "Reports", icon: ChartNoAxesCombinedIcon, capabilities: ["platform.audit.read"], href: "/platform/reports", available: true },
+    { label: "Reports", icon: ChartNoAxesCombinedIcon, capabilities: ["platform.audit.read", "platform.invoice.read"], href: "/platform/reports", available: true },
     { label: "Audit Trails", icon: ScrollTextIcon, capabilities: ["platform.audit.read"], href: "/platform/audit", available: true },
   ] },
   { label: "Administration", items: [

@@ -9,8 +9,6 @@ import (
 	"unicode/utf8"
 )
 
-const recentPlatformDirectoryAssurance = 15 * time.Minute
-
 var (
 	ErrPlatformDirectoryInvalid           = errors.New("platform_tenant_directory_invalid")
 	ErrPlatformDirectoryForbidden         = errors.New("platform_tenant_directory_forbidden")
@@ -136,7 +134,7 @@ func (s *PlatformTenantDirectoryService) withDirectory(ctx context.Context, subj
 		if !authority.CanRead {
 			return ErrPlatformDirectoryForbidden
 		}
-		if !platformpolicy.AdministratorAssurance(authority.AssuranceLevel, authority.AssuranceMethod) || authority.AssuredAt.After(observedAt) || authority.AssuredAt.Before(observedAt.Add(-recentPlatformDirectoryAssurance)) {
+		if !platformpolicy.CurrentAdministratorAssurance(authority.AssuranceLevel, authority.AssuranceMethod, authority.AssuredAt, observedAt) {
 			return ErrPlatformDirectoryAssuranceRequired
 		}
 		return read(txCtx, tx)

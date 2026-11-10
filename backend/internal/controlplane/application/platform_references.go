@@ -40,7 +40,7 @@ func (s *PlatformOverviewService) Lookup(ctx context.Context, subject PlatformAu
 		if e != nil {
 			return e
 		}
-		if a.UserID != p.ID(subject.UserID) || a.ContextGeneration != subject.ContextGeneration || !policy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) || a.AssuredAt.IsZero() || a.AssuredAt.After(at) || a.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if a.UserID != p.ID(subject.UserID) || a.ContextGeneration != subject.ContextGeneration || !policy.CurrentAdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod, a.AssuredAt, at) {
 			return ErrPlatformAuditForbidden
 		}
 		allowed := a.Grants("platform.tenant.read") || a.Grants("platform.subscription.read") || a.Grants("platform.support.case.read")

@@ -2,6 +2,7 @@ package application
 
 import (
 	"bidora/backend/internal/identity/assurance"
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -104,7 +105,7 @@ func (s *ReversalService) RequestReconciliation(ctx context.Context, in RequestR
 		if x != nil {
 			return x
 		}
-		if tie || auth.UserID != in.Actor.UserID || auth.ContextGeneration != in.Actor.ContextGeneration || !auth.BillingAdministrator || !assurance.Platform(auth.AssuranceMethod) || auth.AssuredAt.After(at) || auth.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if tie || auth.UserID != in.Actor.UserID || auth.ContextGeneration != in.Actor.ContextGeneration || !auth.BillingAdministrator || !assurance.Platform(auth.AssuranceMethod) || auth.AssuredAt.After(at) || !securitypolicy.Recent(ctx, auth.AssuredAt, at) {
 			return ErrReversalNotPermitted
 		}
 		authorityHash, x := domain.AdjustmentAuthorityHash(auth.UserID, auth.ContextGeneration, auth.AdministratorVersion, "BILLING_ADMINISTRATOR", "platform.payment.reconcile", auth.AssuranceMethod, auth.AssuredAt)

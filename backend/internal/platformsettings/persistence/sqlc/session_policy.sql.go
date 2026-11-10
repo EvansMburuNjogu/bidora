@@ -62,7 +62,7 @@ func (q *Queries) AppendPlatformSessionPolicyOutbox(ctx context.Context, arg App
 }
 
 const getPlatformSessionPolicy = `-- name: GetPlatformSessionPolicy :one
-SELECT idle_seconds,absolute_seconds,version,jsonb_build_object('failed_login_attempts',p.failed_login_attempts,'failure_window_seconds',p.failure_window_seconds,'lockout_seconds',p.lockout_seconds,'minimum_password_bytes',p.minimum_password_bytes,'password_reset_seconds',p.password_reset_seconds,'allow_multiple_sessions',p.allow_multiple_sessions,'admin_idle_seconds',p.admin_idle_seconds,'admin_absolute_seconds',p.admin_absolute_seconds)::jsonb AS security FROM platform_settings.session_policy p WHERE id=true
+SELECT idle_seconds,absolute_seconds,version,jsonb_build_object('failed_login_attempts',p.failed_login_attempts,'failure_window_seconds',p.failure_window_seconds,'lockout_seconds',p.lockout_seconds,'minimum_password_bytes',p.minimum_password_bytes,'password_reset_seconds',p.password_reset_seconds,'allow_multiple_sessions',p.allow_multiple_sessions,'admin_idle_seconds',p.admin_idle_seconds,'admin_absolute_seconds',p.admin_absolute_seconds,'step_up_seconds',p.step_up_seconds)::jsonb AS security FROM platform_settings.session_policy p WHERE id=true
 `
 
 type GetPlatformSessionPolicyRow struct {
@@ -127,7 +127,7 @@ func (q *Queries) InsertPlatformSessionPolicyCommand(ctx context.Context, arg In
 }
 
 const lockPlatformSessionPolicy = `-- name: LockPlatformSessionPolicy :one
-SELECT idle_seconds,absolute_seconds,version,jsonb_build_object('failed_login_attempts',p.failed_login_attempts,'failure_window_seconds',p.failure_window_seconds,'lockout_seconds',p.lockout_seconds,'minimum_password_bytes',p.minimum_password_bytes,'password_reset_seconds',p.password_reset_seconds,'allow_multiple_sessions',p.allow_multiple_sessions,'admin_idle_seconds',p.admin_idle_seconds,'admin_absolute_seconds',p.admin_absolute_seconds)::jsonb AS security FROM platform_settings.session_policy p WHERE id=true FOR UPDATE
+SELECT idle_seconds,absolute_seconds,version,jsonb_build_object('failed_login_attempts',p.failed_login_attempts,'failure_window_seconds',p.failure_window_seconds,'lockout_seconds',p.lockout_seconds,'minimum_password_bytes',p.minimum_password_bytes,'password_reset_seconds',p.password_reset_seconds,'allow_multiple_sessions',p.allow_multiple_sessions,'admin_idle_seconds',p.admin_idle_seconds,'admin_absolute_seconds',p.admin_absolute_seconds,'step_up_seconds',p.step_up_seconds)::jsonb AS security FROM platform_settings.session_policy p WHERE id=true FOR UPDATE
 `
 
 type LockPlatformSessionPolicyRow struct {
@@ -150,7 +150,7 @@ func (q *Queries) LockPlatformSessionPolicy(ctx context.Context) (LockPlatformSe
 }
 
 const updatePlatformSessionPolicy = `-- name: UpdatePlatformSessionPolicy :execrows
-UPDATE platform_settings.session_policy SET idle_seconds=$1,absolute_seconds=$2,failed_login_attempts=($3::jsonb->>'failed_login_attempts')::integer,failure_window_seconds=($3::jsonb->>'failure_window_seconds')::integer,lockout_seconds=($3::jsonb->>'lockout_seconds')::integer,minimum_password_bytes=($3::jsonb->>'minimum_password_bytes')::integer,password_reset_seconds=($3::jsonb->>'password_reset_seconds')::integer,allow_multiple_sessions=($3::jsonb->>'allow_multiple_sessions')::boolean,admin_idle_seconds=($3::jsonb->>'admin_idle_seconds')::integer,admin_absolute_seconds=($3::jsonb->>'admin_absolute_seconds')::integer,version=version+1,updated_at=$4::timestamptz,updated_by=$5::uuid WHERE id=true AND version=$6
+UPDATE platform_settings.session_policy SET idle_seconds=$1,absolute_seconds=$2,failed_login_attempts=($3::jsonb->>'failed_login_attempts')::integer,failure_window_seconds=($3::jsonb->>'failure_window_seconds')::integer,lockout_seconds=($3::jsonb->>'lockout_seconds')::integer,minimum_password_bytes=($3::jsonb->>'minimum_password_bytes')::integer,password_reset_seconds=($3::jsonb->>'password_reset_seconds')::integer,allow_multiple_sessions=($3::jsonb->>'allow_multiple_sessions')::boolean,admin_idle_seconds=($3::jsonb->>'admin_idle_seconds')::integer,admin_absolute_seconds=($3::jsonb->>'admin_absolute_seconds')::integer,step_up_seconds=COALESCE(NULLIF(($3::jsonb->>'step_up_seconds')::integer,0),step_up_seconds),version=version+1,updated_at=$4::timestamptz,updated_by=$5::uuid WHERE id=true AND version=$6
 `
 
 type UpdatePlatformSessionPolicyParams struct {

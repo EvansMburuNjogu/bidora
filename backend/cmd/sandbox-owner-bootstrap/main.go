@@ -57,7 +57,7 @@ func main() {
 	}
 }
 func run(args []string) error {
-	if len(args) != 2 || (args[0] != "verify-email" && args[0] != "promote" && args[0] != "seal-login-smtp") {
+	if len(args) != 2 || (args[0] != "verify-email" && args[0] != "promote" && args[0] != "inspect-platform-session") {
 		return errors.New("bootstrap_arguments_invalid")
 	}
 	if os.Getenv("BIDORA_ENV") != "staging" {
@@ -104,7 +104,7 @@ func run(args []string) error {
 		if err := db.QueryRow(txCtx, `SELECT bootstrap_consumed FROM platform_administration.governance_state WHERE singleton=true`).Scan(&consumed); err != nil {
 			return err
 		}
-		if consumed && args[0] != "seal-login-smtp" {
+		if consumed && args[0] != "inspect-platform-session" {
 			return errors.New("consumed")
 		}
 		return nil
@@ -120,8 +120,8 @@ func run(args []string) error {
 	if err != nil || account.UserID.IsZero() || account.DisabledAt != nil {
 		return errors.New("bootstrap_identity_unavailable")
 	}
-	if args[0] == "seal-login-smtp" {
-		return sealLoginSMTP(ctx, pool, account.UserID, in)
+	if args[0] == "inspect-platform-session" {
+		return inspectPlatformSession(ctx, pool, account.UserID)
 	}
 	if args[0] == "promote" {
 		store, err := platformpersistence.NewStore(pool)

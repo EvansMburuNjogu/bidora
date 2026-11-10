@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"errors"
@@ -322,7 +323,7 @@ func requireRoleChangeOwner(ctx context.Context, tx RoleChangeTx, input RoleChan
 	if !containsRole(facts.Roles, domain.PlatformOwner) || !facts.Grants(capability) {
 		return AuthorityFacts{}, ErrPlatformAccessForbidden
 	}
-	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || !securitypolicy.Recent(ctx, facts.AssuredAt, now) {
 		return AuthorityFacts{}, ErrPlatformAssuranceRequired
 	}
 	return facts, nil

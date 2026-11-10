@@ -916,6 +916,12 @@ type IdentityUser struct {
 	LastName *string
 }
 
+type IdentityUserReference struct {
+	ID        pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+}
+
 type NotificationDeliveryAttempt struct {
 	ID              pgtype.UUID
 	NotificationID  pgtype.UUID
@@ -1038,6 +1044,8 @@ type PlatformAdministrationAdministratorInvitation struct {
 	CancelledAt       pgtype.Timestamptz
 	ReplacedAt        pgtype.Timestamptz
 	Version           int64
+	FirstName         string
+	LastName          string
 }
 
 type PlatformAdministrationAdministratorProfile struct {
@@ -1323,6 +1331,7 @@ type PlatformSettingsSessionPolicy struct {
 	AllowMultipleSessions bool
 	AdminIdleSeconds      int32
 	AdminAbsoluteSeconds  int32
+	StepUpSeconds         int32
 }
 
 type PlatformSettingsSessionPolicyCommand struct {

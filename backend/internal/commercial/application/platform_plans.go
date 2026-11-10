@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -131,7 +132,7 @@ func (s *PlanService) ListManagement(ctx context.Context, subject PlanSubject) (
 		if x != nil {
 			return x
 		}
-		if !facts.Grants("platform.plan.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if !facts.Grants("platform.plan.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) {
 			return ErrPlatformPlanForbidden
 		}
 		versions, x := tx.ListPublished(c)
@@ -217,7 +218,7 @@ func (s *PlanService) Change(ctx context.Context, in PlanChange) (out PlanReceip
 		if in.Operation == "PUBLISH" {
 			capability = "platform.plan.publish"
 		}
-		if !facts.Grants(capability) || facts.UserID != platformapp.ID(in.Subject.UserID) || facts.ContextGeneration != in.Subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if !facts.Grants(capability) || facts.UserID != platformapp.ID(in.Subject.UserID) || facts.ContextGeneration != in.Subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || !securitypolicy.Recent(ctx, facts.AssuredAt, at) {
 			return ErrPlatformPlanForbidden
 		}
 		old, found, x := tx.GetPlanCommand(c, in.Subject.UserID, in.Operation, keyHash)

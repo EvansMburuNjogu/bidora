@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	authzapp "bidora/backend/internal/authorization/application"
+	identityapp "bidora/backend/internal/identity/application"
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 )
@@ -20,7 +21,10 @@ type InvitationAcceptUseCase interface {
 	Accept(context.Context, authzapp.InvitationAcceptanceInput) (authzapp.InvitationAcceptanceResult, error)
 }
 type InvitationIssueHandler struct{ issue InvitationIssueUseCase }
-type InvitationAcceptHandler struct{ accept InvitationAcceptUseCase }
+type InvitationAcceptHandler struct {
+	accept InvitationAcceptUseCase
+	codes  *EmailCodes
+}
 
 func NewInvitationIssueHandler(issue InvitationIssueUseCase) (*InvitationIssueHandler, error) {
 	if issue == nil {
@@ -32,7 +36,7 @@ func NewInvitationAcceptHandler(accept InvitationAcceptUseCase) (*InvitationAcce
 	if accept == nil {
 		return nil, errors.New("invitation_accept_handler_invalid")
 	}
-	return &InvitationAcceptHandler{accept}, nil
+	return &InvitationAcceptHandler{accept: accept}, nil
 }
 
 type invitationIssueData struct {
@@ -97,6 +101,7 @@ func (h *InvitationIssueHandler) Handle(c fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusCreated).JSON(invitationIssueResponse{Data: invitationIssueData{ID: uuid.UUID(result.InvitationID).String(), Role: string(result.Role), ExpiresAt: result.ExpiresAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"), Status: "PENDING"}, Meta: meta{TraceID: c.GetRespHeader("X-Request-ID")}})
 }
+func (h *InvitationAcceptHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
 func (h *InvitationAcceptHandler) Handle(c fiber.Ctx) error {
 	if c == nil {
 		return errors.New("invitation_accept_http_context_required")
@@ -123,7 +128,20 @@ func (h *InvitationAcceptHandler) Handle(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
+	var proof identityapp.AttemptReservation
+	if h.codes != nil {
+		var e error
+		proof, e = h.codes.invitationAttempt(c, "tenant", token)
+		if e != nil {
+			return fail(c, 429, "INVITATION_LIMITED", "Please wait or use a fresh invitation.", true)
+		}
+	}
 	result, err := h.accept.Accept(c.Context(), authzapp.InvitationAcceptanceInput{Token: token, UserID: authzapp.ID(principal.UserID), CorrelationID: authzapp.ID(correlation)})
+	if proof != nil {
+		if e := proof.Finish(c.Context(), err == nil); e != nil {
+			return fail(c, 503, "INVITATION_UNAVAILABLE", "Invitation acceptance could not be confirmed.", true)
+		}
+	}
 	if err != nil {
 		return invitationAcceptFailure(c, err)
 	}

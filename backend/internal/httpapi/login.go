@@ -121,6 +121,20 @@ func (h *LoginHandler) Handle(c fiber.Ctx) error {
 	setLoginCookie(c, csrfCookie)
 	return c.SendStatus(fiber.StatusNoContent)
 }
+func writeInvitationSession(c fiber.Ctx, result identityapp.LoginResult) error {
+	sessionCookie, err := browser.SessionCookie(result.Session.RevealForCookie(), result.AbsoluteExpiresAt)
+	if err != nil {
+		return fail(c, 503, "INVITATION_COMPLETION_UNCONFIRMED", "Sign-in could not be completed. Please sign in.", true)
+	}
+	csrfCookie, err := browser.CSRFCookie(result.CSRF.RevealForBootstrap(), result.AbsoluteExpiresAt)
+	if err != nil {
+		return fail(c, 503, "INVITATION_COMPLETION_UNCONFIRMED", "Sign-in could not be completed. Please sign in.", true)
+	}
+	setLoginCookie(c, sessionCookie)
+	setLoginCookie(c, csrfCookie)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 func setLoginCookie(c fiber.Ctx, cookie http.Cookie) {
 	c.Cookie(&fiber.Cookie{Name: cookie.Name, Value: cookie.Value, Path: cookie.Path, Domain: cookie.Domain, Expires: cookie.Expires, MaxAge: cookie.MaxAge, Secure: cookie.Secure, HTTPOnly: cookie.HttpOnly, SameSite: "Lax"})
 }

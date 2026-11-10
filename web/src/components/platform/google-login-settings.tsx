@@ -36,7 +36,7 @@ function GoogleSettingsForm() {
 
   const load = useCallback(async () => {
     const current = ++sequence.current; setLoading(true); setMessage(null);
-    try { const response = await fetch("/api/platform/settings/google", { cache: "no-store", headers: headers() }); if (current !== sequence.current) return; if (response.status === 401) { refresh(); return; } const value = response.ok ? parseGoogleSettings(settingsData(await response.json())) : null; if (!value) { setSaved(null); setMessage("Google settings could not be loaded. Recent verification may be required."); return; } setSaved(value); setDraft(fromSaved(value)); setServerErrors({}); setReplacing(false);  }
+    try { const response = await fetch("/api/platform/settings/google", { cache: "no-store", headers: headers() }); if (current !== sequence.current) return; if (response.status === 401) { refresh(); return; } const value = response.ok ? parseGoogleSettings(settingsData(await response.json())) : null; if (!value) { setSaved(null); setMessage("Google settings could not be loaded. Check access or retry."); return; } setSaved(value); setDraft(fromSaved(value)); setServerErrors({}); setReplacing(false);  }
     catch { if (current === sequence.current) { setSaved(null); setMessage("Google settings could not be loaded."); } } finally { if (current === sequence.current) setLoading(false); }
   }, [headers, refresh]);
   useEffect(() => { const seq = sequence; const timer = window.setTimeout(() => void load(), 0); return () => { window.clearTimeout(timer); seq.current++; }; }, [load]);

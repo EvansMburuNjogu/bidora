@@ -76,8 +76,14 @@ export async function proxyPlatformInvitation(request: Request): Promise<Respons
   try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)); } catch { return failure(400); }
   if (!value || typeof value !== "object" || Array.isArray(value)) return failure(400);
   const fields = value as Record<string, unknown>;
-  if (Object.keys(fields).some((field) => !["email", "role_key", "reason"].includes(field)) || typeof fields.email !== "string" || fields.email.length < 3 || fields.email.length > 254 ||
-      !PLATFORM_ROLES.some((role) => role === fields.role_key) || typeof fields.reason !== "string" || fields.reason.trim().length < 1 || fields.reason.length > 2000) return failure(400);
+  if (Object.keys(fields).some((field) => !["email", "role_key", "reason", "first_name", "last_name"].includes(field)) || typeof fields.email !== "string" || fields.email.length < 3 || fields.email.length > 254 ||
+      !PLATFORM_ROLES.some((role) => role === fields.role_key) || fields.reason !== undefined && (typeof fields.reason !== "string" || fields.reason.trim().length < 1 || fields.reason.length > 2000)) return failure(400);
+  if (fields.reason === undefined && (fields.first_name === undefined || fields.last_name === undefined)) return failure(400);
+  if (fields.first_name !== undefined || fields.last_name !== undefined) {
+    for (const name of [fields.first_name, fields.last_name]) {
+      if (typeof name !== "string" || name !== name.trim() || !name || new TextEncoder().encode(name).length > 100 || /[\u0000-\u001f\u007f]/.test(name)) return failure(400);
+    }
+  }
   const headers = new Headers({ Accept: "application/json", "Content-Type": "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation, "X-CSRF-Token": csrf, "Idempotency-Key": key });
   forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser);

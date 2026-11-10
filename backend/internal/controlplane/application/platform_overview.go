@@ -61,7 +61,7 @@ func (s *PlatformOverviewService) Read(ctx context.Context, subject PlatformAudi
 		if e != nil {
 			return e
 		}
-		if facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !policy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !policy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) {
 			return ErrPlatformAuditForbidden
 		}
 		permissions := OverviewPermissions{Tenants: facts.Grants("platform.tenant.read"), Subscriptions: facts.Grants("platform.subscription.read"), Invoices: facts.Grants("platform.invoice.read"), Payments: facts.Grants("platform.payment.read"), Support: facts.Grants("platform.support.case.read")}

@@ -187,6 +187,9 @@ export function parseMePortal(value: unknown): MePortalResponse | null {
       if (portal?.path !== "/procurement" || !noPlatformFacts || actions.length !== 0) return null;
       break;
     case "PLATFORM_ADMIN":
+      // A primary-only rotated session may request reauthentication, but exposes
+      // no platform authority until the server resolves fresh EMAIL_OTP proof.
+      if(noPlatformFacts&&portal===null&&actions.length===1&&actions[0]==="COMPLETE_PLATFORM_STEP_UP"&&session.assurance_level==="AAL1")break;
       if (data.platform_context_generation === null || data.capabilities.length === 0) return null;
       if (portal === null) {
         if (actions.length !== 1 || (actions[0] !== "ENROLL_PLATFORM_MFA" && actions[0] !== "COMPLETE_PLATFORM_STEP_UP")) return null;

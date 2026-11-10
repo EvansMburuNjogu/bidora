@@ -30,7 +30,7 @@ export function PlatformCommercialDetail({ queue, recordID }: { queue: string; r
       if (current !== sequence.current) return;
       if (response.status === 401 || response.status === 409) { refreshSession(); return; }
       if (response.status === 404) { setState({ key, kind: "not_found" }); return; }
-      if (response.status === 403) { setState({ key, kind: "error", message: "You don’t have access to this record. You may need to verify your account.", denied: true }); return; }
+      if (response.status === 403) { setState({ key, kind: "error", message: "You don’t have access to this record.", denied: true }); return; }
       const value = response.ok ? parseCommercialDetail(await response.json(), allowedQueue, recordID) : null;
       setState(value ? { key, kind: "ready", value } : { key, kind: "error", message: "Couldn’t load this record." });
     } catch { if (current === sequence.current) setState({ key, kind: "error", message: "Couldn’t load this record." }); }

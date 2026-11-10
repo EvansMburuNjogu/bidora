@@ -3496,7 +3496,7 @@
             "type": "string"
           },
           "capabilities": {
-            "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for all other account types. Every platform operation still rechecks current authority.",
+            "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for other account types and for primary-only rotated administrator sessions awaiting reauthentication. Every platform operation still rechecks current authority.",
             "items": {
               "minLength": 1,
               "type": "string"
@@ -4608,9 +4608,9 @@
         "additionalProperties": false,
         "properties": {
           "token": {
+            "description": "Secret invitation link context plus six digits, or a legacy strong token. Retains expiry, one-time use, email binding and rate limits.",
             "maxLength": 43,
-            "minLength": 43,
-            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "minLength": 29,
             "type": "string"
           }
         },
@@ -4691,6 +4691,7 @@
               "REVOKE_ROLE",
               "DISABLE_IDENTITY",
               "REACTIVATE_IDENTITY",
+              "DELETE_IDENTITY",
               "ACTIVATE_OWNER_INVITATION"
             ],
             "type": "string"
@@ -4866,6 +4867,7 @@
         "discriminator": {
           "mapping": {
             "ASSIGN_ROLE": "#/components/schemas/AssignRoleChange",
+            "DELETE_IDENTITY": "#/components/schemas/IdentityStateChange",
             "DISABLE_IDENTITY": "#/components/schemas/IdentityStateChange",
             "REACTIVATE_IDENTITY": "#/components/schemas/IdentityStateChange",
             "REVOKE_ROLE": "#/components/schemas/RevokeRoleChange"
@@ -5090,7 +5092,8 @@
           "action": {
             "enum": [
               "DISABLE_IDENTITY",
-              "REACTIVATE_IDENTITY"
+              "REACTIVATE_IDENTITY",
+              "DELETE_IDENTITY"
             ],
             "type": "string"
           },
@@ -5148,6 +5151,11 @@
               "null"
             ]
           },
+          "first_name": {
+            "description": "Immutable invitation name; empty on historical invitations.",
+            "maxLength": 100,
+            "type": "string"
+          },
           "governance_change_id": {
             "format": "uuid",
             "type": [
@@ -5157,6 +5165,11 @@
           },
           "id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "last_name": {
+            "description": "Immutable invitation name; empty on historical invitations.",
+            "maxLength": 100,
             "type": "string"
           },
           "role_key": {
@@ -5238,13 +5251,47 @@
       },
       "platform_administrator_lifecycle__IssueInvitationRequest": {
         "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "reason"
+            ]
+          },
+          {
+            "required": [
+              "first_name",
+              "last_name"
+            ]
+          }
+        ],
+        "dependentRequired": {
+          "first_name": [
+            "last_name"
+          ],
+          "last_name": [
+            "first_name"
+          ]
+        },
         "properties": {
           "email": {
             "maxLength": 254,
             "minLength": 3,
             "type": "string"
           },
+          "first_name": {
+            "description": "First name, at most 100 UTF-8 bytes. Supply with last_name.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "last_name": {
+            "description": "Last name, at most 100 UTF-8 bytes. Supply with first_name.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
           "reason": {
+            "description": "Optional legacy audit reason; omitted reasons use the server-generated Platform administrator invitation reason.",
             "maxLength": 2000,
             "minLength": 1,
             "type": "string"
@@ -5255,8 +5302,7 @@
         },
         "required": [
           "email",
-          "role_key",
-          "reason"
+          "role_key"
         ],
         "type": "object"
       },
@@ -7980,6 +8026,13 @@
             "minimum": 300,
             "multipleOf": 60,
             "type": "integer"
+          },
+          "step_up_seconds": {
+            "description": "Sensitive Platform action verification window, default 900 seconds. Omission in legacy requests preserves the saved value; ordinary navigation does not use this timer.",
+            "maximum": 3600,
+            "minimum": 300,
+            "multipleOf": 60,
+            "type": "integer"
           }
         },
         "required": [
@@ -8487,6 +8540,51 @@
           },
           "meta": {
             "$ref": "#/components/schemas/session_inventory__Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "session_renewal__SessionRenewalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "absolute_expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "idle_expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "idle_expires_at",
+              "absolute_expires_at",
+              "observed_at"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "additionalProperties": false,
+            "properties": {
+              "trace_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "trace_id"
+            ],
+            "type": "object"
           }
         },
         "required": [
@@ -9302,6 +9400,274 @@
         ],
         "x-source-contract": "api/openapi/drafts/platform-google-settings.json",
         "x-source-status": "implemented-not-verified"
+      }
+    },
+    "/v1/auth/invitation-activate": {
+      "post": {
+        "description": "Exact approved Origin, trusted ingress network, existing registration identity/network quotas, nonce-scoped invitation attempt protection, strict 4 KiB JSON and UUID Idempotency-Key are required. The strong active unexpired mailed invitation is one-time, purpose-bound mailbox enrollment proof. Only a new or enabled UNASSIGNED identity without external identities, active MFA, platform profile/history or tenant ties may enroll. Existing unfinished password identities may choose their activation password; established accounts are never reset. Saved names/email/role come only from the locked invitation. Password hashing, email verification, old challenge invalidation, epoch advancement, session revocation, profile/role creation, invitation consumption and minimal audit/outbox evidence commit in one transaction. No login session or MFA assurance is created. After 204 navigate to ordinary login. Matching idempotent replay does not rewrite credentials; changed-password replay is rejected. Proof-bound idempotency uses the secret invitation capability as an HMAC key, never a persisted fast password hash.",
+        "operationId": "activatePlatformInvitationAccount",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "password": {
+                    "description": "Must satisfy the current server-owned password policy; confirmation remains client-only.",
+                    "maxLength": 128,
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "Strong scoped invitation capability or legacy opaque token; bare six digits are never sufficient.",
+                    "maxLength": 43,
+                    "minLength": 29,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token",
+                  "password"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Password enrollment and invitation activation committed, or identical command replay. No session/CSRF cookies; continue to login."
+          },
+          "400": {
+            "description": "Invalid input or password policy failure"
+          },
+          "403": {
+            "description": "Origin rejected"
+          },
+          "409": {
+            "description": "Invitation expired, used, replaced, cancelled, identity ineligible or request conflicted; no partial credential/role writes"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          },
+          "429": {
+            "description": "Existing identity/network or invitation-proof controls enforced"
+          },
+          "503": {
+            "description": "Activation unavailable or unconfirmed; never a fake success"
+          }
+        },
+        "security": [],
+        "summary": "Set the invited account password and activate administrator access",
+        "tags": [
+          "Authentication"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-invitation-activation.json",
+        "x-source-status": "source-status-unspecified"
+      }
+    },
+    "/v1/auth/invitation-details": {
+      "post": {
+        "description": "Exact approved Origin, trusted network context and strict 4 KiB JSON. Requires possession of the active unexpired invitation token, including named invitation snapshots. Returns only masked email and the saved role key; never returns full identity, registers accounts, consumes invitations or grants access. Tokens belong in POST bodies, not query strings. Response is private/no-store.",
+        "operationId": "postAuthInvitationDetails",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "token": {
+                    "description": "Opaque invitation link context plus its six-digit code, or a legacy strong token. Bare six digits are never authority.",
+                    "maxLength": 43,
+                    "minLength": 29,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "email": {
+                          "type": "string"
+                        },
+                        "role_key": {
+                          "type": "string"
+                        },
+                        "setup_state": {
+                          "description": "Only disclosed after valid invitation proof. SET_PASSWORD includes eligible unfinished UNASSIGNED identities even when an earlier attempt already saved a password; it does not claim administrator access is active.",
+                          "enum": [
+                            "SET_PASSWORD",
+                            "CREATE",
+                            "VERIFY",
+                            "SIGN_IN",
+                            "GOOGLE_SIGN_IN"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "email",
+                        "role_key",
+                        "setup_state"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "properties": {
+                        "trace_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Masked invited identity and role"
+          },
+          "400": {
+            "description": "Invalid, expired or inactive invitation"
+          },
+          "403": {
+            "description": "Origin rejected"
+          },
+          "413": {
+            "description": "Too large"
+          },
+          "415": {
+            "description": "Unsupported content type"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        },
+        "security": [],
+        "summary": "Read masked email and role for a valid administrator invitation",
+        "tags": [
+          "Authentication"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-invitation-details.json",
+        "x-source-status": "source-status-unspecified"
+      }
+    },
+    "/v1/auth/invitation-register": {
+      "post": {
+        "description": "Requires exact approved Origin, trusted network context, an active unexpired invitation and strict 4 KiB JSON containing only token and optional password. Identity names and email come from immutable invitation snapshots. New identities use normal registration and email verification. Existing unverified identities request verification without overwriting credentials. Verified identities, including Google-only identities, authenticate normally before accepting the invitation separately. This endpoint never resets passwords, authenticates a user, assigns roles or consumes the invitation. Existing generic public registration anti-enumeration and delivery semantics are unchanged.",
+        "operationId": "postAuthInvitationRegister",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "password": {
+                    "description": "Required for a new account. Existing unverified accounts request a real verification email without changing credentials.",
+                    "maxLength": 128,
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "Opaque invitation link context plus its six-digit code, or a legacy strong token. Bare six digits are never authority.",
+                    "maxLength": 43,
+                    "minLength": 29,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Registration or verification acknowledged after confirmed verification handoff. No access is granted; verification and normal authentication precede separate invitation acceptance.",
+            "headers": {
+              "X-Bidora-Code-Challenge": {
+                "description": "Random per-request reference used with the six-digit verification code.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid invitation or password"
+          },
+          "403": {
+            "description": "Origin rejected"
+          },
+          "409": {
+            "description": "Account already verified or setup state changed; sign in or reopen invitation"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          },
+          "429": {
+            "description": "Registration attempt limit enforced"
+          },
+          "503": {
+            "description": "Registration unavailable, or verification email handoff unconfirmed. No fake sent confirmation."
+          }
+        },
+        "security": [],
+        "summary": "Register or verify the identity named in an administrator invitation",
+        "tags": [
+          "Authentication"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-invitation-registration.json",
+        "x-source-status": "source-status-unspecified"
       }
     },
     "/v1/auth/login": {
@@ -10361,12 +10727,21 @@
     },
     "/v1/auth/password-recovery": {
       "post": {
-        "description": "Strict 4 KiB JSON, exact approved HTTPS Origin, identity 3/hour and network 10/hour with 15-minute denial. Unknown, malformed, Google-only and ambiguous SMTP outcomes return the same 202 after accepted limiter processing.",
+        "description": "Strict 4 KiB JSON, exact approved HTTPS Origin, identity 3/hour and network 10/hour with a minimum 15-minute denial, lasting through any exhausted quota window. Blocked retries do not renew timers. Unknown, malformed, Google-only and ambiguous SMTP outcomes return the same 202 after accepted limiter processing.",
         "operationId": "postAuthPasswordRecovery",
         "parameters": [],
         "responses": {
           "202": {
-            "description": "Generic accepted"
+            "description": "Generic accepted",
+            "headers": {
+              "X-Bidora-Code-Challenge": {
+                "description": "Random per-request reference for a six-digit recovery code, also returned for ineligible targets.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid JSON envelope"
@@ -10378,7 +10753,7 @@
             "description": "Unsupported media type"
           },
           "429": {
-            "description": "Limited; Retry-After 900"
+            "description": "Limited; Retry-After reports the effective remaining wait in seconds (1–3600), including identity and network quota windows"
           },
           "503": {
             "description": "Limiter or persistence unavailable"
@@ -10395,7 +10770,7 @@
     },
     "/v1/auth/password-recovery/reset": {
       "post": {
-        "description": "The recovery email links to /recovery_email/{user_id} with the single-use token in the URL fragment. The browser submits it in this JSON body, never in server URLs. When supplied, user_id must match the token owner. Successful reset advances credential/auth epoch and revokes all sessions without issuing a replacement session.",
+        "description": "New recovery emails contain six numeric digits and link to /recovery_email/{user_id}?challenge_ref={random_reference}. The reference is not authority without the code. Codes are purpose/reference scoped with a server HMAC, expiry, single use, per-reference failure limits and network limits. Legacy strong-token email fragments remain valid. Credentials are submitted only in this JSON body, never in server URLs. When supplied, user_id must match the token owner. Successful reset advances credential/auth epoch and revokes all sessions without issuing a replacement session.",
         "operationId": "postAuthPasswordRecoveryReset",
         "parameters": [],
         "requestBody": {
@@ -10404,13 +10779,19 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "challenge_ref": {
+                    "description": "Required with six digits; random issuance reference.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
                   "new_password": {
                     "description": "Must satisfy current password policy.",
                     "type": "string"
                   },
                   "token": {
+                    "description": "Six numeric digits plus challenge_ref, or a legacy strong token.",
                     "maxLength": 43,
-                    "minLength": 43,
+                    "minLength": 6,
                     "type": "string"
                   },
                   "user_id": {
@@ -10551,7 +10932,16 @@
         },
         "responses": {
           "202": {
-            "description": "Generic accepted response for newly created and existing identities. No body."
+            "description": "Generic accepted response for newly created and existing identities. No body.",
+            "headers": {
+              "X-Bidora-Code-Challenge": {
+                "description": "Random request reference for six-digit email verification; also present for ineligible/existing targets.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/register__Failure"
@@ -10576,9 +10966,11 @@
             "description": "Registration attempt limit reached.",
             "headers": {
               "Retry-After": {
+                "description": "Actual remaining identity/network quota or denial wait.",
                 "schema": {
-                  "const": "900",
-                  "type": "string"
+                  "maximum": 3600,
+                  "minimum": 1,
+                  "type": "integer"
                 }
               }
             }
@@ -10598,7 +10990,7 @@
     },
     "/v1/auth/session/bootstrap": {
       "get": {
-        "description": "Requires the current session cookie, its matching CSRF cookie and an exact approved HTTPS Origin. Accepts no query or body. Validation precedes idle touch. The response contains no identity, membership, capability, context or database-routing data.",
+        "description": "Requires the current session cookie, its matching CSRF cookie and an exact approved HTTPS Origin. Accepts no query or body. This is a passive validation read and never advances last_seen_at or idle expiry. The response contains no identity, membership, capability, context or database-routing data.",
         "operationId": "bootstrapSessionCSRF",
         "parameters": [
           {
@@ -10655,6 +11047,71 @@
         ],
         "x-source-contract": "api/openapi/drafts/session-bootstrap.json",
         "x-source-status": "implemented-local-http-verified"
+      }
+    },
+    "/v1/auth/session/renew": {
+      "post": {
+        "description": "Empty body and no query. Requires approved Origin and matching session-bound CSRF header/cookie. Concurrent and out-of-order renewals are monotonic. Expired, revoked or epoch-invalid sessions cannot renew. Cookies and verified-email/step-up timestamps never change.",
+        "operationId": "renewSessionLease",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/session_renewal__SessionRenewalResponse"
+                }
+              }
+            },
+            "description": "Authoritative post-renewal lease and server time."
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Session invalid, expired or revoked."
+          },
+          "403": {
+            "description": "Origin/CSRF validation failed."
+          },
+          "503": {
+            "description": "Temporary failure; do not clear credentials or assume logout."
+          }
+        },
+        "security": [
+          {
+            "csrfCookie": [],
+            "csrfHeader": [],
+            "session": []
+          }
+        ],
+        "summary": "Renew a valid session lease after user activity",
+        "tags": [
+          "Authentication"
+        ],
+        "x-normalized-cross-cutting": true,
+        "x-source-contract": "api/openapi/drafts/session-renewal.json",
+        "x-source-status": "source-status-unspecified"
       }
     },
     "/v1/auth/sessions": {
@@ -10822,7 +11279,7 @@
     },
     "/v1/auth/verify-email": {
       "post": {
-        "description": "Requires an exact approved HTTPS Origin. The token is supplied only in a strict JSON body, never in the URL. Invalid, expired, consumed and unknown tokens return the same failure. Success does not authenticate the browser or grant tenant authority.",
+        "description": "Requires an exact approved HTTPS Origin and trusted network context for six-digit codes. New codes are numeric, scoped to a random reference and purpose through a server HMAC, with per-reference failure limits and network limits. Legacy strong tokens remain valid. Codes are supplied only in strict JSON, never in URLs. Invalid, expired, consumed and unknown tokens return the same failure. Success does not authenticate the browser or grant tenant authority.",
         "operationId": "verifyEmailOwnership",
         "parameters": [
           {
@@ -10841,9 +11298,15 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "challenge_ref": {
+                    "description": "Required with six digits; random per-request reference supplied by the issuance response and email link.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
                   "token": {
+                    "description": "Six numeric digits with challenge_ref, or a legacy 43-character token.",
                     "maxLength": 43,
-                    "minLength": 43,
+                    "minLength": 6,
                     "type": "string"
                   }
                 },
@@ -10930,7 +11393,16 @@
         },
         "responses": {
           "202": {
-            "description": "Generic accepted response. Delivery and account existence are not disclosed."
+            "description": "Generic accepted response. Delivery and account existence are not disclosed.",
+            "headers": {
+              "X-Bidora-Code-Challenge": {
+                "description": "Random per-request reference for the new six-digit code, including for ineligible targets.",
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/verify_email__Failure"
@@ -10952,11 +11424,12 @@
                 }
               }
             },
-            "description": "Fail-closed attempt denial with Retry-After: 900.",
+            "description": "Fail-closed attempt denial with the effective remaining quota/block wait.",
             "headers": {
               "Retry-After": {
                 "schema": {
-                  "const": 900,
+                  "maximum": 3600,
+                  "minimum": 1,
                   "type": "integer"
                 }
               }
@@ -11330,7 +11803,7 @@
         "x-source-status": "pa-f02-through-pa-f07-http-composed-implemented-not-verified"
       },
       "post": {
-        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY permits Platform Owner or Security and Audit authority for non-owner targets; Owner targets and REACTIVATE_IDENTITY require Platform Owner authority. Every action requires accepted administrator AAL2 no older than 15 minutes and exact target/context versions. New changes execute atomically with audit/outbox evidence and no separate checker, advance the target security context and revoke existing sessions. Final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes and self-grants are denied; role bundles cannot be edited. Legacy approval records are never auto-executed.",
+        "description": "ASSIGN_ROLE and REVOKE_ROLE require the corresponding Platform Owner capability. DISABLE_IDENTITY permits Platform Owner or Security and Audit authority for non-owner targets; Owner targets and REACTIVATE_IDENTITY require Platform Owner authority. DELETE_IDENTITY requires a fresh Platform Owner, a different already-disabled account, matching versions and no tenant ties. It physically removes the user and sign-in secrets, invalidates outstanding administrator offers, releases the email and atomically records deletion evidence/idempotency. Historical references retain only a non-login identity ID; immutable business/audit history is not erased and a fresh account receives a new ID with no inherited grants. Every action requires accepted administrator AAL2 no older than 15 minutes and exact target/context versions. New changes execute atomically with audit/outbox evidence and no separate checker, advance the target security context and revoke existing sessions. Final-effective-owner continuity is rechecked under lock. Self-targeted identity-state changes and self-grants are denied; role bundles cannot be edited. Legacy approval records are never auto-executed.",
         "operationId": "createPlatformAdministratorChange",
         "parameters": [
           {
@@ -11753,7 +12226,7 @@
     },
     "/v1/platform/administrator-invitations/accept": {
       "post": {
-        "description": "Requires an authenticated verified, enabled UNASSIGNED user with the exact invited email, no tenant ties, an ACTIVE TOTP factor and TOTP AAL2 no older than 15 minutes. The strict 4 KiB body accepts one 32-byte base64url token. Invalid, expired, consumed, replaced, mismatched and replayed tokens share one safe failure. Success atomically sets PLATFORM_ADMIN, activates the role, advances auth_epoch, revokes every prior session, records evidence and clears browser cookies; the user must sign in again with TOTP.",
+        "description": "Requires an authenticated verified, enabled UNASSIGNED user with the exact invited email, no tenant ties and actual EMAIL_OTP proof at AAL1 or AAL2 no older than 15 minutes or the tighter configured freshness window. The strict 4 KiB body accepts only the strong invitation token (scoped six digits or legacy opaque token). Existing invitation state, identity binding, tenant exclusions, version and idempotency checks remain authoritative. Success atomically promotes the identity, assigns its saved role, advances auth_epoch, revokes prior sessions, records evidence and inserts the replacement administrator session. Its existing email-proof timestamp is preserved, never refreshed. Browser cookies are replaced only after commit; replacement failure rolls back promotion. Matching replay does not revoke the current browser session.",
         "operationId": "acceptPlatformAdministratorInvitation",
         "parameters": [
           {
@@ -11778,7 +12251,7 @@
         },
         "responses": {
           "204": {
-            "description": "Invitation accepted; session and CSRF cookies are cleared."
+            "description": "Invitation accepted with committed replacement session and CSRF cookies. Continue directly through normal portal resolution; matching replay preserves current cookies."
           },
           "400": {
             "$ref": "#/components/responses/platform_administrator_lifecycle__Failure"
@@ -12726,7 +13199,7 @@
     },
     "/v1/platform/commercial/ai-usage": {
       "get": {
-        "description": "Current non-support Platform Billing Administrator with matching platform context generation and recent trusted administrator assurance. Every page rechecks authority and commits a control-plane read audit. Neither Platform Owner alone nor tenant headers authorize access. Reserved/released operations, estimates, prices, costs, content and totals are excluded. Cursor pagination is not a snapshot; concurrent settlements can appear on a later first page.",
+        "description": "Current non-support Platform Billing Administrator or Platform Owner with invoice-read or payment-read authority, matching platform context generation and trusted administrator assurance. Every page rechecks authority and commits a control-plane read audit. Tenant headers do not authorize access. Reserved/released operations, estimates, prices, costs, content and totals are excluded. Cursor pagination is not a snapshot; concurrent settlements can appear on a later first page.",
         "operationId": "getPlatformCommercialAiUsage",
         "parameters": [
           {
@@ -13465,7 +13938,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Three paid plan versions, active and latest draft with optimistic head versions."
+            "description": "Three paid plan versions, active and latest draft with optimistic head versions. independent_publisher indicates whether the current actor differs from the saved change author; publication permission and assurance are checked separately."
           },
           "403": {
             "description": "Forbidden"
@@ -13677,6 +14150,33 @@
                 "SUSPENDED",
                 "ENDED",
                 "REVIEW_REQUIRED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "plan",
+            "schema": {
+              "enum": [
+                "TRIAL",
+                "BASIC",
+                "GROWTH",
+                "PROFESSIONAL",
+                "ENTERPRISE"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cadence",
+            "schema": {
+              "enum": [
+                "TRIAL",
+                "MONTHLY",
+                "ANNUAL",
+                "CONTRACT"
               ],
               "type": "string"
             }
@@ -16321,7 +16821,7 @@
                             ],
                             "type": "object"
                           },
-                          "maxItems": 6,
+                          "maxItems": 12,
                           "type": "array"
                         },
                         "observed_at": {
@@ -16630,7 +17130,7 @@
     },
     "/v1/platform/security/session-policy": {
       "get": {
-        "description": "Requires current platform.admin.read and TOTP AAL2 within 15 minutes; write additionally requires effective PLATFORM_OWNER. Only tighter ordinary limits within mandatory 30-minute idle/12-hour absolute maxima. Each saved change atomically revokes ordinary sessions to prevent resurrection on relaxation and commits receipt/audit/outbox. Verified administrator profiles, MFA, passwords and CSRF remain unchanged. No provider call.",
+        "description": "Requires current platform.admin.read and valid administrator AAL2. Reading settings is not a step-up ceremony. Mandatory email verification, session expiry and permissions still apply.",
         "operationId": "getPlatformSessionPolicy",
         "parameters": [
           {
@@ -16692,7 +17192,7 @@
         "x-source-status": "implemented-not-verified"
       },
       "put": {
-        "description": "Requires current platform.admin.read and TOTP AAL2 within 15 minutes; write additionally requires effective PLATFORM_OWNER. Only tighter ordinary limits within mandatory 30-minute idle/12-hour absolute maxima. Each saved change atomically revokes ordinary sessions to prevent resurrection on relaxation and commits receipt/audit/outbox. Verified administrator profiles, MFA, passwords and CSRF remain unchanged. No provider call.",
+        "description": "Requires effective Platform Owner authority, session-bound CSRF, exact version/idempotency and recent verification under the saved step-up window. Session limits are persisted without extension; only expired/invalid or excess concurrent sessions are revoked. Unrelated valid users are not signed out. Email verification and assurance timestamps are never reset.",
         "operationId": "savePlatformSessionPolicy",
         "parameters": [
           {
@@ -17182,6 +17682,28 @@
             "name": "cursor",
             "schema": {
               "maxLength": 384,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "enum": [
+                "OPEN",
+                "RESOLVED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assignment",
+            "schema": {
+              "enum": [
+                "ASSIGNED",
+                "UNASSIGNED"
+              ],
               "type": "string"
             }
           }
@@ -18494,8 +19016,9 @@
                 "additionalProperties": false,
                 "properties": {
                   "token": {
+                    "description": "Secret link context plus six digits, or a legacy strong token. A bare six-digit code is insufficient.",
                     "maxLength": 43,
-                    "minLength": 43,
+                    "minLength": 29,
                     "type": "string"
                   }
                 },
@@ -27272,7 +27795,7 @@
   "x-contract-status": "IMPLEMENTED_NOT_VERIFIED",
   "x-generation": {
     "command": "cd backend && python3 api/openapi/generate.py",
-    "source_count": 69,
+    "source_count": 73,
     "sources": [
       "api/openapi/health.json",
       "api/openapi/drafts/ai-proposal-writing.json",
@@ -27314,6 +27837,9 @@
       "api/openapi/drafts/platform-google-settings.json",
       "api/openapi/drafts/platform-information.json",
       "api/openapi/drafts/platform-integration-settings.json",
+      "api/openapi/drafts/platform-invitation-activation.json",
+      "api/openapi/drafts/platform-invitation-details.json",
+      "api/openapi/drafts/platform-invitation-registration.json",
       "api/openapi/drafts/platform-invitation-reissue.json",
       "api/openapi/drafts/platform-notification-history.json",
       "api/openapi/drafts/platform-notification-templates.json",
@@ -27337,6 +27863,7 @@
       "api/openapi/drafts/session-administration.json",
       "api/openapi/drafts/session-bootstrap.json",
       "api/openapi/drafts/session-inventory.json",
+      "api/openapi/drafts/session-renewal.json",
       "api/openapi/drafts/submission-confirmation.json",
       "api/openapi/drafts/technical-responses.json",
       "api/openapi/drafts/tender-document-upload.json",

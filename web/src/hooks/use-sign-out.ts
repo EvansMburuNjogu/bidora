@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSession } from "@/components/session/session-provider";
+import { announceSessionChange } from "@/lib/session-events";
 import { submitLogout } from "@/lib/auth-client";
 import { networkSubmissionError, submissionErrorMessage } from "@/lib/submission-errors";
 
@@ -19,6 +20,7 @@ export function useSignOut() {
     try {
       const response = await submitLogout(csrfToken);
       if (response.status === 204 || response.status === 401) {
+        announceSessionChange();
         toast.dismiss("sign-out");
         window.location.replace("/login");
         return;

@@ -109,7 +109,7 @@ func (s *PlatformHistoryService) List(ctx context.Context, subject HistorySubjec
 		if x != nil {
 			return x
 		}
-		if !facts.Grants("platform.integration.failure.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if !facts.Grants("platform.integration.failure.read") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) {
 			return ErrHistoryForbidden
 		}
 		rows, x := tx.ListPlatformAttempts(c, limit+1, cursor, filters)

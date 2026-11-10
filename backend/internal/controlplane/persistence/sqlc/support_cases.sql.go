@@ -268,17 +268,27 @@ const listSupportCases = `-- name: ListSupportCases :many
 SELECT id,tenant_id,title,description,state,assigned_to,created_by,version,created_at,updated_at
 FROM bidora_support.cases
 WHERE ($1::timestamptz IS NULL OR (updated_at,id)<($1::timestamptz,$2::uuid))
-ORDER BY updated_at DESC,id DESC LIMIT $3
+ AND ($3::text = '' OR state = $3::text)
+ AND ($4::text = '' OR ($4::text = 'ASSIGNED' AND assigned_to IS NOT NULL) OR ($4::text = 'UNASSIGNED' AND assigned_to IS NULL))
+ORDER BY updated_at DESC,id DESC LIMIT $5
 `
 
 type ListSupportCasesParams struct {
-	CursorAt  pgtype.Timestamptz
-	CursorID  pgtype.UUID
-	PageLimit int32
+	CursorAt         pgtype.Timestamptz
+	CursorID         pgtype.UUID
+	StateFilter      string
+	AssignmentFilter string
+	PageLimit        int32
 }
 
 func (q *Queries) ListSupportCases(ctx context.Context, arg ListSupportCasesParams) ([]BidoraSupportCase, error) {
-	rows, err := q.db.Query(ctx, listSupportCases, arg.CursorAt, arg.CursorID, arg.PageLimit)
+	rows, err := q.db.Query(ctx, listSupportCases,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.StateFilter,
+		arg.AssignmentFilter,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

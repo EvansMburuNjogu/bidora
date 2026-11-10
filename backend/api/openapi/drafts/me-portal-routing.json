@@ -128,7 +128,7 @@
             "minimum": 1
           },
           "capabilities": {
-            "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for all other account types. Every platform operation still rechecks current authority.",
+            "description": "Current explicit Platform Administration capabilities for an eligible PLATFORM_ADMIN account; empty for other account types and for primary-only rotated administrator sessions awaiting reauthentication. Every platform operation still rechecks current authority.",
             "type": "array",
             "items": {"type": "string", "minLength": 1},
             "uniqueItems": true
@@ -193,7 +193,8 @@
     "TENDERPRENEUR resolves only to /tenderpreneur and only while at least one current ACTIVE membership in an ACTIVE Tenderpreneur tenant exists for the verified enabled identity",
     "TENDERPRENEUR without an eligible membership returns no portal and required action ESTABLISH_TENDERPRENEUR_MEMBERSHIP; this action itself creates no tenant or authority",
     "PROCUREMENT resolves only to /procurement",
-    "PLATFORM_ADMIN without a current active platform assignment is denied rather than routed",
+    "PLATFORM_ADMIN with a primary-only rotated session returns portal null, no capabilities or context generation, and COMPLETE_PLATFORM_STEP_UP; no platform eligibility or authority is implied",
+    "PLATFORM_ADMIN without a current active platform assignment is denied once administrator verification is complete, never routed",
     "PLATFORM_ADMIN with missing MFA or insufficient assurance returns portal null and the applicable required action",
     "PLATFORM_ADMIN with a current assignment, enrolled MFA and AAL2 resolves only to /platform",
     "account type and platform_context_generation never grant tenant membership, capability, active context or database routing",

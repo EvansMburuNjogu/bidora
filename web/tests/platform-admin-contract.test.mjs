@@ -24,6 +24,9 @@ const assignment = {
 test("invitation receipt distinguishes delivery acceptance from recipient delivery and rejects extra data", () => {
   const receipt = { id: target, email: "invited@example.test", role_key: "PLATFORM_OWNER", state: "ACTIVE", version: 1, created_at: "2026-10-18T12:00:00Z", expires_at: "2026-10-21T12:00:00Z", delivery_state: "ACCEPTED_FOR_DELIVERY", governance_change_id: null };
   assert.deepEqual(parsePlatformInvitationReceipt({ data: receipt, meta }), { id: target, state: "ACTIVE", delivery_state: "ACCEPTED_FOR_DELIVERY" });
+  assert.deepEqual(parsePlatformInvitationReceipt({ data: { ...receipt, first_name: "Amina", last_name: "Njoroge" }, meta }), { id: target, state: "ACTIVE", delivery_state: "ACCEPTED_FOR_DELIVERY" });
+  assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, first_name: "Amina" }, meta }), null);
+  assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, first_name: "A".repeat(101), last_name: "Njoroge" }, meta }), null);
   assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, delivery_state: "DELIVERED" }, meta }), null);
   assert.equal(parsePlatformInvitationReceipt({ data: { ...receipt, token: "must-not-be-returned" }, meta }), null);
 });

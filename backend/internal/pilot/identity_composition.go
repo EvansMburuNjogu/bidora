@@ -58,9 +58,11 @@ type identityComposition struct {
 	authenticator            *identityapp.Authenticator
 	rehasher                 *identitypersistence.PasswordRehasher
 	loginCommitter           *identitypersistence.LoginCommitter
+	sessionIssuer            *identityapp.SessionIssuer
 	mfaStore                 *identitypersistence.MFAStore
 	mfaService               *identityapp.MFAService
 	login                    *httpapi.LoginHandler
+	codes                    *httpapi.EmailCodes
 	registration             *httpapi.RegistrationHandler
 	verification             *httpapi.EmailVerificationHandler
 	resend                   *httpapi.EmailVerificationResendHandler
@@ -223,7 +225,7 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err != nil {
 		return nil, err
 	}
-	recoveryStore, err := identitypersistence.NewPasswordRecoveryStore(control)
+	recoveryStore, err := identitypersistence.NewPasswordRecoveryStore(control, recoveryLoginUnlocker{attempts: attempts, deriver: deriver})
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +293,20 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err != nil {
 		return nil, err
 	}
+	codes, err := httpapi.NewEmailCodes(config.EmailLoginHMACSecret, attempts, deriver, ipResolver)
+	if err != nil {
+		return nil, err
+	}
+	result.codes = codes
+	result.registration.EnableInvitationVerification(passwordReader, verificationResend)
+	result.sessionIssuer, err = identityapp.NewSessionIssuer(identityapp.SecureSessionTokenGenerator{}, identityIDs{}, systemClock{}, loginCommitter)
+	if err != nil {
+		return nil, err
+	}
+	result.registration.EnableShortCodes(codes)
+	result.verification.EnableShortCodes(codes)
+	result.resend.EnableShortCodes(codes)
+	result.recovery.EnableShortCodes(codes)
 	result.delivery = delivery
 	return result, nil
 }
@@ -443,6 +459,11 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 			return fail(err)
 		}
 	}
+	composition.registration.EnableInvitationRegistration(platformModule)
+	if err := platformModule.EnablePasswordActivation(composition.hasher); err != nil {
+		return nil, err
+	}
+	composition.registration.EnableInvitationActivation(platformModule)
 	if err = accountType.EnablePlatformAccess(platformPortalAdapter{platform: platformModule, mfa: composition.mfaStore}); err != nil {
 		return fail(err)
 	}
@@ -458,6 +479,8 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 	if err != nil {
 		return fail(err)
 	}
+	platformAdministrationHandler.EnableShortCodes(composition.codes)
+	platformAdministrationHandler.EnableSessionContinuation(composition.sessionIssuer)
 	platformAuditStore, err := controlintegration.NewPlatformAuditReadStore(control)
 	if err != nil {
 		return fail(err)

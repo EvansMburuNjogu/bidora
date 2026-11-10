@@ -1,4 +1,6 @@
-# Development environment plan
+# Historical development environment plan
+
+> Historical proposal, not current setup instructions or an active approval gate. Use [Everyday development](../DEVELOPMENT.md) for working commands, runtime selection and validation. The proposed Make targets below were never implemented; current versions come from repository manifests. Security requirements remain applicable.
 
 ## 1. Purpose
 Specify a reproducible local environment without creating it in this task.

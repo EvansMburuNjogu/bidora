@@ -37,15 +37,14 @@ func NewOpenRegistrationService(registrations *SelfRegistrationService, attempts
 	}
 	return &OpenRegistrationService{registrations, attempts, keyer, verification}, nil
 }
-func (s *OpenRegistrationService) Register(ctx context.Context, input OpenRegistrationInput) (OpenRegistrationResult, error) {
-	if ctx == nil || input.Registration.CorrelationID.IsZero() || input.NetworkScope.IsZero() {
-		return OpenRegistrationResult{}, safe("registration_context_required", nil)
+
+// AllowInvitationEnrollment shares the existing identity/network registration limits.
+func (s *OpenRegistrationService) AllowInvitationEnrollment(ctx context.Context, emailValue string, network attempt.Key) error {
+	if ctx == nil || s == nil || s.attempts == nil || s.keyer == nil || network.IsZero() {
+		return safe("registration_unavailable", nil)
 	}
-	if s == nil || s.registrations == nil || s.attempts == nil || s.keyer == nil || s.verification == nil {
-		return OpenRegistrationResult{}, safe("registration_unavailable", nil)
-	}
-	address, parseErr := email.Parse(input.Registration.Email)
-	lookup := input.Registration.Email
+	address, parseErr := email.Parse(emailValue)
+	lookup := emailValue
 	if parseErr == nil {
 		lookup = address.Lookup()
 	}
@@ -54,13 +53,25 @@ func (s *OpenRegistrationService) Register(ctx context.Context, input OpenRegist
 	}
 	identityScope, err := s.keyer.RegistrationIdentity(lookup)
 	if err != nil {
-		return OpenRegistrationResult{}, safe("registration_unavailable", err)
+		return safe("registration_unavailable", err)
 	}
-	if err = s.attempts.Allow(ctx, attempt.Scopes{Identity: identityScope, Network: input.NetworkScope}); err != nil {
+	if err = s.attempts.Allow(ctx, attempt.Scopes{Identity: identityScope, Network: network}); err != nil {
 		if errors.Is(err, ErrRegistrationAttemptDenied) {
-			return OpenRegistrationResult{}, safe("registration_attempt_denied", nil)
+			return safe("registration_attempt_denied", err)
 		}
-		return OpenRegistrationResult{}, safe("registration_unavailable", err)
+		return safe("registration_unavailable", err)
+	}
+	return nil
+}
+func (s *OpenRegistrationService) Register(ctx context.Context, input OpenRegistrationInput) (OpenRegistrationResult, error) {
+	if ctx == nil || input.Registration.CorrelationID.IsZero() || input.NetworkScope.IsZero() {
+		return OpenRegistrationResult{}, safe("registration_context_required", nil)
+	}
+	if s == nil || s.registrations == nil || s.attempts == nil || s.keyer == nil || s.verification == nil {
+		return OpenRegistrationResult{}, safe("registration_unavailable", nil)
+	}
+	if err := s.AllowInvitationEnrollment(ctx, input.Registration.Email, input.NetworkScope); err != nil {
+		return OpenRegistrationResult{}, err
 	}
 	registered, err := s.registrations.Register(ctx, input.Registration)
 	if err != nil {

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	platformapp "bidora/backend/internal/platformadmin/application"
 	policy "bidora/backend/internal/platformadmin/domain"
 	"context"
@@ -9,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
@@ -77,7 +77,7 @@ func (s *PlatformTenantLifecycleService) Change(ctx context.Context, in Platform
 		if a.ContextGeneration != p.PlatformContextGeneration {
 			return ErrPlatformDirectoryContextStale
 		}
-		if !policy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) || a.AssuredAt.IsZero() || a.AssuredAt.After(p.ObservedAt) || a.AssuredAt.Before(p.ObservedAt.Add(-15*time.Minute)) {
+		if !policy.AdministratorAssurance(a.AssuranceLevel, a.AssuranceMethod) || a.AssuredAt.IsZero() || a.AssuredAt.After(p.ObservedAt) || !securitypolicy.Recent(ctx, a.AssuredAt, p.ObservedAt) {
 			return ErrPlatformDirectoryAssuranceRequired
 		}
 		if e = tx.LockCommand(c, "tenant:"+hex.EncodeToString(p.ActorID[:])+":"+hex.EncodeToString(key[:])); e != nil {

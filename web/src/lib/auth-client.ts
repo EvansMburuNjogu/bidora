@@ -1,12 +1,14 @@
+import {emailCodeReference} from "@/lib/email-code-challenge";
+import { announceSessionChange } from "@/lib/session-events";
 import type { MFAConfirmRequest, MFAEnrollRequest, MFAStepUpRequest, RegistrationRequest } from "@/contracts/auth.generated";
 
 export interface AuthPayloads {
   login: { email: string; password: string };
   register: RegistrationRequest;
-  "password-recovery": { email: string };
-  "password-reset": { token: string; new_password: string; user_id?: string };
-  "verify-email": { token: string };
-  "verification-resend": { email: string };
+  "password-recovery": { email?: string;challenge_ref?:string };
+  "password-reset": { token: string; new_password: string; user_id?: string; challenge_ref?: string };
+  "verify-email": { token: string; challenge_ref?: string };
+  "verification-resend": { email?: string;challenge_ref?:string };
   "login-code": { code: string; method: "EMAIL_OTP" };
   "login-code-resend": Record<string, never>;
 }
@@ -17,13 +19,15 @@ export async function submitAuth<Operation extends AuthOperation>(
   operation: Operation,
   payload: AuthPayloads[Operation],
 ): Promise<Response> {
-  return fetch(`/api/auth/${operation}`, {
+  const response = await fetch(`/api/auth/${operation}`, {
     method: "POST",
     credentials: "include",
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json",...(typeof window!=="undefined"&&emailCodeReference(new URLSearchParams(window.location.search).get("invitation"))?{"X-Bidora-Invitation-Flow":new URLSearchParams(window.location.search).get("invitation")!}:{}) },
     body: JSON.stringify(payload),
   });
+  if (response.status === 204 && ["login", "login-code", "password-reset", "verify-email"].includes(operation)) announceSessionChange();
+  return response;
 }
 
 export async function beginMFAEnrollment(payload: MFAEnrollRequest, csrfToken: string): Promise<Response> {

@@ -57,7 +57,10 @@ func (t *platformSubscriptionTx) ReadPlatformSubscription(c context.Context, ten
 	return t.subscription.Read(c, tenant, lock)
 }
 func (t *platformSubscriptionTx) ListPlatformSubscriptionInventory(c context.Context, after domain.ID, limit int32, state string) ([]app.PlatformSubscriptionInventoryRow, error) {
-	rows, e := t.q.ListPlatformSubscriptionInventory(c, q.ListPlatformSubscriptionInventoryParams{AfterID: pgtype.UUID{Bytes: after, Valid: true}, RowLimit: limit, StateFilter: state})
+	return t.ListFilteredPlatformSubscriptionInventory(c, after, limit, state, "", "")
+}
+func (t *platformSubscriptionTx) ListFilteredPlatformSubscriptionInventory(c context.Context, after domain.ID, limit int32, state, plan, cadence string) ([]app.PlatformSubscriptionInventoryRow, error) {
+	rows, e := t.q.ListPlatformSubscriptionInventory(c, q.ListPlatformSubscriptionInventoryParams{AfterID: pgtype.UUID{Bytes: after, Valid: true}, RowLimit: limit, StateFilter: state, PlanFilter: plan, CadenceFilter: cadence})
 	if e != nil {
 		return nil, e
 	}

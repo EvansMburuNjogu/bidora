@@ -15,7 +15,12 @@
     "test:platform": "node --test tests/platform-*.test.mjs",
     "test:platform:feedback": "node --test tests/platform-submission-feedback.browser.mjs",
     "test:auth": "node --test tests/auth/*.test.mjs",
-    "verify:auth": "npm run contracts:check && npm run lint && tsc --noEmit && npm run test:auth && npm run build"
+    "test:auth:fast": "node --test tests/auth/accepted-response.test.mjs tests/auth/login-challenge.test.mjs tests/auth/source-security.test.mjs tests/auth/invitation-continuation.test.mjs",
+    "test:auth:bff": "node --test tests/auth/bff-boundary.test.mjs",
+    "verify:auth": "npm run verify:auth:fast",
+    "verify:auth:fast": "npm run contracts:check",
+    "verify:auth:full": "npm run contracts:check && npm run lint && tsc --noEmit && npm run build",
+    "verify:auth:with-tests": "npm run contracts:check && npm run lint && tsc --noEmit && npm run test:auth && npm run build"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

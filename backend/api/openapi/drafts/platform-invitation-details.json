@@ -1,0 +1,10 @@
+{
+ "openapi":"3.1.0","info":{"title":"Masked administrator invitation details","version":"0.1.0"},
+ "paths":{"/v1/auth/invitation-details":{"post":{
+ "summary":"Read masked email and role for a valid administrator invitation",
+ "description":"Exact approved Origin, trusted network context and strict 4 KiB JSON. Requires possession of the active unexpired invitation token, including named invitation snapshots. Returns only masked email and the saved role key; never returns full identity, registers accounts, consumes invitations or grants access. Tokens belong in POST bodies, not query strings. Response is private/no-store.",
+ "security":[],
+ "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["token"],"properties":{"token":{"type":"string","minLength":29,"maxLength":43,"description":"Opaque invitation link context plus its six-digit code, or a legacy strong token. Bare six digits are never authority."}}}}}},
+ "responses":{"200":{"description":"Masked invited identity and role","content":{"application/json":{"schema":{"type":"object","required":["data","meta"],"properties":{"data":{"type":"object","additionalProperties":false,"required":["email","role_key","setup_state"],"properties":{"email":{"type":"string"},"role_key":{"type":"string"},"setup_state":{"type":"string","enum":["SET_PASSWORD","CREATE","VERIFY","SIGN_IN","GOOGLE_SIGN_IN"],"description":"Only disclosed after valid invitation proof. SET_PASSWORD includes eligible unfinished UNASSIGNED identities even when an earlier attempt already saved a password; it does not claim administrator access is active."}}},"meta":{"type":"object","properties":{"trace_id":{"type":"string"}}}}}}}},"400":{"description":"Invalid, expired or inactive invitation"},"403":{"description":"Origin rejected"},"413":{"description":"Too large"},"415":{"description":"Unsupported content type"},"503":{"description":"Unavailable"}}
+ }}}
+}

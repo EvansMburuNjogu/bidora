@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 
 const codeLength = 6;
 
-export function VerificationCodeInput({ disabled, invalid, allowAutoComplete = true, onEdit }: { disabled: boolean; invalid: boolean; allowAutoComplete?: boolean; onEdit: () => void }) {
+export function VerificationCodeInput({ disabled, invalid, allowAutoComplete = true, onEdit, onLegacyPaste }: { disabled: boolean; invalid: boolean; allowAutoComplete?: boolean; onEdit: () => void; onLegacyPaste?: (value: string) => void }) {
   const [digits, setDigits] = useState(() => Array<string>(codeLength).fill(""));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -52,6 +52,7 @@ export function VerificationCodeInput({ disabled, invalid, allowAutoComplete = t
     if (event.defaultPrevented) return;
     event.preventDefault();
     const numeric = event.clipboardData.getData("text/plain").trim().replace(/\s/g, "");
+    if (onLegacyPaste && /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(numeric)) { onEdit(); onLegacyPaste(numeric); return; }
     if (!/^\d{6}$/.test(numeric)) return;
     const next = Array<string>(codeLength).fill("");
     for (let index = 0; index < numeric.length; index += 1) next[index] = numeric[index];

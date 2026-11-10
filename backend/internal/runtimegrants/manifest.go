@@ -87,7 +87,7 @@ var control = map[string]string{
 	"identity.password_recovery_challenges":                     "SIU",
 	"identity.session_revocation_commands":                      "SI",
 	"identity.sessions":                                         "SIU",
-	"identity.users":                                            "SIU",
+	"identity.users":                                            "SIUD",
 	"platform_administration.administrator_changes":             "SIU",
 	"platform_administration.administrator_invitations":         "SIU",
 	"platform_administration.administrator_profiles":            "SIU",
@@ -213,7 +213,7 @@ func Load(plane string) (Manifest, error) {
 	switch plane {
 	case "control":
 		source = control
-		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 56}
+		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 60}
 	case "tenant":
 		source = tenant
 		result = Manifest{Plane: plane, CompatibilitySet: "tenant_common+tenant_tenderpreneur", CompatibilityVersion: 9_000_034}

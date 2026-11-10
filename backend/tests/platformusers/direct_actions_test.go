@@ -237,6 +237,7 @@ type invitationTx struct {
 	auth     authority
 	owners   int64
 	record   app.InvitationRecord
+	command  *app.CommandRecord
 	evidence int
 }
 
@@ -247,6 +248,9 @@ func (s *invitationTx) GetPlatformAuthority(_ context.Context, id app.ID) (app.P
 	return s.auth.platform(id)
 }
 func (s *invitationTx) GetCommand(context.Context, app.ID, string, [32]byte) (app.CommandRecord, bool, error) {
+	if s.command != nil {
+		return *s.command, true, nil
+	}
 	return app.CommandRecord{}, false, nil
 }
 func (s *invitationTx) LockGovernance(context.Context) (app.GovernanceState, error) {
@@ -269,7 +273,8 @@ func (s *invitationTx) InsertInvitation(_ context.Context, r app.InvitationRecor
 	s.record = r
 	return nil
 }
-func (s *invitationTx) ClaimCommand(context.Context, app.ID, app.ID, string, [32]byte, [32]byte, app.ID, int32, time.Time) error {
+func (s *invitationTx) ClaimCommand(_ context.Context, _, _ app.ID, _ string, _ [32]byte, hash [32]byte, id app.ID, status int32, _ time.Time) error {
+	s.command = &app.CommandRecord{RequestHash: hash, TargetID: id, ResponseStatus: status}
 	return nil
 }
 func (s *invitationTx) AppendInvitationEvidence(context.Context, app.InvitationEvidence) error {
@@ -302,6 +307,33 @@ func TestEveryRoleInvitationIsActiveDirectAndEvidencedForOneOrMultipleOwners(t *
 		}
 	}
 }
+func TestInvitationNamesArePersistedAndBoundToIdempotency(t *testing.T) {
+	tx := &invitationTx{owners: 1}
+	d := &delivery{}
+	service, _ := app.NewInvitationService(invitations{tx}, app.SecureInvitationTokenGenerator{}, &ids{}, clock{}, d)
+	input := app.IssueInvitationInput{ActorID: actor, SessionID: app.ID{2}, CorrelationID: app.ID{5}, IdempotencyKey: app.ID{6}, PlatformContextGeneration: 1, Email: "new@example.test", FirstName: "Amina", LastName: "Njoroge", Role: domain.PlatformOwner, Reason: "Platform administrator invitation"}
+	result, err := service.Issue(context.Background(), input)
+	if err != nil || result.State != app.InvitationActive || tx.record.FirstName != "Amina" || tx.record.LastName != "Njoroge" || tx.evidence != 1 || d.calls != 1 {
+		t.Fatal("named invitation was not persisted directly", err)
+	}
+	input.LastName = "Changed"
+	if _, err = service.Issue(context.Background(), input); !errors.Is(err, app.ErrInvitationConflict) || d.calls != 1 {
+		t.Fatal("changed names reused an idempotency key", err)
+	}
+}
+
+func TestInvitationNamesRejectIncompleteOversizedAndControlValues(t *testing.T) {
+	for _, names := range [][2]string{{"Amina", ""}, {"", "Njoroge"}, {" Amina", "Njoroge"}, {"Amina", "Njoroge\n"}, {string(make([]byte, 101)), "Njoroge"}} {
+		tx := &invitationTx{owners: 1}
+		d := &delivery{}
+		service, _ := app.NewInvitationService(invitations{tx}, app.SecureInvitationTokenGenerator{}, &ids{}, clock{}, d)
+		_, err := service.Issue(context.Background(), app.IssueInvitationInput{ActorID: actor, SessionID: app.ID{2}, CorrelationID: app.ID{5}, IdempotencyKey: app.ID{6}, PlatformContextGeneration: 1, Email: "new@example.test", FirstName: names[0], LastName: names[1], Role: domain.PlatformOwner, Reason: "Platform administrator invitation"})
+		if !errors.Is(err, app.ErrInvitationInvalid) || d.calls != 0 || tx.evidence != 0 {
+			t.Fatal("invalid name accepted", err)
+		}
+	}
+}
+
 func domainRoles() []domain.Role {
 	return []domain.Role{domain.PlatformOwner, domain.OperationsAdministrator, domain.BillingAdministrator, domain.IntegrationAdministrator, domain.SupportAdministrator, domain.SecurityAuditAdministrator}
 }

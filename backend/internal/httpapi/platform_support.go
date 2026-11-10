@@ -17,6 +17,9 @@ type PlatformSupportUseCase interface {
 	Detail(context.Context, app.PlatformAuditSubject, app.ID) (app.SupportDetail, error)
 	Command(context.Context, app.SupportCommand) (app.SupportReceipt, error)
 }
+type filteredSupportUseCase interface {
+	ListFiltered(context.Context, app.PlatformAuditSubject, int32, *app.PlatformAuditCursor, app.SupportFilter) (app.SupportPage, error)
+}
 type PlatformSupportHandler struct{ service PlatformSupportUseCase }
 
 func NewPlatformSupportHandler(service PlatformSupportUseCase) (*PlatformSupportHandler, error) {
@@ -89,11 +92,11 @@ func (h *PlatformSupportHandler) list(c fiber.Ctx) error {
 		return nil
 	}
 	values, err := url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil || len(values) > 2 {
+	if err != nil || len(values) > 4 {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	for k, v := range values {
-		if (k != "limit" && k != "cursor") || len(v) != 1 {
+		if (k != "limit" && k != "cursor" && k != "state" && k != "assignment") || len(v) != 1 {
 			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 		}
 	}
@@ -109,7 +112,18 @@ func (h *PlatformSupportHandler) list(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	page, err := h.service.List(c.Context(), subject, limit, cursor)
+	filter := app.SupportFilter{State: values.Get("state"), Assignment: values.Get("assignment")}
+	if values.Has("state") && filter.State == "" || values.Has("assignment") && filter.Assignment == "" {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	var page app.SupportPage
+	if filter == (app.SupportFilter{}) {
+		page, err = h.service.List(c.Context(), subject, limit, cursor)
+	} else if filtered, ok := h.service.(filteredSupportUseCase); ok {
+		page, err = filtered.ListFiltered(c.Context(), subject, limit, cursor, filter)
+	} else {
+		err = app.ErrSupportUnavailable
+	}
 	if err != nil {
 		return supportFailure(c, err)
 	}

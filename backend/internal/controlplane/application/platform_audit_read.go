@@ -7,12 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"bidora/backend/internal/identity/securitypolicy"
 	platformapp "bidora/backend/internal/platformadmin/application"
 )
 
 var ErrPlatformAuditInvalid = errors.New("platform_audit_read_invalid")
 var ErrPlatformAuditForbidden = errors.New("platform_audit_read_forbidden")
 var ErrPlatformAuditNotFound = errors.New("platform_audit_read_not_found")
+var ErrPlatformAuditStepUpRequired = errors.New("platform_audit_step_up_required")
 var ErrPlatformAuditUnavailable = errors.New("platform_audit_read_unavailable")
 
 type PlatformAuditSubject struct {
@@ -82,7 +84,7 @@ var platformAuditActions = map[string]bool{
 	"UserLoggedIn": true, "EmailLoginCodeVerified": true, "MFALoginCompleted": true,
 	"PlatformOwnerBootstrapped": true, "PlatformAdministratorSessionsRevoked": true,
 	"PlatformAdministratorInvitationIssued": true, "PlatformAdministratorInvitationCancelled": true, "PlatformAdministratorInvitationAccepted": true, "PlatformOwnerInvitationActivated": true, "PlatformOwnerInvitationRejected": true,
-	"PlatformRoleAssignmentChanged": true, "PlatformRoleRevocationChanged": true, "PlatformAdministratorDisabled": true, "PlatformAdministratorReactivated": true,
+	"PlatformRoleAssignmentChanged": true, "PlatformRoleRevocationChanged": true, "PlatformAdministratorDisabled": true, "PlatformAdministratorReactivated": true, "PlatformAdministratorDeleted": true,
 	"PlatformIntegrationVersionCreated": true, "PlatformIntegrationVersionTested": true, "PlatformIntegrationActivationProposed": true, "PlatformControlAuditExport": true,
 	"PlatformPlansRead": true, "PlatformPlanDraftCreated": true, "PlatformPlanPublished": true,
 	"PlatformSubscriptionRead": true, "PlatformSubscriptionCancellationScheduled": true, "PlatformSubscriptionCancellationWithdrawn": true, "PlatformSubscriptionInventoryRead": true,
@@ -183,10 +185,13 @@ func (s *PlatformAuditService) read(ctx context.Context, subject PlatformAuditSu
 		if x != nil {
 			return x
 		}
-		if !facts.Grants("platform.audit.read") || export && !facts.Grants("platform.audit.export") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if !facts.Grants("platform.audit.read") || export && !facts.Grants("platform.audit.export") || facts.UserID != platformapp.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !platformpolicy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) {
 			return ErrPlatformAuditForbidden
 		}
-		subject.MetadataAccess = !export && facts.Grants("platform.security.event.read")
+		if export && !securitypolicy.Recent(ctx, facts.AssuredAt, at) {
+			return ErrPlatformAuditStepUpRequired
+		}
+		subject.MetadataAccess = !export && facts.Grants("platform.security.event.read") && securitypolicy.Recent(ctx, facts.AssuredAt, at)
 		if x = load(c, tx, subject.MetadataAccess); x != nil {
 			return x
 		}
@@ -198,7 +203,7 @@ func (s *PlatformAuditService) read(ctx context.Context, subject PlatformAuditSu
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, ErrPlatformAuditForbidden), errors.Is(err, ErrPlatformAuditNotFound), errors.Is(err, ErrPlatformAuditInvalid):
+	case errors.Is(err, ErrPlatformAuditForbidden), errors.Is(err, ErrPlatformAuditNotFound), errors.Is(err, ErrPlatformAuditInvalid), errors.Is(err, ErrPlatformAuditStepUpRequired):
 		return err
 	default:
 		return ErrPlatformAuditUnavailable

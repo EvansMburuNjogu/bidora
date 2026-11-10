@@ -45,7 +45,7 @@ SECURITY_SCHEMES: dict[str, Any] = {
 
 PUBLIC_PATHS = {
     ("get", "/v1/shared/payments/pesapal/ipn"),
-    ("post", "/v1/auth/register"), ("post", "/v1/auth/verify-email"),
+    ("post", "/v1/auth/register"), ("post", "/v1/auth/invitation-register"), ("post", "/v1/auth/invitation-details"), ("post", "/v1/auth/verify-email"),
     ("post", "/v1/auth/login"), ("post", "/v1/auth/password-recovery"),
     ("post", "/v1/auth/password-recovery/reset"),
     ("post", "/v1/auth/google/start"), ("get", "/v1/auth/google/callback"),

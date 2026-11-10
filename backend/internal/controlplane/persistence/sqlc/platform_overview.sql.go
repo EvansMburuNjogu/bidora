@@ -35,7 +35,7 @@ func (q *Queries) InsertPlatformOverviewReadAudit(ctx context.Context, arg Inser
 }
 
 const readPlatformMonthlyInvoicing = `-- name: ReadPlatformMonthlyInvoicing :many
-WITH months AS (SELECT generate_series(date_trunc('month',$1::timestamptz AT TIME ZONE 'UTC')-interval '5 months',date_trunc('month',$1::timestamptz AT TIME ZONE 'UTC'),interval '1 month') AS month)
+WITH months AS (SELECT generate_series(date_trunc('month',$1::timestamptz AT TIME ZONE 'UTC')-interval '11 months',date_trunc('month',$1::timestamptz AT TIME ZONE 'UTC'),interval '1 month') AS month)
 SELECT to_char(m.month,'YYYY-MM')::text AS month,coalesce(sum(i.total_minor_units),0)::text AS total_minor_units
 FROM months m LEFT JOIN commercial.invoices i ON i.currency='KES' AND i.state<>'VOID' AND i.issued_at>=m.month AT TIME ZONE 'UTC' AND i.issued_at<(m.month+interval '1 month') AT TIME ZONE 'UTC'
 GROUP BY m.month ORDER BY m.month

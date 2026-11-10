@@ -1,5 +1,7 @@
 # AI entitlement acknowledgement dispatch
 
+> Historical implementation evidence: the unmounted dispatcher worker package was removed in BE-SIM-01; application dispatch logic remains.
+
 Status: **IMPLEMENTED_NOT_VERIFIED — UNMOUNTED**
 
 Date: 2026-10-20

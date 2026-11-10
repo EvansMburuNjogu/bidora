@@ -2,6 +2,7 @@ package application
 
 import (
 	"bidora/backend/internal/identity/assurance"
+	"bidora/backend/internal/identity/securitypolicy"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -146,7 +147,7 @@ func (s *AdjustmentService) Propose(ctx context.Context, in ProposeAdjustmentInp
 		if x != nil {
 			return x
 		}
-		if tie || auth.UserID != in.Actor.UserID || auth.ContextGeneration != in.Actor.ContextGeneration || !auth.BillingAdministrator || !assurance.Platform(auth.AssuranceMethod) || auth.AssuredAt.After(at) || auth.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if tie || auth.UserID != in.Actor.UserID || auth.ContextGeneration != in.Actor.ContextGeneration || !auth.BillingAdministrator || !assurance.Platform(auth.AssuranceMethod) || auth.AssuredAt.After(at) || !securitypolicy.Recent(ctx, auth.AssuredAt, at) {
 			return ErrAdjustmentNotPermitted
 		}
 		cmd, found, x := tx.GetAdjustmentCommand(c, in.Actor.UserID, "PROPOSE_ADJUSTMENT", key)
@@ -247,7 +248,7 @@ func (s *AdjustmentService) Decide(ctx context.Context, in DecideAdjustmentInput
 		if x != nil {
 			return x
 		}
-		if tie || auth.UserID != in.Actor.UserID || auth.ContextGeneration != in.Actor.ContextGeneration || !auth.PlatformOwner || !assurance.Platform(auth.AssuranceMethod) || auth.AssuredAt.After(at) || auth.AssuredAt.Before(at.Add(-15*time.Minute)) {
+		if tie || auth.UserID != in.Actor.UserID || auth.ContextGeneration != in.Actor.ContextGeneration || !auth.PlatformOwner || !assurance.Platform(auth.AssuranceMethod) || auth.AssuredAt.After(at) || !securitypolicy.Recent(ctx, auth.AssuredAt, at) {
 			return ErrAdjustmentNotPermitted
 		}
 		cmd, found, x := tx.GetAdjustmentCommand(c, in.Actor.UserID, operation, key)

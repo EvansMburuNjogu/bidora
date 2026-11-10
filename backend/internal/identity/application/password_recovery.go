@@ -59,7 +59,7 @@ func (s *PasswordRecoveryRequestService) Request(ctx context.Context, emailText 
 	if ctx == nil || err != nil || correlationID.IsZero() {
 		return safe("password_recovery_request_invalid", nil)
 	}
-	token, err := s.tokens.Generate()
+	token, err := verification.GenerateForContext(ctx, s.tokens.Generate)
 	if err != nil {
 		return safe("password_recovery_request_unavailable", err)
 	}
@@ -141,7 +141,7 @@ func (s *PublicPasswordRecoveryService) Request(ctx context.Context, in PublicPa
 		return safe("password_recovery_request_unavailable", err)
 	}
 	if err = s.attempts.Allow(ctx, attempt.Scopes{Identity: identityScope, Network: in.NetworkScope}); errors.Is(err, ErrRecoveryAttemptDenied) {
-		return safe("password_recovery_attempt_denied", nil)
+		return safe("password_recovery_attempt_denied", err)
 	} else if err != nil {
 		return safe("password_recovery_request_unavailable", err)
 	}

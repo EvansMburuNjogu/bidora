@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"strings"
@@ -62,7 +63,7 @@ func (s *RoleChangeService) RevokeAdministratorSessions(ctx context.Context, inp
 		if !eligible {
 			return ErrPlatformAccessForbidden
 		}
-		if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+		if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || !securitypolicy.Recent(ctx, facts.AssuredAt, now) {
 			return ErrPlatformAssuranceRequired
 		}
 		if input.ActorID == input.TargetUserID {

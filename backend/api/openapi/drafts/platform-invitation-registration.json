@@ -1,0 +1,78 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Platform invitation registration",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/auth/invitation-register": {
+      "post": {
+        "summary": "Register or verify the identity named in an administrator invitation",
+        "description": "Requires exact approved Origin, trusted network context, an active unexpired invitation and strict 4 KiB JSON containing only token and optional password. Identity names and email come from immutable invitation snapshots. New identities use normal registration and email verification. Existing unverified identities request verification without overwriting credentials. Verified identities, including Google-only identities, authenticate normally before accepting the invitation separately. This endpoint never resets passwords, authenticates a user, assigns roles or consumes the invitation. Existing generic public registration anti-enumeration and delivery semantics are unchanged.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 29,
+                    "maxLength": 43,
+                    "description": "Opaque invitation link context plus its six-digit code, or a legacy strong token. Bare six digits are never authority."
+                  },
+                  "password": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "Required for a new account. Existing unverified accounts request a real verification email without changing credentials."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Registration or verification acknowledged after confirmed verification handoff. No access is granted; verification and normal authentication precede separate invitation acceptance.",
+            "headers": {
+              "X-Bidora-Code-Challenge": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Random per-request reference used with the six-digit verification code."
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid invitation or password"
+          },
+          "403": {
+            "description": "Origin rejected"
+          },
+          "409": {
+            "description": "Account already verified or setup state changed; sign in or reopen invitation"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          },
+          "429": {
+            "description": "Registration attempt limit enforced"
+          },
+          "503": {
+            "description": "Registration unavailable, or verification email handoff unconfirmed. No fake sent confirmation."
+          }
+        }
+      }
+    }
+  }
+}

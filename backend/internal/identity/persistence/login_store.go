@@ -72,14 +72,51 @@ func NewLoginCommitter(runner writeRunner) (*LoginCommitter, error) {
 	}
 	return &LoginCommitter{runner}, nil
 }
+func (c *LoginCommitter) SessionAdministrator(ctx context.Context, userID identityapp.ID) (administrator bool, err error) {
+	if ctx == nil || c == nil || c.runner == nil || userID.IsZero() {
+		return false, errors.New("login_commit_invalid")
+	}
+	err = c.runner.WithinTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
+		if txCtx == nil || db == nil {
+			return errors.New("login_commit_unavailable")
+		}
+		kind, e := identitysql.New(db).GetUserAccountType(txCtx, identityID(userID))
+		if e != nil {
+			return e
+		}
+		administrator = kind != nil && *kind == "PLATFORM_ADMIN"
+		return nil
+	})
+	return administrator, err
+}
 func (c *LoginCommitter) CommitLoginSession(ctx context.Context, commit identityapp.SessionCommit) error {
-	if ctx == nil || commit.SessionID.IsZero() || commit.AuditID.IsZero() || commit.UserID.IsZero() || commit.CorrelationID.IsZero() || commit.AuthEpoch < 1 || commit.AuthenticationMethod != identityapp.AuthenticationMethodPassword && commit.AuthenticationMethod != identityapp.AuthenticationMethodGoogle || commit.SessionHash == [32]byte{} || commit.CSRFHash == [32]byte{} || commit.CreatedAt.IsZero() {
+	if ctx == nil {
 		return errors.New("login_commit_invalid")
 	}
 	if c == nil || c.runner == nil {
 		return errors.New("login_committer_invalid")
 	}
-	idle, absolute, err := securitypolicy.Expiries(ctx, commit.CreatedAt, false)
+	return c.runner.WithinTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
+		return CommitLoginSessionWithin(txCtx, db, commit)
+	})
+}
+
+// CommitLoginSessionWithin keeps session/audit insertion in the owner's existing
+// transaction, so promotion cannot commit without its replacement session.
+func CommitLoginSessionWithin(ctx context.Context, db postgres.DBTX, commit identityapp.SessionCommit) error {
+	if ctx == nil || db == nil || commit.SessionID.IsZero() || commit.AuditID.IsZero() || commit.UserID.IsZero() || commit.CorrelationID.IsZero() || commit.AuthEpoch < 1 || commit.SessionHash == [32]byte{} || commit.CSRFHash == [32]byte{} || commit.CreatedAt.IsZero() {
+		return errors.New("login_commit_invalid")
+	}
+	if commit.AuthenticationMethod != identityapp.AuthenticationMethodPassword && commit.AuthenticationMethod != identityapp.AuthenticationMethodGoogle && commit.AuthenticationMethod != identityapp.AuthenticationMethodSessionContinuation {
+		return errors.New("login_commit_invalid")
+	}
+	queries := identitysql.New(db)
+	kind, err := queries.GetUserAccountType(ctx, identityID(commit.UserID))
+	if err != nil {
+		return err
+	}
+	administrator := kind != nil && *kind == "PLATFORM_ADMIN"
+	idle, absolute, err := securitypolicy.Expiries(ctx, commit.CreatedAt, administrator)
 	if err != nil || !idle.Equal(commit.IdleExpiresAt) || !absolute.Equal(commit.AbsoluteExpiresAt) {
 		return errors.New("login_commit_invalid")
 	}
@@ -87,17 +124,12 @@ func (c *LoginCommitter) CommitLoginSession(ctx context.Context, commit identity
 		AuthEpoch            int64                            `json:"auth_epoch"`
 		AuthenticationMethod identityapp.AuthenticationMethod `json:"authentication_method"`
 	}{commit.AuthEpoch, commit.AuthenticationMethod})
-	return c.runner.WithinTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
-		if txCtx == nil || db == nil {
-			return errors.New("login_commit_unavailable")
-		}
-		queries := identitysql.New(db)
-		if err := queries.InsertSession(txCtx, identitysql.InsertSessionParams{ID: identityID(commit.SessionID), UserID: identityID(commit.UserID), TokenHash: commit.SessionHash[:], CsrfHash: commit.CSRFHash[:], AuthEpoch: commit.AuthEpoch, CreatedAt: identityTime(commit.CreatedAt), IdleExpiresAt: identityTime(commit.IdleExpiresAt), AbsoluteExpiresAt: identityTime(commit.AbsoluteExpiresAt), AssuranceLevel: commit.AssuranceLevel, IdleTimeoutSeconds: int32(commit.IdleExpiresAt.Sub(commit.CreatedAt).Seconds()), AbsoluteTimeoutSeconds: int32(commit.AbsoluteExpiresAt.Sub(commit.CreatedAt).Seconds()), AssuredAt: identityTime(commit.AssuredAt), AssuranceMethod: commit.AssuranceMethod}); err != nil {
-			return err
-		}
-		return queries.InsertLoginAudit(txCtx, identitysql.InsertLoginAuditParams{ID: identityID(commit.AuditID), ActorID: identityID(commit.UserID), TargetID: identityID(commit.SessionID), OccurredAt: identityTime(commit.CreatedAt), CorrelationID: identityID(commit.CorrelationID), ChangeSummary: summary})
-	})
+	if err = queries.InsertSession(ctx, identitysql.InsertSessionParams{ID: identityID(commit.SessionID), UserID: identityID(commit.UserID), TokenHash: commit.SessionHash[:], CsrfHash: commit.CSRFHash[:], AuthEpoch: commit.AuthEpoch, CreatedAt: identityTime(commit.CreatedAt), IdleExpiresAt: identityTime(commit.IdleExpiresAt), AbsoluteExpiresAt: identityTime(commit.AbsoluteExpiresAt), AssuranceLevel: commit.AssuranceLevel, IdleTimeoutSeconds: int32(commit.IdleExpiresAt.Sub(commit.CreatedAt).Seconds()), AbsoluteTimeoutSeconds: int32(commit.AbsoluteExpiresAt.Sub(commit.CreatedAt).Seconds()), AssuredAt: identityTime(commit.AssuredAt), AssuranceMethod: commit.AssuranceMethod}); err != nil {
+		return err
+	}
+	return queries.InsertLoginAudit(ctx, identitysql.InsertLoginAuditParams{ID: identityID(commit.AuditID), ActorID: identityID(commit.UserID), TargetID: identityID(commit.SessionID), OccurredAt: identityTime(commit.CreatedAt), CorrelationID: identityID(commit.CorrelationID), ChangeSummary: summary})
 }
+
 func identityID(id identityapp.ID) pgtype.UUID {
 	return pgtype.UUID{Bytes: [16]byte(id), Valid: !id.IsZero()}
 }

@@ -26,6 +26,7 @@ func TestSandboxOwnerCommandFailsClosedWithoutNetwork(t *testing.T) {
 		want string
 	}{
 		{"unknown phase", []string{"activate-smtp", "unused"}, nil, "bootstrap_arguments_invalid"},
+		{"retired login SMTP setup", []string{"seal-login-smtp", "unused"}, []string{"BIDORA_ENV=staging"}, "bootstrap_arguments_invalid"},
 		{"no environment", []string{"promote", "unused"}, nil, "bootstrap_environment_not_sandbox"},
 		{"production denied", []string{"verify-email", "unused"}, []string{"BIDORA_ENV=production"}, "bootstrap_environment_not_sandbox"},
 		{"wrong database", []string{"promote", "unused"}, []string{"BIDORA_ENV=staging", "BIDORA_TEST_CONTROL_RUNTIME_DSN=postgres://bidora_sandbox_runtime:do-not-log-this@postgres:5432/production?sslmode=verify-full"}, "bootstrap_database_configuration_not_sandbox"},

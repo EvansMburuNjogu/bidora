@@ -28,6 +28,7 @@ export function PlatformRoleCatalogue() {
   const directoryEpoch = useRef(0);
   const pendingPage = useRef<string | null>(null);
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [selected, setSelected] = useState<PlatformRole | null>(null);
   const [firstSection, setFirstSection] = useState<"permissions" | "users">("permissions");
 
@@ -75,7 +76,7 @@ export function PlatformRoleCatalogue() {
   const accessible = allowed && !(roles.generation === generation && roles.status === "denied");
   const visibleRoles = accessible ? (roles.generation === generation ? roles.roles : fallbackRoles) : [];
   const directory = directoryState.generation === generation ? directoryState : emptyDirectory;
-  const query = search.trim().toLowerCase();
+  const query = appliedSearch.trim().toLowerCase();
   const filtered = visibleRoles.filter((role) => !query || `${platformRoleLabels[role.role_key]} ${roleDescriptions[role.role_key]}`.toLowerCase().includes(query));
   const completeDirectory = directory.status === "ready" && directory.loaded && directory.nextCursor === null;
   const count = (role: PlatformRole) => completeDirectory ? directory.users.filter((user) => user.assignments.some((assignment) => assignment.role_key === role && assignment.state === "ACTIVE")).length : null;
@@ -102,7 +103,7 @@ export function PlatformRoleCatalogue() {
     <section aria-labelledby="administrator-roles-heading">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div><h2 id="administrator-roles-heading" className="text-lg font-semibold">Administrator Roles</h2><p className="text-sm text-muted-foreground">Choose a role to view permissions and administrators.</p></div>
-        <div className="relative w-full sm:w-64"><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search administrator roles" placeholder="Search roles" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" /></div>
+        <form className="flex w-full gap-2 sm:w-auto" onSubmit={event => { event.preventDefault(); setAppliedSearch(search); }}><div className="relative w-full sm:w-64"><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search administrator roles" placeholder="Search roles" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" /></div><Button type="submit">Apply filters</Button></form>
       </div>
       {accessible && roles.generation === generation && roles.status === "fallback" && <p className="mb-2 text-xs text-muted-foreground">Showing fixed role definitions while live roles are unavailable. <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={() => setRetryRoles((value) => value + 1)}>Retry roles</button></p>}
       <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-muted/40 text-xs text-muted-foreground"><tr><th scope="col" className="px-4 py-3 font-medium">Role</th><th scope="col" className="px-4 py-3 font-medium">Description</th><th scope="col" className="px-4 py-3 font-medium">Assigned Users</th><th scope="col" className="px-4 py-3 font-medium">Actions</th></tr></thead><tbody className="divide-y">

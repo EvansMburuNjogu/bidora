@@ -24,7 +24,7 @@ func TestEmailLayoutEscapesContentAndUsesTokenFreeActions(t *testing.T) {
 
 func TestEmailUsesExistingBrandLogoAndPalette(t *testing.T) {
 	html := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Code: "123456", Origin: "https://sandbox.bidora.africa", Key: "identity.login_code"})
-	for _, want := range []string{"https://sandbox.bidora.africa/bidora-aperture-192.png", "#0f766e", "#e4f0ed", "#173b3d", `width="36"`, `height="36"`} {
+	for _, want := range []string{"data:image/png;base64,", "#0f766e", "#e4f0ed", "#173b3d", `width="36"`, `height="36"`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("missing brand element %q", want)
 		}
@@ -33,7 +33,7 @@ func TestEmailUsesExistingBrandLogoAndPalette(t *testing.T) {
 		t.Fatal("colored top border must not render")
 	}
 	withoutOrigin := emailhtml.Render(emailhtml.Content{Brand: "Bidora", Title: "Sign in", Origin: "http://untrusted.example"})
-	if strings.Contains(withoutOrigin, "<img") || !strings.Contains(withoutOrigin, "Bidora") {
+	if !strings.Contains(withoutOrigin, "<img") || !strings.Contains(withoutOrigin, "Bidora") || strings.Contains(withoutOrigin, "http://untrusted.example") {
 		t.Fatal("missing safe wordmark fallback")
 	}
 }
@@ -44,7 +44,7 @@ func TestEmailActionsRequireExplicitHTTPSOrigin(t *testing.T) {
 			t.Fatal("unsafe origin accepted")
 		}
 	}
-	for key, path := range map[string]string{"identity.login_code": "/auth/login-code", "identity.password_recovery": "/reset-password", "identity.email_verification": "/verify-email", "tenant.invitation": "/login", "platform.role_change": "/account/security"} {
+	for key, path := range map[string]string{"identity.login_code": "/auth/login-code", "identity.password_recovery": "/reset-password", "identity.email_verification": "/verify-email", "tenant.invitation": "/invitations/tenant", "platform.role_change": "/account/security"} {
 		if got := emailhtml.QuickAction("https://sandbox.bidora.africa", key); got.URL != "https://sandbox.bidora.africa"+path {
 			t.Fatalf("incorrect action for %s", key)
 		}

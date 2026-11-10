@@ -17,7 +17,7 @@
       "get": {
         "operationId": "bootstrapSessionCSRF",
         "summary": "Restore the current session's CSRF value to browser memory",
-        "description": "Requires the current session cookie, its matching CSRF cookie and an exact approved HTTPS Origin. Accepts no query or body. Validation precedes idle touch. The response contains no identity, membership, capability, context or database-routing data.",
+        "description": "Requires the current session cookie, its matching CSRF cookie and an exact approved HTTPS Origin. Accepts no query or body. This is a passive validation read and never advances last_seen_at or idle expiry. The response contains no identity, membership, capability, context or database-routing data.",
         "security": [{"session": [], "csrfCookie": []}],
         "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}],
         "responses": {

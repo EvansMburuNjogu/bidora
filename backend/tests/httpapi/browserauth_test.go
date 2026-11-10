@@ -110,7 +110,11 @@ func TestBrowserSessionMiddlewareValidatesPolicyBeforeTouchAndNext(t *testing.T)
 				t.Fatal(err)
 			}
 			defer res.Body.Close()
-			if res.StatusCode != 200 || validator.calls != 1 || validator.raw != rawSession || toucher.calls != 1 || toucher.sessionID != httpIdentityID(1) || !toucher.at.Equal(at) {
+			wantTouches := 0
+			if method == "POST" {
+				wantTouches = 1
+			}
+			if res.StatusCode != 200 || validator.calls != 1 || validator.raw != rawSession || toucher.calls != wantTouches || wantTouches > 0 && (toucher.sessionID != httpIdentityID(1) || !toucher.at.Equal(at)) {
 				t.Fatal("browser middleware ordering drifted", res.StatusCode)
 			}
 		})

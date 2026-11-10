@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -38,10 +39,11 @@ type PlatformSubscriptionInventoryPage struct {
 	Next *domain.ID
 }
 type PlatformSubscriptionInventoryInput struct {
-	Subject PlatformSubscriptionSubject
-	AfterID domain.ID // zero only on the first page
-	Limit   int32
-	State   string // empty or an exact subscription state
+	Subject       PlatformSubscriptionSubject
+	AfterID       domain.ID // zero only on the first page
+	Limit         int32
+	State         string // empty or an exact subscription state
+	Plan, Cadence string // empty or exact catalogue values
 }
 
 type PlatformSubscriptionSubject struct {
@@ -81,6 +83,9 @@ type PlatformSubscriptionTx interface {
 	CommitPlatformSubscription(context.Context, PlatformSubscriptionCommit) error
 	AppendPlatformSubscriptionRead(context.Context, domain.ID, domain.ID, domain.ID, domain.ID, time.Time) error
 }
+type filteredSubscriptionInventoryTx interface {
+	ListFilteredPlatformSubscriptionInventory(context.Context, domain.ID, int32, string, string, string) ([]PlatformSubscriptionInventoryRow, error)
+}
 type PlatformSubscriptionUnitOfWork interface {
 	WithinPlatformSubscription(context.Context, func(context.Context, PlatformSubscriptionTx) error) error
 }
@@ -104,7 +109,7 @@ func (s *PlatformSubscriptionService) authorize(ctx context.Context, tx Platform
 	if e != nil {
 		return e
 	}
-	if facts.UserID != pa.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !facts.Grants(capability) || !pd.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+	if facts.UserID != pa.ID(subject.UserID) || facts.ContextGeneration != subject.ContextGeneration || !facts.Grants(capability) || !pd.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) || capability != "platform.subscription.read" && !securitypolicy.Recent(ctx, facts.AssuredAt, at) {
 		return ErrPlatformSubscriptionForbidden
 	}
 	return nil
@@ -116,7 +121,7 @@ func receiptFromSummary(v SubscriptionSummary) PlatformSubscriptionReceipt {
 	return PlatformSubscriptionReceipt{TenantID: v.Subscription.TenantID, SubscriptionID: v.SubscriptionID, State: v.Subscription.State, Version: v.Subscription.Version, CancelAt: v.Subscription.CancelAt}
 }
 func (s *PlatformSubscriptionService) Inventory(ctx context.Context, in PlatformSubscriptionInventoryInput) (out PlatformSubscriptionInventoryPage, err error) {
-	if s == nil || ctx == nil || !validPlatformSubscriptionSubject(in.Subject) || in.Limit < 1 || in.Limit > 50 || !platformSubscriptionStateFilter(in.State) {
+	if s == nil || ctx == nil || !validPlatformSubscriptionSubject(in.Subject) || in.Limit < 1 || in.Limit > 50 || !platformSubscriptionStateFilter(in.State) || !platformSubscriptionPlanFilter(in.Plan) || !platformSubscriptionCadenceFilter(in.Cadence) {
 		return out, ErrPlatformSubscriptionInvalid
 	}
 	at := s.clock.Now().UTC()
@@ -127,7 +132,17 @@ func (s *PlatformSubscriptionService) Inventory(ctx context.Context, in Platform
 		if e := s.authorize(c, tx, in.Subject, "platform.subscription.read", at); e != nil {
 			return e
 		}
-		rows, e := tx.ListPlatformSubscriptionInventory(c, in.AfterID, in.Limit+1, in.State)
+		var rows []PlatformSubscriptionInventoryRow
+		var e error
+		if in.Plan != "" || in.Cadence != "" {
+			filtered, ok := tx.(filteredSubscriptionInventoryTx)
+			if !ok {
+				return ErrPlatformSubscriptionUnavailable
+			}
+			rows, e = filtered.ListFilteredPlatformSubscriptionInventory(c, in.AfterID, in.Limit+1, in.State, in.Plan, in.Cadence)
+		} else {
+			rows, e = tx.ListPlatformSubscriptionInventory(c, in.AfterID, in.Limit+1, in.State)
+		}
 		if e != nil {
 			return e
 		}
@@ -135,7 +150,7 @@ func (s *PlatformSubscriptionService) Inventory(ctx context.Context, in Platform
 			return ErrPlatformSubscriptionUnavailable
 		}
 		for i, row := range rows {
-			if row.SubscriptionID.IsZero() || row.TenantID.IsZero() || row.Version < 1 || row.UpdatedAt.IsZero() || i > 0 && bytes.Compare(rows[i-1].SubscriptionID[:], row.SubscriptionID[:]) >= 0 || bytes.Compare(row.SubscriptionID[:], in.AfterID[:]) <= 0 || !platformSubscriptionStateFilter(string(row.State)) || row.State == "" || in.State != "" && string(row.State) != in.State || row.HasCurrentTerm != (row.PeriodEnd != nil) || row.HasCurrentTerm && (row.PlanKey == "" || row.Cadence == "") {
+			if row.SubscriptionID.IsZero() || row.TenantID.IsZero() || row.Version < 1 || row.UpdatedAt.IsZero() || i > 0 && bytes.Compare(rows[i-1].SubscriptionID[:], row.SubscriptionID[:]) >= 0 || bytes.Compare(row.SubscriptionID[:], in.AfterID[:]) <= 0 || !platformSubscriptionStateFilter(string(row.State)) || row.State == "" || in.State != "" && string(row.State) != in.State || in.Plan != "" && string(row.PlanKey) != in.Plan || in.Cadence != "" && string(row.Cadence) != in.Cadence || row.HasCurrentTerm != (row.PeriodEnd != nil) || row.HasCurrentTerm && (row.PlanKey == "" || row.Cadence == "") {
 				return ErrPlatformSubscriptionUnavailable
 			}
 		}
@@ -155,6 +170,20 @@ func (s *PlatformSubscriptionService) Inventory(ctx context.Context, in Platform
 		return PlatformSubscriptionInventoryPage{}, platformSubscriptionError(err)
 	}
 	return out, nil
+}
+func platformSubscriptionPlanFilter(value string) bool {
+	switch value {
+	case "", "TRIAL", "BASIC", "GROWTH", "PROFESSIONAL", "ENTERPRISE":
+		return true
+	}
+	return false
+}
+func platformSubscriptionCadenceFilter(value string) bool {
+	switch value {
+	case "", "TRIAL", "MONTHLY", "ANNUAL", "CONTRACT":
+		return true
+	}
+	return false
 }
 func platformSubscriptionStateFilter(value string) bool {
 	switch value {

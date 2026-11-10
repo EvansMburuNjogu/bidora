@@ -34,10 +34,19 @@ func TestLoginEmailDeliversHTMLAndPlainTextWithSafeAction(t *testing.T) {
 			t.Fatal(err)
 		}
 		kind, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
+		var alternative io.Reader = msg.Body
+		if err == nil && kind == "multipart/related" {
+			part, e := multipart.NewReader(msg.Body, params["boundary"]).NextPart()
+			if e != nil {
+				t.Fatal(e)
+			}
+			alternative = part
+			kind, params, err = mime.ParseMediaType(part.Header.Get("Content-Type"))
+		}
 		if err != nil || kind != "multipart/alternative" {
 			t.Fatal("missing multipart alternative")
 		}
-		reader := multipart.NewReader(msg.Body, params["boundary"])
+		reader := multipart.NewReader(alternative, params["boundary"])
 		for _, want := range []string{"text/plain", "text/html"} {
 			part, err := reader.NextRawPart()
 			if err != nil {

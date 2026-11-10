@@ -1,7 +1,9 @@
 # Bidora implementation documentation index
 
+> Historical planning reference, not the current work queue or implementation permission. Use [root instructions](../../AGENTS.md), [the MVP tracker](../tickets/PLATFORM_ADMIN_DELIVERY.md) and [source startup guide](../../README.md) for current development.
+
 ## 1. Purpose
-Guide future authorized engineering from specifications to verified external-tender MVP. Nothing in this collection authorizes application development by itself.
+Preserve the original implementation workstream design and its dated scope; it does not describe all functionality now present in source.
 
 ## 2. Scope
 Phases 0–9 as workstreams, delivered through vertical slices; later AI and sealed marketplace are gated separately.

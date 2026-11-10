@@ -24,9 +24,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	tenantinvite "bidora/backend/internal/authorization/invitation"
 	"bidora/backend/internal/emailhtml"
 	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/identity/verification"
+	"bidora/backend/internal/invitationcode"
 )
 
 type Config struct {
@@ -80,7 +82,7 @@ func (d *Delivery) PrepareEmailVerification(recipient email.Address, token verif
 	if recipient.IsZero() || token.IsZero() || expiresAt.IsZero() {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	return d.prepareStyled(recipient, "Verify your email", "identity.email_verification", token.RevealForDelivery(), expiresAt, verificationMessage(d.config.Sender, recipient, token, expiresAt.UTC()))
+	return d.prepareStyled(recipient, "Verify your email", "identity.email_verification", token.RevealForDelivery(), expiresAt, verificationMessage(d.config.Sender, recipient, token, expiresAt.UTC()), token.ChallengeRef())
 }
 func (d *Delivery) PreparePasswordRecovery(recipient email.Address, token verification.Token, expiresAt time.Time) (Prepared, error) {
 	if d == nil || !validConfig(d.config) {
@@ -89,9 +91,10 @@ func (d *Delivery) PreparePasswordRecovery(recipient email.Address, token verifi
 	if recipient.IsZero() || token.IsZero() || expiresAt.IsZero() {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
-	return d.prepareStyled(recipient, "Reset your password", "identity.password_recovery", token.RevealForDelivery(), expiresAt, passwordRecoveryMessage(d.config.Sender, recipient, token, expiresAt.UTC()))
+	return d.prepareStyled(recipient, "Reset your password", "identity.password_recovery", token.RevealForDelivery(), expiresAt, passwordRecoveryMessage(d.config.Sender, recipient, token, expiresAt.UTC()), token.ChallengeRef())
 }
-func (d *Delivery) prepareStyled(recipient email.Address, title, key, code string, expiry time.Time, legacy string) (Prepared, error) {
+
+func (d *Delivery) prepareStyled(recipient email.Address, title, key, code string, expiry time.Time, legacy string, challengeRef ...string) (Prepared, error) {
 	_, text, ok := strings.Cut(legacy, "\r\n\r\n")
 	if !ok {
 		return Prepared{}, errors.New("email_delivery_invalid")
@@ -106,10 +109,17 @@ func (d *Delivery) prepareStyled(recipient email.Address, title, key, code strin
 		body, _, _ = strings.Cut(text, "\r\n\r\n")
 		body = strings.TrimSuffix(strings.TrimSpace(body), ":")
 	}
-	if action := emailhtml.QuickAction(d.config.ActionOrigin, key); action.URL != "" {
+	content := emailhtml.Content{Brand: d.config.SenderName, Title: title, Body: body, Code: code, Expiry: expiry.UTC().Format(time.RFC3339), Origin: d.config.ActionOrigin, Key: key, SupportEmail: d.config.ReplyTo.Display()}
+	if len(challengeRef) > 0 {
+		content.ChallengeRef = challengeRef[0]
+	}
+	if key == "tenant.invitation" {
+		text = strings.ReplaceAll(text, code, invitationcode.Display(code))
+	}
+	if action := emailhtml.ActionFor(content); action.URL != "" {
 		text += "\n" + action.Label + ": " + action.URL
 	}
-	html := emailhtml.Render(emailhtml.Content{Brand: d.config.SenderName, Title: title, Body: body, Code: code, Expiry: expiry.UTC().Format(time.RFC3339), Origin: d.config.ActionOrigin, Key: key, SupportEmail: d.config.ReplyTo.Display()})
+	html := emailhtml.Render(content)
 	message, err := renderedMessage(d.config.Sender, recipient, title, text, html)
 	return Prepared{recipient: recipient, message: message, subject: title, text: text}, err
 }
@@ -165,8 +175,8 @@ func (d *Delivery) PrepareTenantRoleInvitation(recipient email.Address, role, ra
 	if d == nil || !validConfig(d.config) {
 		return Prepared{}, errors.New("email_delivery_unavailable")
 	}
-	decoded, err := base64.RawURLEncoding.Strict().DecodeString(rawToken)
-	if recipient.IsZero() || !validTenantRole(role) || err != nil || len(decoded) != 32 || expiresAt.IsZero() {
+	_, err := tenantinvite.HashPresented(rawToken)
+	if recipient.IsZero() || !validTenantRole(role) || err != nil || expiresAt.IsZero() {
 		return Prepared{}, errors.New("email_delivery_invalid")
 	}
 	return d.prepareStyled(recipient, "You are invited to a workspace", "tenant.invitation", rawToken, expiresAt, invitationMessage(d.config.Sender, recipient, role, rawToken, expiresAt.UTC()))
@@ -243,7 +253,9 @@ func (d *Delivery) deliver(ctx context.Context, recipient email.Address, message
 		return safe(err)
 	}
 	defer client.Close()
-	if err=commandDeadline();err!=nil{return safe(err)}
+	if err = commandDeadline(); err != nil {
+		return safe(err)
+	}
 	if supported, _ := client.Extension("STARTTLS"); !supported {
 		return safe(errors.New("STARTTLS unavailable"))
 	}
@@ -253,7 +265,9 @@ func (d *Delivery) deliver(ctx context.Context, recipient email.Address, message
 	if err = client.StartTLS(d.config.TLS.Clone()); err != nil {
 		return safe(err)
 	}
-	if err=commandDeadline();err!=nil{return safe(err)}
+	if err = commandDeadline(); err != nil {
+		return safe(err)
+	}
 	ok, mechanisms := client.Extension("AUTH")
 	if !ok || !containsPlain(mechanisms) {
 		return safe(errors.New("SMTP AUTH PLAIN unavailable"))
@@ -420,6 +434,15 @@ func renderedMessage(sender, recipient email.Address, subject, textBody, htmlBod
 	if sender.IsZero() || recipient.IsZero() || strings.TrimSpace(subject) == "" || strings.ContainsAny(subject, "\r\n") || textBody == "" || htmlBody == "" {
 		return "", errors.New("email_delivery_invalid")
 	}
+	logoSource := string(emailhtml.LogoDataURL())
+	// html/template escapes plus signs in quoted attributes. Match only our
+	// exact embedded asset; never unescape user-controlled HTML content.
+	escapedLogoSource := strings.ReplaceAll(logoSource, "+", "&#43;")
+	inlineLogo := strings.Contains(htmlBody, logoSource) || strings.Contains(htmlBody, escapedLogoSource)
+	if inlineLogo {
+		htmlBody = strings.ReplaceAll(htmlBody, logoSource, "cid:"+emailhtml.LogoContentID)
+		htmlBody = strings.ReplaceAll(htmlBody, escapedLogoSource, "cid:"+emailhtml.LogoContentID)
+	}
 	var body bytes.Buffer
 	parts := multipart.NewWriter(&body)
 	writePart := func(contentType, value string) error {
@@ -446,10 +469,42 @@ func renderedMessage(sender, recipient email.Address, subject, textBody, htmlBod
 	if err := parts.Close(); err != nil {
 		return "", err
 	}
+	contentType := "multipart/alternative; boundary=\"" + parts.Boundary() + "\""
+	if inlineLogo {
+		var relatedBody bytes.Buffer
+		related := multipart.NewWriter(&relatedBody)
+		alternative, err := related.CreatePart(textproto.MIMEHeader{"Content-Type": {contentType}})
+		if err != nil {
+			return "", err
+		}
+		if _, err = alternative.Write(body.Bytes()); err != nil {
+			return "", err
+		}
+		image, err := related.CreatePart(textproto.MIMEHeader{
+			"Content-Type": {"image/png"}, "Content-Transfer-Encoding": {"base64"},
+			"Content-ID": {"<" + emailhtml.LogoContentID + ">"}, "Content-Disposition": {"inline; filename=bidora-logo.png"},
+		})
+		if err != nil {
+			return "", err
+		}
+		encoded := base64.StdEncoding.EncodeToString(emailhtml.LogoPNG())
+		for len(encoded) > 0 {
+			n := min(76, len(encoded))
+			if _, err = io.WriteString(image, encoded[:n]+"\r\n"); err != nil {
+				return "", err
+			}
+			encoded = encoded[n:]
+		}
+		if err = related.Close(); err != nil {
+			return "", err
+		}
+		body = relatedBody
+		contentType = "multipart/related; boundary=\"" + related.Boundary() + "\""
+	}
 	// RFC 2047 encoding and folding keeps managed Unicode subjects valid without
 	// allowing content to introduce headers.
 	encodedSubject := strings.ReplaceAll(mime.QEncoding.Encode("UTF-8", subject), "?= =?", "?=\r\n =?")
-	message := "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: " + encodedSubject + "\r\nDate: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"" + parts.Boundary() + "\"\r\n\r\n" + body.String()
+	message := "From: " + sender.Display() + "\r\nTo: " + recipient.Display() + "\r\nSubject: " + encodedSubject + "\r\nDate: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: " + contentType + "\r\n\r\n" + body.String()
 	return message, nil
 }
 

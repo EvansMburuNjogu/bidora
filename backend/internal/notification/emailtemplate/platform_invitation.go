@@ -3,6 +3,7 @@
 package emailtemplate
 
 import (
+	"bidora/backend/internal/invitationcode"
 	"errors"
 	"fmt"
 	"html/template"
@@ -18,6 +19,11 @@ const (
 	PlatformInvitationIssued   PlatformInvitationKind = "ISSUED"
 	PlatformInvitationReminder PlatformInvitationKind = "REMINDER"
 )
+
+func validInvitationProof(value string) bool {
+	_, _, ok := invitationcode.Split(value)
+	return ok || len(value) == 43
+}
 
 type PlatformInvitationInput struct {
 	Kind      PlatformInvitationKind
@@ -37,7 +43,7 @@ func RenderPlatformInvitation(input PlatformInvitationInput) (Message, error) {
 	if _, err := domain.Capabilities(input.Role); err != nil || input.ExpiresAt.IsZero() || strings.ContainsAny(input.Token, "\r\n<>") {
 		return Message{}, errors.New("platform_invitation_template_invalid")
 	}
-	if input.Kind == PlatformInvitationIssued && len(input.Token) != 43 || input.Kind == PlatformInvitationReminder && input.Token != "" {
+	if input.Kind == PlatformInvitationIssued && !validInvitationProof(input.Token) || input.Kind == PlatformInvitationReminder && input.Token != "" {
 		return Message{}, errors.New("platform_invitation_template_invalid")
 	}
 	roleLabel := roleLabel(input.Role)
@@ -51,12 +57,12 @@ func RenderPlatformInvitation(input PlatformInvitationInput) (Message, error) {
 	details := "Role: " + roleLabel + "\nExpires: " + expires
 	instruction := "Sign in using the exact invited email address, complete email verification, then enter this code."
 	if input.Token != "" {
-		details = "Role: " + roleLabel + "\nInvitation code: " + input.Token + "\nExpires: " + expires
+		details = "Role: " + roleLabel + "\nInvitation code: " + invitationcode.Display(input.Token) + "\nExpires: " + expires
 	} else {
 		instruction = "Use the code in your original invitation email. If it is unavailable, ask the Platform Owner to resend the invitation; a resend invalidates the previous code."
 	}
 	text := prefix + "\n\n" + intro + "\n\n" + details + "\n\n" + instruction + " Bidora support will never ask you to send an invitation code by email or chat.\n\nIf you did not expect this invitation, you can ignore this message.\n"
-	data := struct{ Prefix, Intro, Role, Token, Expires string }{prefix, intro, roleLabel, input.Token, expires}
+	data := struct{ Prefix, Intro, Role, Token, Expires string }{prefix, intro, roleLabel, invitationcode.Display(input.Token), expires}
 	var html strings.Builder
 	if err := platformInvitationHTML.Execute(&html, data); err != nil {
 		return Message{}, errors.New("platform_invitation_template_unavailable")

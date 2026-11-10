@@ -21,6 +21,7 @@ type EmailVerificationResendUseCase interface {
 }
 
 type EmailVerificationResendHandler struct {
+	codes      *EmailCodes
 	resend     EmailVerificationResendUseCase
 	protection *browser.Protection
 	ips        LoginClientIPResolver
@@ -34,6 +35,7 @@ func NewEmailVerificationResendHandler(resend EmailVerificationResendUseCase, pr
 	return &EmailVerificationResendHandler{resend: resend, protection: protection, ips: ips, keys: keys}, nil
 }
 
+func (h *EmailVerificationResendHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
 func (h *EmailVerificationResendHandler) Handle(c fiber.Ctx) error {
 	if c == nil {
 		return errors.New("email_verification_resend_http_context_required")
@@ -76,16 +78,27 @@ func (h *EmailVerificationResendHandler) Handle(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	result, err := h.resend.Resend(c.Context(), identityapp.EmailVerificationResendInput{Email: emailValue, CorrelationID: correlation, NetworkScope: network})
+	ctx := c.Context()
+	reference := ""
+	if h.codes != nil {
+		ctx, reference, err = h.codes.issue(ctx, "verify")
+		if err != nil {
+			return fail(c, 503, "VERIFICATION_RESEND_UNAVAILABLE", "Verification email is temporarily unavailable.", true)
+		}
+	}
+	result, err := h.resend.Resend(ctx, identityapp.EmailVerificationResendInput{Email: emailValue, CorrelationID: correlation, NetworkScope: network})
 	if err != nil {
 		if err.Error() == "verification_resend_attempt_denied" {
-			c.Set("Retry-After", "900")
+			setCodeRetryAfter(c, err)
 			return fail(c, 429, "VERIFICATION_RESEND_LIMITED", "Verification email is temporarily unavailable.", true)
 		}
 		return fail(c, 503, "VERIFICATION_RESEND_UNAVAILABLE", "Verification email is temporarily unavailable.", true)
 	}
 	if !result.Accepted {
 		return fail(c, 503, "VERIFICATION_RESEND_UNAVAILABLE", "Verification email is temporarily unavailable.", true)
+	}
+	if reference != "" {
+		c.Set(EmailCodeChallengeHeader, reference)
 	}
 	return c.SendStatus(fiber.StatusAccepted)
 }

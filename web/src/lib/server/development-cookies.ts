@@ -32,6 +32,19 @@ export function backendCookieHeader(value: string | null, webOrigin: string): st
   }).join("; ");
 }
 
+// Expiry is authoritative only after an upstream 401, never a network failure
+// or a 403 freshness/permission denial. Leave pending login challenges alone.
+export function expiredSessionResponse(webOrigin:string,headers:Headers):Response{
+ for(const name of ["__Host-bidora_session","__Host-bidora_csrf"]){
+  headers.append("Set-Cookie",browserSetCookie(name+"=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; HttpOnly; SameSite=Lax",webOrigin));
+ }
+ headers.set("Cache-Control","private, no-store");
+ headers.set("Content-Type","application/json");
+ headers.set("X-Content-Type-Options","nosniff");
+ headers.set("Vary","Cookie, Origin");
+ return Response.json({error:{code:"SESSION_INVALID",message:"Your session has expired. Please sign in.",field_errors:[],trace_id:crypto.randomUUID(),retryable:false}},{status:401,headers});
+}
+
 export function browserSetCookie(value: string, webOrigin: string): string {
   if (!enabled(webOrigin)) return value;
   let result = value;

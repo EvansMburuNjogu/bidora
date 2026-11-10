@@ -16,13 +16,25 @@ import (
 )
 
 const script = `
-if redis.call('EXISTS', KEYS[2]) == 1 or redis.call('EXISTS', KEYS[4]) == 1 then return 0 end
+local function remaining()
+  local wait = math.max(0, redis.call('PTTL', KEYS[2]), redis.call('PTTL', KEYS[4]))
+  if tonumber(redis.call('GET', KEYS[1]) or '0') >= tonumber(ARGV[3]) then wait = math.max(wait, redis.call('PTTL', KEYS[1])) end
+  if tonumber(redis.call('GET', KEYS[3]) or '0') >= tonumber(ARGV[4]) then wait = math.max(wait, redis.call('PTTL', KEYS[3])) end
+  return math.max(1, wait)
+end
+if redis.call('EXISTS', KEYS[2]) == 1 or redis.call('EXISTS', KEYS[4]) == 1 then return -remaining() end
 local identity = redis.call('INCR', KEYS[1])
 if identity == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
 local network = redis.call('INCR', KEYS[3])
 if network == 1 then redis.call('PEXPIRE', KEYS[3], ARGV[2]) end
-if identity > tonumber(ARGV[3]) then redis.call('SET', KEYS[2], '1', 'PX', ARGV[5]); return 0 end
-if network > tonumber(ARGV[4]) then redis.call('SET', KEYS[4], '1', 'PX', ARGV[5]); return 0 end
+if identity > tonumber(ARGV[3]) then
+  redis.call('SET', KEYS[2], '1', 'PX', math.max(tonumber(ARGV[5]), redis.call('PTTL', KEYS[1])))
+  return -remaining()
+end
+if network > tonumber(ARGV[4]) then
+  redis.call('SET', KEYS[4], '1', 'PX', math.max(tonumber(ARGV[5]), redis.call('PTTL', KEYS[3])))
+  return -remaining()
+end
 return 1
 `
 const (
@@ -59,8 +71,12 @@ func (c *Controller) Allow(ctx context.Context, scopes attempt.Scopes) error {
 	if !ok {
 		return errors.New("recovery_attempt_result_invalid")
 	}
-	if number == 0 {
-		return identityapp.ErrRecoveryAttemptDenied
+	if number <= 0 && number >= -window.Milliseconds() {
+		wait := deny
+		if number < 0 {
+			wait = time.Duration(-number) * time.Millisecond
+		}
+		return &retryError{wait: wait}
 	}
 	if number != 1 {
 		return errors.New("recovery_attempt_result_invalid")
@@ -92,6 +108,12 @@ func integer(value any) (int64, bool) {
 		return 0, false
 	}
 }
+
+type retryError struct{ wait time.Duration }
+
+func (e *retryError) Error() string          { return identityapp.ErrRecoveryAttemptDenied.Error() }
+func (e *retryError) Unwrap() error          { return identityapp.ErrRecoveryAttemptDenied }
+func (e *retryError) RetryAfterSeconds() int { return int((e.wait + time.Second - 1) / time.Second) }
 
 type controllerError struct{ cause error }
 

@@ -99,6 +99,9 @@ func NewPilot(state *health.State, routes PilotRoutes) (*fiber.App, error) {
 			return nil, errors.New("pilot_registration_routes_invalid")
 		}
 		app.Post(RegistrationPath, ready, routes.Registration.Handle)
+		app.Post(InvitationRegistrationPath, ready, routes.Registration.HandleInvitation)
+		app.Post(InvitationDetailsPath, ready, routes.Registration.InvitationDetails)
+		app.Post(InvitationActivationPath, ready, routes.Registration.ActivateInvitation)
 		app.Post(EmailVerificationPath, ready, routes.EmailVerification.Handle)
 		app.Post(EmailVerificationResendPath, ready, routes.EmailVerificationResend.Handle)
 	}
@@ -126,10 +129,11 @@ func NewPilot(state *health.State, routes PilotRoutes) (*fiber.App, error) {
 		app.Get(GoogleLinkCallbackPath, ready, routes.Browser.Handle, routes.GoogleLinkCallback.Handle)
 	}
 	app.Get(SessionBootstrapPath, ready, routes.Browser.Bootstrap, routes.Bootstrap.Handle)
-	app.Get(SessionInventoryPath, ready, routes.Browser.Handle, routes.SessionInventory.Get)
+	app.Get(SessionInventoryPath, ready, routes.Browser.NoTouch, routes.SessionInventory.Get)
 	app.Delete(SessionRevokePath, ready, routes.Browser.NoTouch, routes.SessionAdministration.RevokeOther)
 	app.Post(SessionRevokeAllPath, ready, routes.Browser.NoTouch, routes.SessionAdministration.RevokeAll)
-	app.Get(MePortalPath, ready, routes.Browser.Handle, routes.AccountType.Get)
+	app.Get(MePortalPath, ready, routes.Browser.NoTouch, routes.AccountType.Get)
+	app.Post(SessionRenewPath, ready, routes.Browser.Renew, routes.Browser.RenewResult)
 	app.Post(AccountTypeSelectionPath, ready, routes.Browser.Handle, routes.AccountType.Select)
 	app.Get(RecoveryPreparationPath, ready, routes.Browser.Handle, routes.RecoveryPreparation.Get)
 	app.Get(MFAReadinessPath, ready, routes.Browser.Handle, routes.MFAReadiness.Get)

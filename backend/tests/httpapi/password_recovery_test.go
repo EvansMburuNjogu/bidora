@@ -18,11 +18,12 @@ import (
 type recoveryHTTPFake struct {
 	requestCalls, resetCalls int
 	lastReset                identityapp.PasswordRecoveryResetInput
+	requestErr               error
 }
 
 func (f *recoveryHTTPFake) Request(context.Context, identityapp.PublicPasswordRecoveryInput) error {
 	f.requestCalls++
-	return nil
+	return f.requestErr
 }
 func (f *recoveryHTTPFake) Reset(_ context.Context, in identityapp.PasswordRecoveryResetInput) error {
 	f.lastReset = in
@@ -57,6 +58,27 @@ func recoveryHTTPHarness(t *testing.T) (*fiber.App, *recoveryHTTPFake) {
 	app.Post(httpapi.PasswordRecoveryResetPath, handler.Reset)
 	return app, use
 }
+
+type recoveryRetryHTTPError struct{}
+
+func (recoveryRetryHTTPError) Error() string          { return "password_recovery_attempt_denied" }
+func (recoveryRetryHTTPError) RetryAfterSeconds() int { return 2400 }
+
+func TestPasswordRecoveryHTTPUsesActualRetryAfter(t *testing.T) {
+	app, use := recoveryHTTPHarness(t)
+	use.requestErr = recoveryRetryHTTPError{}
+	req := httptest.NewRequest(http.MethodPost, httpapi.PasswordRecoveryRequestPath, strings.NewReader(`{"email":"unknown@example.test"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://app.example.test")
+	res, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 429 || res.Header.Get("Retry-After") != "2400" {
+		t.Fatal("misleading recovery retry header")
+	}
+}
+
 func TestPasswordRecoveryHTTPStrictBindingAndGenericResponses(t *testing.T) {
 	app, use := recoveryHTTPHarness(t)
 	invalid := []struct{ path, body string }{{httpapi.PasswordRecoveryRequestPath, `{"email":"a@example.test","unknown":true}`}, {httpapi.PasswordRecoveryRequestPath, `{"email":"a@example.test","email":"b@example.test"}`}, {httpapi.PasswordRecoveryResetPath, `{"token":"abc","new_password":"replacement password"}{}`}}

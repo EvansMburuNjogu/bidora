@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"crypto/sha256"
@@ -9,13 +10,13 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"bidora/backend/internal/identity/email"
 	"bidora/backend/internal/platformadmin/domain"
 	platforminvite "bidora/backend/internal/platformadmin/invitation"
 )
-
-const recentPlatformAssurance = 15 * time.Minute
 
 var (
 	ErrInvitationInvalid         = errors.New("platform_invitation_invalid")
@@ -80,6 +81,7 @@ const (
 type InvitationRecord struct {
 	ID                        ID
 	EmailDisplay, EmailLookup string
+	FirstName, LastName       string
 	Role                      domain.Role
 	AuthorizationPath         InvitationAuthorizationPath
 	State                     InvitationState
@@ -156,6 +158,7 @@ type IssueInvitationInput struct {
 	ActorID, SessionID, CorrelationID, IdempotencyKey ID
 	PlatformContextGeneration                         int64
 	Email, Reason                                     string
+	FirstName, LastName                               string
 	Role                                              domain.Role
 }
 type IssueInvitationResult struct {
@@ -181,7 +184,19 @@ type CancelInvitationInput struct {
 	PlatformContextGeneration, ExpectedVersion                      int64
 }
 
+type InvitationSession struct {
+	SessionID, AuditID, CorrelationID                      ID
+	SessionHash, CSRFHash                                  [32]byte
+	CreatedAt, IdleExpiresAt, AbsoluteExpiresAt, AssuredAt time.Time
+}
+
+// Optional transport-prepared replacement; only the server generates these values.
+type InvitationSessionTx interface {
+	ContinueInvitationSession(context.Context, ID, int64, InvitationSession) error
+}
+
 type AcceptInvitationInput struct {
+	Session                                           *InvitationSession
 	ActorID, SessionID, CorrelationID, IdempotencyKey ID
 	PresentedToken                                    string
 }
@@ -199,6 +214,7 @@ type OwnerInvitationDispositionResult struct {
 }
 
 type AcceptInvitationResult struct {
+	AuthEpoch       int64 // Committed epoch for safe replacement of the revoked invitee session.
 	InvitationID    ID
 	Role            domain.Role
 	RevokedSessions int64
@@ -210,11 +226,45 @@ func (AcceptInvitationInput) Format(s fmt.State, verb rune) {
 }
 
 type InvitationService struct {
-	uow      InvitationUnitOfWork
-	tokens   InvitationTokenGenerator
-	ids      InvitationIDGenerator
-	clock    InvitationClock
-	delivery PlatformInvitationDelivery
+	uow       InvitationUnitOfWork
+	tokens    InvitationTokenGenerator
+	ids       InvitationIDGenerator
+	clock     InvitationClock
+	delivery  PlatformInvitationDelivery
+	passwords InvitationPassword
+}
+
+// InvitationRegistrationIdentity contains only immutable invitation snapshots.
+type InvitationRegistrationIdentity struct {
+	FirstName, LastName, Email string
+	Role                       domain.Role
+}
+
+func (InvitationRegistrationIdentity) Format(s fmt.State, verb rune) {
+	fmt.Fprint(s, "[REDACTED invitation identity]")
+}
+
+func (s *InvitationService) RegistrationIdentity(ctx context.Context, token string) (identity InvitationRegistrationIdentity, err error) {
+	if ctx == nil || s == nil || s.uow == nil {
+		return identity, ErrInvitationInvalid
+	}
+	hash, err := platforminvite.HashPresented(token)
+	if err != nil {
+		return identity, ErrInvitationInvalid
+	}
+	now := s.clock.Now().UTC()
+	err = s.uow.WithinInvitation(ctx, func(txCtx context.Context, tx InvitationTx) error {
+		record, e := tx.LockInvitationByToken(txCtx, hash, now)
+		if e != nil {
+			return e
+		}
+		if record.State != InvitationActive || record.ExpiresAt == nil || !record.ExpiresAt.After(now) || record.FirstName == "" || record.LastName == "" || record.EmailDisplay == "" {
+			return ErrInvitationInvalid
+		}
+		identity = InvitationRegistrationIdentity{FirstName: record.FirstName, LastName: record.LastName, Email: record.EmailDisplay, Role: record.Role}
+		return nil
+	})
+	return identity, err
 }
 
 func NewInvitationService(uow InvitationUnitOfWork, tokens InvitationTokenGenerator, ids InvitationIDGenerator, clock InvitationClock, delivery PlatformInvitationDelivery) (*InvitationService, error) {
@@ -231,6 +281,10 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 	}
 	now := s.clock.Now().UTC()
 	requestHash := hashRequest("platform-invitation-issue:v1", struct{ Email, Role, Reason string }{address.Lookup(), string(input.Role), reason})
+	// Keep legacy idempotency hashes stable while binding supplied names to retries.
+	if input.FirstName != "" || input.LastName != "" {
+		requestHash = hashRequest("platform-invitation-issue:names:v1", struct{ Email, Role, Reason, FirstName, LastName string }{address.Lookup(), string(input.Role), reason, input.FirstName, input.LastName})
+	}
 	keyHash := hashKey("platform-invitation-issue:v1", input.IdempotencyKey)
 	var deliveryToken platforminvite.Token
 	var recipient email.Address
@@ -303,7 +357,7 @@ func (s *InvitationService) Issue(ctx context.Context, input IssueInvitationInpu
 		if txErr != nil {
 			return txErr
 		}
-		record := InvitationRecord{ID: ids[0], EmailDisplay: address.Display(), EmailLookup: address.Lookup(), Role: input.Role, AuthorizationPath: authorizationPath, State: state, InvitedBy: input.ActorID, Reason: reason, CreatedAt: now, ActivatedAt: activatedAt, ExpiresAt: expiresAt, Version: 1}
+		record := InvitationRecord{ID: ids[0], FirstName: input.FirstName, LastName: input.LastName, EmailDisplay: address.Display(), EmailLookup: address.Lookup(), Role: input.Role, AuthorizationPath: authorizationPath, State: state, InvitedBy: input.ActorID, Reason: reason, CreatedAt: now, ActivatedAt: activatedAt, ExpiresAt: expiresAt, Version: 1}
 		if txErr = tx.ExpireReplacedInvitationChanges(txCtx, address.Lookup(), now); txErr != nil {
 			return txErr
 		}
@@ -345,6 +399,19 @@ func validateIssueInput(ctx context.Context, input IssueInvitationInput) (email.
 		return email.Address{}, "", ErrInvitationInvalid
 	}
 	address, err := email.Parse(input.Email)
+	for _, name := range []string{input.FirstName, input.LastName} {
+		if name != strings.TrimSpace(name) || len(name) > 100 || !utf8.ValidString(name) {
+			return email.Address{}, "", ErrInvitationInvalid
+		}
+		for _, character := range name {
+			if unicode.IsControl(character) {
+				return email.Address{}, "", ErrInvitationInvalid
+			}
+		}
+	}
+	if (input.FirstName == "") != (input.LastName == "") {
+		return email.Address{}, "", ErrInvitationInvalid
+	}
 	reason := strings.TrimSpace(input.Reason)
 	if err != nil || reason != input.Reason || len(reason) < 1 || len(reason) > 2000 {
 		return email.Address{}, "", ErrInvitationInvalid
@@ -426,49 +493,62 @@ func (s *InvitationService) Accept(ctx context.Context, input AcceptInvitationIn
 		if tied {
 			return ErrInvitationInvalid
 		}
-		ids, txErr := s.newIDs(4)
-		if txErr != nil {
-			return txErr
-		}
-		newEpoch, txErr := tx.PromoteIdentity(txCtx, identity.UserID, identity.AuthEpoch, now)
-		if txErr != nil {
-			return txErr
-		}
-		if newEpoch != identity.AuthEpoch+1 {
-			return ErrConcurrentChange
-		}
-		revoked, txErr := tx.RevokeSessions(txCtx, identity.UserID, now)
-		if txErr != nil {
-			return txErr
-		}
-		if txErr = tx.CreateAdministratorProfile(txCtx, identity.UserID, now); txErr != nil {
-			return txErr
-		}
-		if txErr = tx.AssignInvitedRole(txCtx, ids[0], identity.UserID, record.Role, record.InvitedBy, record.Reason, now); txErr != nil {
-			return txErr
-		}
-		if txErr = tx.AcceptInvitation(txCtx, record.ID, record.Version, identity.UserID, now); txErr != nil {
-			return txErr
-		}
-		if record.Role == domain.PlatformOwner {
-			governance, lockErr := tx.LockGovernance(txCtx)
-			if lockErr != nil {
-				return lockErr
-			}
-			if txErr = tx.AdvanceOwnerGeneration(txCtx, governance.Version, now); txErr != nil {
-				return txErr
-			}
-		}
-		if txErr = tx.ClaimCommand(txCtx, ids[1], identity.UserID, "INVITATION_ACCEPT", keyHash, requestHash, record.ID, 204, now); txErr != nil {
-			return txErr
-		}
-		if txErr = tx.AppendInvitationEvidence(txCtx, InvitationEvidence{AuditID: ids[2], OutboxID: ids[3], CorrelationID: input.CorrelationID, ActorID: identity.UserID, InvitationID: record.ID, Action: "ACCEPTED", Role: record.Role, Version: record.Version + 1, OccurredAt: now}); txErr != nil {
-			return txErr
-		}
-		result = AcceptInvitationResult{InvitationID: record.ID, Role: record.Role, RevokedSessions: revoked}
-		return nil
+		result, txErr = s.acceptIdentityWithin(txCtx, tx, record, identity, input, keyHash, requestHash, now)
+		return txErr
 	})
 	return result, err
+}
+
+func (s *InvitationService) acceptIdentityWithin(txCtx context.Context, tx InvitationTx, record InvitationRecord, identity BootstrapIdentity, input AcceptInvitationInput, keyHash, requestHash [32]byte, now time.Time) (AcceptInvitationResult, error) {
+	ids, txErr := s.newIDs(4)
+	if txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	newEpoch, txErr := tx.PromoteIdentity(txCtx, identity.UserID, identity.AuthEpoch, now)
+	if txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if newEpoch != identity.AuthEpoch+1 {
+		return AcceptInvitationResult{}, ErrConcurrentChange
+	}
+	revoked, txErr := tx.RevokeSessions(txCtx, identity.UserID, now)
+	if txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if txErr = tx.CreateAdministratorProfile(txCtx, identity.UserID, now); txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if txErr = tx.AssignInvitedRole(txCtx, ids[0], identity.UserID, record.Role, record.InvitedBy, record.Reason, now); txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if txErr = tx.AcceptInvitation(txCtx, record.ID, record.Version, identity.UserID, now); txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if record.Role == domain.PlatformOwner {
+		governance, lockErr := tx.LockGovernance(txCtx)
+		if lockErr != nil {
+			return AcceptInvitationResult{}, lockErr
+		}
+		if txErr = tx.AdvanceOwnerGeneration(txCtx, governance.Version, now); txErr != nil {
+			return AcceptInvitationResult{}, txErr
+		}
+	}
+	if txErr = tx.ClaimCommand(txCtx, ids[1], identity.UserID, "INVITATION_ACCEPT", keyHash, requestHash, record.ID, 204, now); txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if txErr = tx.AppendInvitationEvidence(txCtx, InvitationEvidence{AuditID: ids[2], OutboxID: ids[3], CorrelationID: input.CorrelationID, ActorID: identity.UserID, InvitationID: record.ID, Action: "ACCEPTED", Role: record.Role, Version: record.Version + 1, OccurredAt: now}); txErr != nil {
+		return AcceptInvitationResult{}, txErr
+	}
+	if input.Session != nil {
+		continuation, ok := tx.(InvitationSessionTx)
+		if !ok {
+			return AcceptInvitationResult{}, errors.New("invitation_session_unavailable")
+		}
+		if txErr = continuation.ContinueInvitationSession(txCtx, identity.UserID, newEpoch, *input.Session); txErr != nil {
+			return AcceptInvitationResult{}, txErr
+		}
+	}
+	return AcceptInvitationResult{AuthEpoch: newEpoch, InvitationID: record.ID, Role: record.Role, RevokedSessions: revoked}, nil
 }
 
 func requireInvitationOwner(ctx context.Context, tx InvitationTx, actorID, sessionID ID, generation int64, now time.Time) (AuthorityFacts, error) {
@@ -482,7 +562,7 @@ func requireInvitationOwner(ctx context.Context, tx InvitationTx, actorID, sessi
 	if !facts.Grants("platform.admin.invite") || !containsRole(facts.Roles, domain.PlatformOwner) {
 		return AuthorityFacts{}, ErrPlatformAccessForbidden
 	}
-	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || !securitypolicy.Recent(ctx, facts.AssuredAt, now) {
 		return AuthorityFacts{}, ErrPlatformAssuranceRequired
 	}
 	return facts, nil

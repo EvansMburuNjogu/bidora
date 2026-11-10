@@ -1,0 +1,91 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Administrator invitation activation",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/auth/invitation-activate": {
+      "post": {
+        "operationId": "activatePlatformInvitationAccount",
+        "summary": "Set the invited account password and activate administrator access",
+        "description": "Exact approved Origin, trusted ingress network, existing registration identity/network quotas, nonce-scoped invitation attempt protection, strict 4 KiB JSON and UUID Idempotency-Key are required. The strong active unexpired mailed invitation is one-time, purpose-bound mailbox enrollment proof. Only a new or enabled UNASSIGNED identity without external identities, active MFA, platform profile/history or tenant ties may enroll. Existing unfinished password identities may choose their activation password; established accounts are never reset. Saved names/email/role come only from the locked invitation. Password hashing, email verification, old challenge invalidation, epoch advancement, session revocation, profile/role creation, invitation consumption and minimal audit/outbox evidence commit in one transaction. No login session or MFA assurance is created. After 204 navigate to ordinary login. Matching idempotent replay does not rewrite credentials; changed-password replay is rejected. Proof-bound idempotency uses the secret invitation capability as an HMAC key, never a persisted fast password hash.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "token",
+                  "password"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 29,
+                    "maxLength": 43,
+                    "description": "Strong scoped invitation capability or legacy opaque token; bare six digits are never sufficient."
+                  },
+                  "password": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "Must satisfy the current server-owned password policy; confirmation remains client-only."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password enrollment and invitation activation committed, or identical command replay. No session/CSRF cookies; continue to login."
+          },
+          "400": {
+            "description": "Invalid input or password policy failure"
+          },
+          "403": {
+            "description": "Origin rejected"
+          },
+          "409": {
+            "description": "Invitation expired, used, replaced, cancelled, identity ineligible or request conflicted; no partial credential/role writes"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          },
+          "429": {
+            "description": "Existing identity/network or invitation-proof controls enforced"
+          },
+          "503": {
+            "description": "Activation unavailable or unconfirmed; never a fake success"
+          }
+        }
+      }
+    }
+  }
+}

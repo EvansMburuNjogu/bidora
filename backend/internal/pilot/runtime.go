@@ -333,6 +333,9 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 			return fail(buildErr)
 		}
 		invitationAcceptHandler, buildErr = httpapi.NewInvitationAcceptHandler(invitationAcceptance)
+		if invitationAcceptHandler != nil {
+			invitationAcceptHandler.EnableShortCodes(identity.codes)
+		}
 		if buildErr != nil {
 			return fail(buildErr)
 		}
@@ -438,10 +441,17 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 			return fail(buildErr)
 		}
 	}
+	registrationHandler.EnableInvitationRegistration(platformModule)
+	if err := platformModule.EnablePasswordActivation(identity.hasher); err != nil {
+		return nil, err
+	}
+	registrationHandler.EnableInvitationActivation(platformModule)
 	platformAdministrationHandler, err := httpapi.NewPlatformAdministrationHandler(platformModule, systemClock{})
 	if err != nil {
 		return fail(err)
 	}
+	platformAdministrationHandler.EnableShortCodes(identity.codes)
+	platformAdministrationHandler.EnableSessionContinuation(identity.sessionIssuer)
 	platformTenantDirectoryStore, err := tenancypersistence.NewPlatformTenantDirectoryStore(deps.Control)
 	if err != nil {
 		return fail(err)

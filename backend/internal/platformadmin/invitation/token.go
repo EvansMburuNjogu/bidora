@@ -3,6 +3,7 @@
 package invitation
 
 import (
+	"bidora/backend/internal/invitationcode"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -26,7 +27,13 @@ func (Token) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED platform 
 func (t Token) RevealForDelivery() string   { return t.raw }
 func (t Token) Hash() [32]byte              { return t.hash }
 func (t Token) IsZero() bool                { return t.raw == "" || t.hash == [32]byte{} }
-func Generate() (Token, error)              { return GenerateWithRandom(rand.Reader) }
+func Generate() (Token, error) {
+	raw, hash, err := invitationcode.Generate(rand.Reader, "platform")
+	if err != nil {
+		return Token{}, err
+	}
+	return Token{raw: raw, hash: hash}, nil
+}
 func GenerateWithRandom(random io.Reader) (Token, error) {
 	if random == nil {
 		return Token{}, errors.New("platform_invitation_random_invalid")
@@ -38,6 +45,9 @@ func GenerateWithRandom(random io.Reader) (Token, error) {
 	return Token{raw: base64.RawURLEncoding.EncodeToString(raw), hash: sha256.Sum256(raw)}, nil
 }
 func HashPresented(encoded string) ([32]byte, error) {
+	if _, _, ok := invitationcode.Split(encoded); ok {
+		return invitationcode.Hash("platform", encoded)
+	}
 	if len(encoded) != base64.RawURLEncoding.EncodedLen(TokenBytes) {
 		return [32]byte{}, errors.New("platform_invitation_token_invalid")
 	}

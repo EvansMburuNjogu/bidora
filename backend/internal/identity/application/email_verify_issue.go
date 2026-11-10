@@ -82,7 +82,7 @@ func (s *EmailVerificationIssueService) Issue(ctx context.Context, input EmailVe
 	if s == nil || s.issuer == nil || s.delivery == nil || s.tokens == nil || s.ids == nil || s.clock == nil {
 		return EmailVerificationIssueResult{}, safe("verification_issuance_unavailable", nil)
 	}
-	token, err := s.tokens.Generate()
+	token, err := verification.GenerateForContext(ctx, s.tokens.Generate)
 	if err != nil || token.IsZero() {
 		return EmailVerificationIssueResult{}, safe("verification_issuance_unavailable", err)
 	}

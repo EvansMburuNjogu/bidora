@@ -1,7 +1,7 @@
 import "server-only";
 import { forwardAuditContext } from "@/lib/server/audit-request-context";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
-import { backendCookieHeader, browserSetCookie } from "@/lib/server/development-cookies";
+import { backendCookieHeader, browserSetCookie,expiredSessionResponse } from "@/lib/server/development-cookies";
 import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 
 const sessionReads = {
@@ -76,12 +76,13 @@ export async function proxySessionRead(request: Request, operation: SessionRead)
     "X-Content-Type-Options": "nosniff",
     Vary: "Cookie, Origin",
   });
-  for (const name of ["content-type", "retry-after", "x-request-id"]) {
+  for (const name of ["content-type", "date", "retry-after", "x-request-id"]) {
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
   for (const value of upstream.headers.getSetCookie()) responseHeaders.append("Set-Cookie", browserSetCookie(value, browser));
 
+  if(upstream.status===401){await upstream.body?.cancel();return expiredSessionResponse(browser,responseHeaders);}
   const body = await boundedUpstreamBody(upstream);
   if (!body) return failure(503);
   if (upstream.status !== 204 && upstream.headers.get("content-type")?.split(";")[0] !== "application/json") return failure(503);

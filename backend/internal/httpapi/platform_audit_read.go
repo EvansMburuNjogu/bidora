@@ -63,6 +63,8 @@ func platformAuditFailure(c fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, controlapp.ErrPlatformAuditInvalid):
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	case errors.Is(err, controlapp.ErrPlatformAuditStepUpRequired):
+		return fail(c, 403, "RECENT_VERIFICATION_REQUIRED", "Verify your sign-in again before exporting audit activity.", false)
 	case errors.Is(err, controlapp.ErrPlatformAuditForbidden):
 		return fail(c, 403, "PLATFORM_FORBIDDEN", "This operation is not permitted.", false)
 	case errors.Is(err, controlapp.ErrPlatformAuditNotFound):

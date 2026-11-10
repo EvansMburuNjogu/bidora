@@ -86,7 +86,9 @@ func (s *ReadService) Active(ctx context.Context, subject Subject, kind domain.K
 	if !validRead(ctx, s, subject, kind) {
 		return result, ErrInvalid
 	}
-	err = s.withRead(ctx, subject, func(txCtx context.Context, tx ReadTx) error {
+	revealUsername := false
+	err = s.withReadAuthority(ctx, subject, func(txCtx context.Context, tx ReadTx, auth Authority) error {
+		revealUsername = recent(txCtx, auth, s.clock.Now().UTC())
 		var found bool
 		result, found, err = tx.GetActiveVersion(txCtx, kind)
 		if err == nil && !found {
@@ -97,7 +99,7 @@ func (s *ReadService) Active(ctx context.Context, subject Subject, kind domain.K
 	if err != nil {
 		return RedactedVersion{}, mapError(err)
 	}
-	if result.SMTP != nil && s.smtpUsernames != nil {
+	if result.SMTP != nil && s.smtpUsernames != nil && revealUsername {
 		username, readErr := s.smtpUsernames.SMTPUsername(ctx, result.ID)
 		if readErr != nil {
 			return RedactedVersion{}, ErrUnavailable
@@ -148,16 +150,19 @@ func (s *ReadService) Change(ctx context.Context, subject Subject, id domain.ID)
 	return result, nil
 }
 func (s *ReadService) withRead(ctx context.Context, subject Subject, read func(context.Context, ReadTx) error) error {
+	return s.withReadAuthority(ctx, subject, func(c context.Context, tx ReadTx, _ Authority) error { return read(c, tx) })
+}
+func (s *ReadService) withReadAuthority(ctx context.Context, subject Subject, read func(context.Context, ReadTx, Authority) error) error {
 	at := s.clock.Now().UTC()
 	return s.uow.WithinSettingsRead(ctx, func(txCtx context.Context, tx ReadTx) error {
 		authority, err := tx.Authorize(txCtx, subject, at)
 		if err != nil {
 			return err
 		}
-		if !authority.Capabilities["platform.integration.read"] || !recent(authority, at) {
+		if !authority.Capabilities["platform.integration.read"] || !currentAAL2(authority, at) {
 			return ErrForbidden
 		}
-		return read(txCtx, tx)
+		return read(txCtx, tx, authority)
 	})
 }
 func validRead(ctx context.Context, service *ReadService, subject Subject, kind domain.Kind) bool {

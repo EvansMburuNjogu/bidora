@@ -10,7 +10,7 @@ VALUES(sqlc.arg(id),sqlc.arg(user_id),'PASSWORD_RECOVERY',sqlc.arg(token_hash),s
 INSERT INTO bidora_control_audit.audit_events(id,tenant_id,actor_id,action,target_type,target_id,occurred_at,outcome,correlation_id,change_summary,policy_version,created_at)
 VALUES(sqlc.arg(id),NULL,sqlc.arg(user_id),'PasswordRecoveryRequested','password_recovery_challenge',sqlc.arg(challenge_id),sqlc.arg(at),'SUCCEEDED',sqlc.arg(correlation_id),jsonb_build_object('purpose','PASSWORD_RECOVERY','expires_in_seconds',sqlc.arg(expiry_seconds)::integer),1,sqlc.arg(at));
 -- name: LockValidPasswordRecoveryChallenge :one
-SELECT c.id AS challenge_id,c.user_id,p.credential_version,u.auth_epoch
+SELECT c.id AS challenge_id,c.user_id,p.credential_version,u.auth_epoch,u.email_lookup
 FROM identity.password_recovery_challenges c JOIN identity.users u ON u.id=c.user_id JOIN identity.authentication_identities p ON p.user_id=u.id
 WHERE c.token_hash=sqlc.arg(token_hash) AND c.purpose='PASSWORD_RECOVERY' AND c.consumed_at IS NULL AND c.expires_at>sqlc.arg(at)
  AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL FOR UPDATE OF c,u,p;

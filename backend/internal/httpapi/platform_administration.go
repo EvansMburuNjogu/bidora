@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"bidora/backend/internal/identity/browser"
+	identityapp "bidora/backend/internal/identity/application"
+	"bidora/backend/internal/identity/securitypolicy"
 	platformapp "bidora/backend/internal/platformadmin/application"
 	"bidora/backend/internal/platformadmin/domain"
 	"github.com/gofiber/fiber/v3"
@@ -45,16 +46,24 @@ type PlatformAdministrationUseCase interface {
 	RevokeAdministratorSessions(context.Context, platformapp.AdministratorSessionRevocationInput) (platformapp.AdministratorSessionRevocationResult, error)
 }
 type PlatformAdministrationHandler struct {
-	usecase PlatformAdministrationUseCase
-	clock   BrowserClock
+	sessions *identityapp.SessionIssuer
+	codes    *EmailCodes
+	usecase  PlatformAdministrationUseCase
+	clock    BrowserClock
 }
 
 func NewPlatformAdministrationHandler(usecase PlatformAdministrationUseCase, clock BrowserClock) (*PlatformAdministrationHandler, error) {
 	if usecase == nil || clock == nil {
 		return nil, errors.New("platform_administration_handler_invalid")
 	}
-	return &PlatformAdministrationHandler{usecase, clock}, nil
+	return &PlatformAdministrationHandler{usecase: usecase, clock: clock}, nil
 }
+
+func (h *PlatformAdministrationHandler) EnableSessionContinuation(sessions *identityapp.SessionIssuer) {
+	h.sessions = sessions
+}
+
+func (h *PlatformAdministrationHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
 
 // RegisterPlatformDirectoryRoutes exposes the fixed-role catalogue, bounded
 // administrator directory/detail and immutable role-assignment history only.
@@ -115,16 +124,18 @@ func RegisterPlatformSessionRevocationRoute(app *fiber.App, middleware *BrowserS
 
 type platformMeta struct {
 	TraceID    string  `json:"trace_id"`
-	NextCursor *string `json:"next_cursor,omitempty"`
+	NextCursor *string `json:"next_cursor"`
 }
 type platformResponse struct {
 	Data any          `json:"data"`
 	Meta platformMeta `json:"meta"`
 }
 type platformIssueRequest struct {
-	Email   string `json:"email"`
-	RoleKey string `json:"role_key"`
-	Reason  string `json:"reason"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	RoleKey   string `json:"role_key"`
+	Reason    string `json:"reason"`
 }
 type platformChangeRequest struct {
 	Action                          string `json:"action"`
@@ -362,7 +373,13 @@ func (h *PlatformAdministrationHandler) issueInvitation(c fiber.Ctx) error {
 	if err != nil {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
-	result, err := h.usecase.IssueInvitation(c.Context(), platformapp.IssueInvitationInput{ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, PlatformContextGeneration: common.generation, Email: body.Email, Role: role, Reason: body.Reason})
+	if body.Reason == "" {
+		if body.FirstName == "" || body.LastName == "" {
+			return fail(c, 400, "INVALID_REQUEST", "First name and last name are required.", false)
+		}
+		body.Reason = "Platform administrator invitation"
+	}
+	result, err := h.usecase.IssueInvitation(c.Context(), platformapp.IssueInvitationInput{FirstName: body.FirstName, LastName: body.LastName, ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, PlatformContextGeneration: common.generation, Email: body.Email, Role: role, Reason: body.Reason})
 	if err != nil {
 		return platformFailure(c, err)
 	}
@@ -444,15 +461,50 @@ func (h *PlatformAdministrationHandler) acceptInvitation(c fiber.Ctx) error {
 	if err := bindWorkflow(c, &body); err != nil {
 		return err
 	}
-	result, err := h.usecase.AcceptInvitation(c.Context(), platformapp.AcceptInvitationInput{ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, PresentedToken: body.Token})
+	var proof identityapp.AttemptReservation
+	if h.codes != nil {
+		var e error
+		proof, e = h.codes.invitationAttempt(c, "platform", body.Token)
+		if e != nil {
+			return fail(c, 429, "INVITATION_LIMITED", "Please wait or use a fresh invitation.", true)
+		}
+	}
+	input := platformapp.AcceptInvitationInput{ActorID: common.actor, SessionID: common.session, CorrelationID: common.correlation, IdempotencyKey: common.idempotency, PresentedToken: body.Token}
+	var replacement identityapp.LoginResult
+	if h.sessions == nil {
+		return fail(c, 503, "PLATFORM_UNAVAILABLE", "Invitation acceptance is temporarily unavailable.", true)
+	}
+	if h.sessions != nil {
+		principal, ok := SessionPrincipalFrom(c)
+		now := h.clock.Now().UTC()
+		if !ok || (principal.AssuranceLevel != "AAL1" && principal.AssuranceLevel != "AAL2") || principal.AssuranceMethod != "EMAIL_OTP" || principal.AssuredAt.IsZero() || principal.AssuredAt.After(now) || now.Sub(principal.AssuredAt) > 15*time.Minute || !securitypolicy.Recent(c.Context(), principal.AssuredAt, now) {
+			return fail(c, 403, "ASSURANCE_REQUIRED", "Sign in with the invited account and complete the email code to accept this invitation.", false)
+		}
+		// The account is promoted only inside AcceptInvitation below. EMAIL_OTP proof
+		// retains its original timestamp; the post-promotion classification is AAL2.
+		prepared, result, prepareErr := h.sessions.Prepare(c.Context(), identityapp.AuthenticatedSessionInput{UserID: principal.UserID, AuthEpoch: principal.AuthEpoch + 1, CorrelationID: identityapp.ID(common.correlation), Method: identityapp.AuthenticationMethodSessionContinuation, AssuranceLevel: "AAL2", AssuranceMethod: principal.AssuranceMethod, AssuredAt: principal.AssuredAt}, true)
+		if prepareErr != nil {
+			return fail(c, 503, "PLATFORM_UNAVAILABLE", "Invitation acceptance could not be started. Please retry.", true)
+		}
+		replacement = result
+		input.Session = &platformapp.InvitationSession{SessionID: platformapp.ID(prepared.SessionID), AuditID: platformapp.ID(prepared.AuditID), CorrelationID: common.correlation, SessionHash: prepared.SessionHash, CSRFHash: prepared.CSRFHash, CreatedAt: prepared.CreatedAt, IdleExpiresAt: prepared.IdleExpiresAt, AbsoluteExpiresAt: prepared.AbsoluteExpiresAt, AssuredAt: prepared.AssuredAt}
+	}
+	result, err := h.usecase.AcceptInvitation(c.Context(), input)
+	if proof != nil {
+		if e := proof.Finish(c.Context(), err == nil); e != nil {
+			return fail(c, 503, "PLATFORM_UNAVAILABLE", "Invitation acceptance could not be confirmed.", true)
+		}
+	}
 	if err != nil {
 		return platformFailure(c, err)
 	}
 	if result.Replay {
 		c.Set("Idempotency-Replayed", "true")
 	}
-	setLoginCookie(c, browser.ClearSessionCookie())
-	setLoginCookie(c, browser.ClearCSRFCookie())
+	if input.Session != nil && !result.Replay {
+		return writeInvitationSession(c, replacement)
+	}
+	// A replay must preserve the already-current browser session.
 	return c.SendStatus(204)
 }
 func (h *PlatformAdministrationHandler) createRoleChange(c fiber.Ctx) error {
@@ -503,7 +555,7 @@ func (h *PlatformAdministrationHandler) createChangeBounded(c fiber.Ctx, allowId
 			return platformFailure(c, e)
 		}
 		changeID, replay = r.ChangeID, r.Replay
-	case string(platformapp.DisableAdministrator), string(platformapp.ReactivateAdministrator):
+	case string(platformapp.DisableAdministrator), string(platformapp.ReactivateAdministrator), string(platformapp.DeleteAdministrator):
 		if !allowIdentityState {
 			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 		}
@@ -887,7 +939,7 @@ func assignmentJSON(row platformapp.AssignmentView) any {
 	return map[string]any{"id": uuid.UUID(row.ID).String(), "role_key": row.Role, "state": row.State, "version": row.Version, "assigned_by": platformOptionalID(row.AssignedBy), "assigned_at": row.AssignedAt, "revoked_by": platformOptionalID(row.RevokedBy), "revoked_at": row.RevokedAt, "reason": row.Reason, "revocation_reason": row.RevocationReason}
 }
 func invitationJSON(row platformapp.InvitationView) any {
-	return map[string]any{"id": uuid.UUID(row.ID).String(), "email": row.Email, "role_key": row.Role, "state": row.State, "version": row.Version, "created_at": row.CreatedAt, "expires_at": row.ExpiresAt, "delivery_state": row.Delivery, "governance_change_id": platformOptionalID(row.GovernanceChangeID)}
+	return map[string]any{"id": uuid.UUID(row.ID).String(), "email": row.Email, "first_name": row.FirstName, "last_name": row.LastName, "role_key": row.Role, "state": row.State, "version": row.Version, "created_at": row.CreatedAt, "expires_at": row.ExpiresAt, "delivery_state": row.Delivery, "governance_change_id": platformOptionalID(row.GovernanceChangeID)}
 }
 func changeJSON(row platformapp.ChangeView) any {
 	var role any

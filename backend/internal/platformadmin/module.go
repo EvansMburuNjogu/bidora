@@ -10,6 +10,19 @@ import (
 	"bidora/backend/internal/platformadmin/application"
 )
 
+func (m *Module) EnablePasswordActivation(p application.InvitationPassword) error {
+	if m == nil || m.invitations == nil {
+		return errors.New("invitation_activation_unavailable")
+	}
+	return m.invitations.EnablePasswordActivation(p)
+}
+func (m *Module) ActivateInvitation(ctx context.Context, in application.ActivateInvitationInput) error {
+	if m == nil || m.invitations == nil {
+		return errors.New("invitation_activation_unavailable")
+	}
+	return m.invitations.Activate(ctx, in)
+}
+
 type Module struct {
 	bootstrap   *application.BootstrapService
 	authority   *application.AuthorityService
@@ -197,6 +210,13 @@ func (m *Module) ChangeRole(ctx context.Context, input application.RoleChangeInp
 		return application.RoleChangeResult{}, errors.New("platform_module_unavailable")
 	}
 	return m.roles.Change(ctx, input)
+}
+
+func (m *Module) RegistrationIdentity(ctx context.Context, token string) (application.InvitationRegistrationIdentity, error) {
+	if m == nil || m.invitations == nil {
+		return application.InvitationRegistrationIdentity{}, errors.New("platform_module_unavailable")
+	}
+	return m.invitations.RegistrationIdentity(ctx, token)
 }
 
 func (m *Module) IssueInvitation(ctx context.Context, input application.IssueInvitationInput) (application.IssueInvitationResult, error) {

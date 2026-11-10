@@ -62,7 +62,7 @@ func (d *Delivery) DeliverEmailVerificationWithEvidence(ctx context.Context, req
 		fingerprint := prepared.BytesForFingerprint()
 		if d.templates != nil {
 			var v notificationapp.RenderedTemplate
-			v, err = d.templates.Render(ctx, "identity.email_verification", map[string]string{"token": request.Token.RevealForDelivery(), "expires_at": request.ExpiresAt.UTC().Format(time.RFC3339)})
+			v, err = d.templates.Render(ctx, "identity.email_verification", map[string]string{"token": request.Token.RevealForDelivery(), "challenge_ref": request.Token.ChallengeRef(), "expires_at": request.ExpiresAt.UTC().Format(time.RFC3339)})
 			if err == nil {
 				version = v.Version
 				fingerprint = v.ContentForFingerprint()
@@ -90,7 +90,8 @@ func (d *Delivery) DeliverPasswordRecoveryWithEvidence(ctx context.Context, requ
 		fingerprint := prepared.BytesForFingerprint()
 		if d.templates != nil {
 			var v notificationapp.RenderedTemplate
-			v, err = d.templates.Render(ctx, "identity.password_recovery", map[string]string{"token": request.Token.RevealForDelivery(), "user_id": uuid.UUID(request.UserID).String(), "expires_at": request.ExpiresAt.UTC().Format(time.RFC3339)})
+			values := map[string]string{"token": request.Token.RevealForDelivery(), "challenge_ref": request.Token.ChallengeRef(), "user_id": uuid.UUID(request.UserID).String(), "expires_at": request.ExpiresAt.UTC().Format(time.RFC3339)}
+			v, err = d.templates.Render(ctx, "identity.password_recovery", values)
 			if err == nil {
 				version = v.Version
 				fingerprint = v.ContentForFingerprint()

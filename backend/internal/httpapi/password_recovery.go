@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime"
 	"net/netip"
+	"strconv"
 	"unicode/utf8"
 )
 
@@ -28,6 +29,7 @@ type RecoveryNetworkKeyer interface {
 	RecoveryNetwork(netip.Addr) (attempt.Key, error)
 }
 type PasswordRecoveryHandler struct {
+	codes      *EmailCodes
 	request    PublicPasswordRecoveryUseCase
 	reset      PasswordRecoveryResetUseCase
 	protection *browser.Protection
@@ -39,8 +41,9 @@ func NewPasswordRecoveryHandler(request PublicPasswordRecoveryUseCase, reset Pas
 	if request == nil || reset == nil || protection == nil || ips == nil || keys == nil {
 		return nil, errors.New("password_recovery_handler_invalid")
 	}
-	return &PasswordRecoveryHandler{request, reset, protection, ips, keys}, nil
+	return &PasswordRecoveryHandler{request: request, reset: reset, protection: protection, ips: ips, keys: keys}, nil
 }
+func (h *PasswordRecoveryHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
 func (h *PasswordRecoveryHandler) Request(c fiber.Ctx) error {
 	prepareRecoveryResponse(c)
 	if err := h.protection.ValidateOrigin(c.Get("Origin")); err != nil {
@@ -75,9 +78,20 @@ func (h *PasswordRecoveryHandler) Request(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	err = h.request.Request(c.Context(), identityapp.PublicPasswordRecoveryInput{Email: body.Email, CorrelationID: correlation, NetworkScope: network})
+	ctx := c.Context()
+	reference := ""
+	if h.codes != nil {
+		ctx, reference, err = h.codes.issue(ctx, "recovery")
+		if err != nil {
+			return passwordRecoveryFailure(c, errors.New("password_recovery_request_unavailable"))
+		}
+	}
+	err = h.request.Request(ctx, identityapp.PublicPasswordRecoveryInput{Email: body.Email, CorrelationID: correlation, NetworkScope: network})
 	if err != nil {
 		return passwordRecoveryFailure(c, err)
+	}
+	if reference != "" {
+		c.Set(EmailCodeChallengeHeader, reference)
 	}
 	return c.SendStatus(202)
 }
@@ -89,6 +103,7 @@ func (h *PasswordRecoveryHandler) Reset(c fiber.Ctx) error {
 	var body struct {
 		UserID      *string `json:"user_id"`
 		Token       string  `json:"token"`
+		Reference   string  `json:"challenge_ref"`
 		NewPassword string  `json:"new_password"`
 	}
 	if err := decodeRecoveryJSON(c, &body); err != nil {
@@ -96,6 +111,9 @@ func (h *PasswordRecoveryHandler) Reset(c fiber.Ctx) error {
 	}
 	if c.Response().StatusCode() >= 400 {
 		return nil
+	}
+	if !requireWorkflowFields(c.Body(), []string{"token", "new_password"}, "user_id", "challenge_ref") {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	var userID identityapp.ID
 	if body.UserID != nil {
@@ -115,7 +133,24 @@ func (h *PasswordRecoveryHandler) Reset(c fiber.Ctx) error {
 	if !ok {
 		return fail(c, 500, "INTERNAL_ERROR", "An unexpected error occurred.", false)
 	}
-	if err := h.reset.Reset(c.Context(), identityapp.PasswordRecoveryResetInput{UserID: userID, Token: body.Token, NewPassword: password, CorrelationID: correlation}); err != nil {
+	var reservation identityapp.AttemptReservation
+	if len(body.Token) == 6 && h.codes != nil {
+		var e error
+		body.Token, reservation, e = h.codes.redeem(c, "recovery", body.Reference, body.Token)
+		if e != nil {
+			if !invalidEmailCode(e) {
+				return passwordRecoveryFailure(c, errors.New("password_recovery_reset_unavailable"))
+			}
+			return passwordRecoveryFailure(c, errors.New("password_recovery_reset_invalid"))
+		}
+	}
+	resetErr := h.reset.Reset(c.Context(), identityapp.PasswordRecoveryResetInput{UserID: userID, Token: body.Token, NewPassword: password, CorrelationID: correlation})
+	if reservation != nil {
+		if e := reservation.Finish(c.Context(), resetErr == nil); e != nil {
+			return passwordRecoveryFailure(c, errors.New("password_recovery_reset_unavailable"))
+		}
+	}
+	if err := resetErr; err != nil {
 		return passwordRecoveryFailure(c, err)
 	}
 	return c.SendStatus(204)
@@ -153,10 +188,23 @@ func decodeRecoveryJSON(c fiber.Ctx, dst any) error {
 	}
 	return nil
 }
+func setCodeRetryAfter(c fiber.Ctx, err error) {
+	seconds := 900
+	var retry interface{ RetryAfterSeconds() int }
+	if errors.As(err, &retry) && retry.RetryAfterSeconds() > 0 && retry.RetryAfterSeconds() <= 3600 {
+		seconds = retry.RetryAfterSeconds()
+	}
+	c.Set("Retry-After", strconv.Itoa(seconds))
+}
 func passwordRecoveryFailure(c fiber.Ctx, err error) error {
 	switch err.Error() {
 	case "password_recovery_attempt_denied":
-		c.Set("Retry-After", "900")
+		seconds := 900
+		var retry interface{ RetryAfterSeconds() int }
+		if errors.As(err, &retry) && retry.RetryAfterSeconds() > 0 && retry.RetryAfterSeconds() <= 3600 {
+			seconds = retry.RetryAfterSeconds()
+		}
+		c.Set("Retry-After", strconv.Itoa(seconds))
 		return fail(c, 429, "PASSWORD_RECOVERY_LIMITED", "Password recovery is temporarily unavailable.", true)
 	case "password_recovery_reset_invalid":
 		return fail(c, 400, "PASSWORD_RECOVERY_INVALID", "The recovery token or password is invalid.", false)

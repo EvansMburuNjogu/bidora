@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ReferenceSearchSelect } from "@/components/platform/reference-search-select";
+import { SearchableFilterSelect } from "@/components/platform/searchable-filter-select";
 import { useSession } from "@/components/session/session-provider";
 type Option={value:string;label:string};
 export function PlatformReferencePicker({kind,value,onChange,label,id,disabled=false}:{kind:"organizations"|"support-assignees";value:string;onChange:(value:string)=>void;label:string;id:string;disabled?:boolean}){
@@ -23,5 +23,5 @@ export function PlatformReferencePicker({kind,value,onChange,label,id,disabled=f
    finally{if(!controller.signal.aborted)setBusy(false)}
   },query?250:0);return()=>{controller.abort();window.clearTimeout(timer)}
  },[generation,kind,query,value,refresh,revision]);
- return <div className="space-y-1"><ReferenceSearchSelect id={id} label={label} value={value} options={options} disabled={disabled} onSearch={setQuery} onChange={next=>{setQuery("");onChange(next)}}/>{error?<p role="alert" className="text-xs text-destructive">{error} <button type="button" className="underline" onClick={()=>setRevision(n=>n+1)}>Retry search</button></p>:<p role="status" className="text-xs text-muted-foreground">{busy?"Searching…":more?"Type a name to narrow the results.":"Select a matching record."}</p>}{value&&<button type="button" disabled={disabled} className="text-xs text-primary hover:underline" onClick={()=>{onChange("");setQuery("")}}>Clear selection</button>}</div>
+ return <div className="space-y-1"><SearchableFilterSelect id={id} label={label} value={value} options={options} disabled={disabled} onSearch={setQuery} onChange={next=>{setQuery("");onChange(next)}}/>{error?<p role="alert" className="text-xs text-destructive">{error} <button type="button" className="underline" onClick={()=>setRevision(n=>n+1)}>Retry search</button></p>:(busy||more)&&<p role="status" className="text-xs text-muted-foreground">{busy?"Searching…":"Type a name to narrow the results."}</p>}{value&&<button type="button" disabled={disabled} className="text-xs text-primary hover:underline" onClick={()=>{onChange("");setQuery("")}}>Clear selection</button>}</div>
 }

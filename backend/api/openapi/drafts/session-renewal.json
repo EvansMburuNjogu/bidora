@@ -1,0 +1,97 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bidora authoritative session lease renewal",
+    "version": "0.1.0",
+    "description": "Opaque server-side sessions, not a JWT/refresh-token pair. Activity-gated renewal updates idle expiry without rotating credentials, advancing assurance or exceeding absolute lifetime."
+  },
+  "paths": {
+    "/v1/auth/session/renew": {
+      "post": {
+        "operationId": "renewSessionLease",
+        "summary": "Renew a valid session lease after user activity",
+        "description": "Empty body and no query. Requires approved Origin and matching session-bound CSRF header/cookie. Concurrent and out-of-order renewals are monotonic. Expired, revoked or epoch-invalid sessions cannot renew. Cookies and verified-email/step-up timestamps never change.",
+        "security": [
+          {
+            "session": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authoritative post-renewal lease and server time.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionRenewalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Session invalid, expired or revoked."
+          },
+          "403": {
+            "description": "Origin/CSRF validation failed."
+          },
+          "503": {
+            "description": "Temporary failure; do not clear credentials or assume logout."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SessionRenewalResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "idle_expires_at",
+              "absolute_expires_at",
+              "observed_at"
+            ],
+            "properties": {
+              "idle_expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "absolute_expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trace_id"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

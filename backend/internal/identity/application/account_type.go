@@ -158,6 +158,10 @@ func (s *AccountTypeService) resolvePlatform(ctx context.Context, principal Sess
 	if now.IsZero() {
 		return PortalResolution{}, safe("portal_resolution_unavailable", nil)
 	}
+	if !platformpolicy.AdministratorAssurance(principal.AssuranceLevel, principal.AssuranceMethod) {
+		result.RequiredActions = []string{"COMPLETE_PLATFORM_STEP_UP"}
+		return result, nil
+	}
 	access, err := s.platformAccess.ResolvePlatformPortal(ctx, principal, now)
 	if errors.Is(err, ErrPlatformAccessForbidden) {
 		return PortalResolution{}, safe("platform_access_forbidden", err)
@@ -169,8 +173,7 @@ func (s *AccountTypeService) resolvePlatform(ctx context.Context, principal Sess
 	result.PlatformContextGeneration = &generation
 	result.Capabilities = append([]string(nil), access.Capabilities...)
 	result.AssuranceLevel = access.AssuranceLevel
-	assuranceAge := now.Sub(access.AssuredAt.UTC())
-	if !platformpolicy.AdministratorAssurance(access.AssuranceLevel, access.AssuranceMethod) || assuranceAge < 0 || assuranceAge > 15*time.Minute {
+	if !platformpolicy.CurrentAdministratorAssurance(access.AssuranceLevel, access.AssuranceMethod, access.AssuredAt, now) {
 		result.RequiredActions = []string{"COMPLETE_PLATFORM_STEP_UP"}
 		return result, nil
 	}

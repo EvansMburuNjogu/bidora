@@ -12,7 +12,7 @@ func decodeSecurityControls(d *json.Decoder, p *securitypolicy.Controls) error {
 	if e != nil || t != json.Delim('{') {
 		return errors.New("invalid_security_policy")
 	}
-	fields := map[string]*int32{"failed_login_attempts": &p.FailedLoginAttempts, "failure_window_seconds": &p.FailureWindowSeconds, "lockout_seconds": &p.LockoutSeconds, "minimum_password_bytes": &p.MinimumPasswordBytes, "password_reset_seconds": &p.PasswordResetSeconds, "admin_idle_seconds": &p.AdminIdleSeconds, "admin_absolute_seconds": &p.AdminAbsoluteSeconds}
+	fields := map[string]*int32{"failed_login_attempts": &p.FailedLoginAttempts, "failure_window_seconds": &p.FailureWindowSeconds, "lockout_seconds": &p.LockoutSeconds, "minimum_password_bytes": &p.MinimumPasswordBytes, "password_reset_seconds": &p.PasswordResetSeconds, "admin_idle_seconds": &p.AdminIdleSeconds, "admin_absolute_seconds": &p.AdminAbsoluteSeconds, "step_up_seconds": &p.StepUpSeconds}
 	seen := map[string]bool{}
 	for d.More() {
 		t, e = d.Token()
@@ -39,7 +39,7 @@ func decodeSecurityControls(d *json.Decoder, p *securitypolicy.Controls) error {
 		}
 	}
 	t, e = d.Token()
-	if e != nil || t != json.Delim('}') || len(seen) != 8 || !securitypolicy.ValidControls(*p) {
+	if e != nil || t != json.Delim('}') || len(seen) != 8 && len(seen) != 9 || len(seen) == 8 && seen["step_up_seconds"] || seen["step_up_seconds"] && p.StepUpSeconds == 0 || !securitypolicy.ValidControls(*p) {
 		return errors.New("invalid_security_policy")
 	}
 	return nil

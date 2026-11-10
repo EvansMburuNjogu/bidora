@@ -31,7 +31,10 @@ func TestAuditMetadataAccessIsServerAuthorizedAuditedAndExcludedFromExport(t *te
 	}
 	transaction.facts.AssuredAt = now.Add(-16 * time.Minute)
 	before := transaction.listed
-	if _, err := service.List(context.Background(), subject, filter, 10, nil); !errors.Is(err, control.ErrPlatformAuditForbidden) || transaction.listed != before {
-		t.Fatal("stale assurance accessed metadata", err)
+	if _, err := service.List(context.Background(), subject, filter, 10, nil); err != nil || transaction.listed != before+1 || transaction.filter.IncludeMetadata || transaction.metadataRead {
+		t.Fatal("ordinary audit read must remain available without restricted metadata", err)
+	}
+	if _, err := service.Export(context.Background(), subject, filter); !errors.Is(err, control.ErrPlatformAuditStepUpRequired) {
+		t.Fatal("stale export did not require step-up", err)
 	}
 }

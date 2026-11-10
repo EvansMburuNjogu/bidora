@@ -26,6 +26,13 @@ let platformError = "PLATFORM_SETTING_NOT_FOUND";
 let sessionMutation = null;
 let bootstrapMounted = true;
 let publicMinimum = 20;
+let renewal = null, renewalStatus = 200;
+const acceptanceRequests = [];
+let acceptanceStatus = 204;
+let invitationRegistrationRequest = null;
+let invitationDetailsRequest = null;
+let invitationActivationRequest=null;
+let flowAuthSuccess=false,flowCodeSequence=0;
 
 async function freePort() {
   const server = net.createServer();
@@ -51,6 +58,147 @@ async function waitForNext(origin) {
   }
   throw new Error(`Next.js test server did not start:\n${logs.slice(-4000)}`);
 }
+
+test("session renewal enforces Origin/CSRF, never rotates and clears credentials only on confirmed expiry", async () => {
+ renewal=null;renewalStatus=200;
+ const headers={Origin:webOrigin,"X-CSRF-Token":"B".repeat(43),"X-Bidora-Client-IP":"192.0.2.25",Cookie:"__Host-bidora_session="+"A".repeat(43)+"; __Host-bidora_csrf="+"B".repeat(43)};
+ const target=webOrigin+"/api/session/renew";
+ for(const [path,options,status] of [[target,{headers:{...headers,Origin:"https://foreign.invalid"}},403],[target+"?extend=forever",{headers},400],[target,{headers,body:"{}"},400],[target,{headers:{...headers,"X-CSRF-Token":""}},403]])assert.equal((await fetch(path,{method:"POST",...options})).status,status);
+ assert.equal(renewal,null);
+ let response=await fetch(target,{method:"POST",headers});assert.equal(response.status,200);assert.equal(response.headers.get("set-cookie"),null);assert.equal(response.headers.get("cache-control"),"private, no-store");assert.equal(renewal.csrf,headers["X-CSRF-Token"]);assert.equal(renewal.ip,"192.0.2.25");assert.equal(renewal.origin,webOrigin);
+ for(const status of [401,503]){
+  renewalStatus=status;response=await fetch(target,{method:"POST",headers});assert.equal(response.status,status);
+  if(status===401){
+   const cleared=response.headers.getSetCookie();assert.equal(cleared.length,2);
+   assert.ok(cleared.some(value=>/bidora_(?:dev_)?session=/.test(value)));
+   assert.ok(cleared.some(value=>/bidora_(?:dev_)?csrf=/.test(value)));
+   assert.ok(cleared.every(value=>value.includes("Max-Age=0")&&value.includes("HttpOnly")&&value.includes("SameSite=Lax")));
+   assert.equal((await response.json()).error.code,"SESSION_INVALID");
+  }else assert.equal(response.headers.get("set-cookie"),null);
+ }
+ renewalStatus=200;
+});
+
+test("invitation acceptance BFF requires Origin CSRF idempotency and trusted audit context", async () => {
+  const headers = { Origin: webOrigin, "Content-Type": "application/json", "X-CSRF-Token": "B".repeat(43), "Idempotency-Key": "00000000-0000-4000-8000-000000000001", "X-Bidora-Client-IP": "192.0.2.25", Cookie: "__Host-bidora_session="+"A".repeat(43)+"; __Host-bidora_csrf="+"B".repeat(43) };
+  const body = JSON.stringify({ token: "A".repeat(43) });
+  for (const kind of ["platform", "tenant"]) {
+    const target = webOrigin + `/api/invitations/${kind}/accept`;
+    const before = acceptanceRequests.length;
+    assert.equal((await fetch(target)).status, 405, logs);
+    for (const [name,status] of [["Origin",403],["X-CSRF-Token",403],["Idempotency-Key",400],["X-Bidora-Client-IP",503]]) {
+      const missing = {...headers}; delete missing[name];
+      assert.equal((await fetch(target,{method:"POST",headers:missing,body})).status,status,name);
+    }
+    assert.equal((await fetch(target+"?token=forbidden",{method:"POST",headers,body})).status,400);
+    assert.equal((await fetch(target,{method:"POST",headers:{...headers,Origin:"https://foreign.invalid"},body})).status,403);
+    assert.equal((await fetch(target,{method:"POST",headers,body:"x".repeat(4097)})).status,413);
+    assert.equal(acceptanceRequests.length,before);
+    acceptanceStatus=204;
+    const response = await fetch(target,{method:"POST",headers,body});
+    assert.equal(response.status,204);
+    assert.equal(response.headers.get("cache-control"),"private, no-store");
+    assert.equal(response.headers.getSetCookie().length,kind==="platform"?2:0);
+    assert.deepEqual(acceptanceRequests.at(-1),{path:kind==="platform"?"/v1/platform/administrator-invitations/accept":"/v1/shared/invitations/accept",method:"POST",body,csrf:headers["X-CSRF-Token"],key:headers["Idempotency-Key"],cookie:headers.Cookie,origin:webOrigin,ip:"192.0.2.25"});
+    acceptanceStatus=403;
+    assert.equal((await fetch(target,{method:"POST",headers,body})).status,403);
+  }
+  acceptanceStatus=204;
+  assert.equal((await fetch(webOrigin+"/api/invitations/unknown/accept",{method:"POST",headers,body})).status,404);
+});
+
+test("invitation details BFF exposes only masked data with Origin and network guards",async()=>{
+ const target=webOrigin+"/api/auth/invitation-details",body=JSON.stringify({token:"A".repeat(43)});
+ const headers={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Client-IP":"192.0.2.25",Cookie:"__Host-bidora_session=inviter"};
+ invitationDetailsRequest=null;
+ for(const [name,status] of [["Origin",403],["X-Bidora-Client-IP",503]]){const missing={...headers};delete missing[name];assert.equal((await fetch(target,{method:"POST",headers:missing,body})).status,status);}
+ assert.equal((await fetch(target+"?token=forbidden",{method:"POST",headers,body})).status,400);assert.equal(invitationDetailsRequest,null);
+ const response=await fetch(target,{method:"POST",headers,body});assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"private, no-store");
+ assert.deepEqual((await response.json()).data,{email:"s***@e***.test",role_key:"PLATFORM_OWNER"});
+ assert.deepEqual(invitationDetailsRequest,{body,cookie:undefined});
+});
+
+test("invitation password setup BFF preserves generic 202 and guards Origin and audit context", async () => {
+ const target=webOrigin+"/api/auth/invitation-register",body=JSON.stringify({token:"A".repeat(43),password:"synthetic password"});
+ const headers={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Client-IP":"192.0.2.25",Cookie:"__Host-bidora_session=old-inviter-session"};
+ invitationRegistrationRequest=null;
+ for(const [name,status] of [["Origin",403],["X-Bidora-Client-IP",503]]){
+  const missing={...headers};delete missing[name];assert.equal((await fetch(target,{method:"POST",headers:missing,body})).status,status);
+ }
+ assert.equal((await fetch(target+"?token=forbidden",{method:"POST",headers,body})).status,400);
+ assert.equal((await fetch(target,{method:"POST",headers:{...headers,Origin:"https://foreign.invalid"},body})).status,403);
+ assert.equal(invitationRegistrationRequest,null);
+ const response=await fetch(target,{method:"POST",headers,body});
+ assert.equal(response.status,202);assert.equal(await response.text(),"");assert.equal(response.headers.get("cache-control"),"private, no-store");
+ assert.equal(response.headers.get("X-Bidora-Code-Challenge"),"00000000-0000-4000-8000-000000000001");
+ assert.deepEqual(invitationRegistrationRequest,{body,ip:"192.0.2.25",origin:webOrigin,cookie:undefined});
+});
+
+test("verification resend rebuilds wrapped requests safely and exposes only the saved masked recipient",async()=>{
+ const headers={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Client-IP":"192.0.2.25"};
+ const issued=await fetch(webOrigin+"/api/auth/invitation-register",{method:"POST",headers,body:JSON.stringify({token:"A".repeat(43),password:"synthetic password"})});
+ assert.equal(issued.status,202);
+ const cookie=issued.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
+ const challenge_ref=issued.headers.get("X-Bidora-Code-Challenge"),body=JSON.stringify({challenge_ref});
+ const masked=await fetch(webOrigin+"/api/auth/verification-context",{method:"POST",headers:{...headers,Cookie:cookie},body});
+ assert.equal(masked.status,200);assert.deepEqual((await masked.json()).data,{email:"s***@e***.test",delivery_confirmed:true});
+ const foreign=await fetch(webOrigin+"/api/auth/verification-context",{method:"POST",headers:{...headers,Cookie:cookie,Origin:"https://foreign.invalid"},body});assert.equal(foreign.status,403);
+ const missing=await fetch(webOrigin+"/api/auth/verification-context",{method:"POST",headers,body});assert.equal(missing.status,400);
+ const resent=await fetch(webOrigin+"/api/auth/verification-resend",{method:"POST",headers:{...headers,Cookie:cookie},body});
+ assert.equal(resent.status,202);assert.equal(await resent.text(),"");
+ assert.deepEqual(JSON.parse(invitationRegistrationRequest.body),{token:"A".repeat(43)});
+ assert.equal(invitationRegistrationRequest.cookie,undefined);
+});
+
+test("invitation continuation is per-flow, survives verification, and never supplies authorization",async()=>{
+ const jar=new Map(),headers={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Client-IP":"192.0.2.25"};
+ const remember=response=>{for(const cookie of response.headers.getSetCookie()){const pair=cookie.split(";")[0],split=pair.indexOf("=");jar.set(pair.slice(0,split),pair.slice(split+1));}};
+ const cookie=()=>[...jar].map(([name,value])=>name+"="+value).join("; ");
+ const post=(operation,body,extra={})=>fetch(webOrigin+"/api/auth/"+operation,{method:"POST",headers:{...headers,Cookie:cookie(),...extra},body:JSON.stringify(body)});
+ const tokenA="A".repeat(43),tokenB="B".repeat(42)+"A";
+ const foreign=await post("invitation-context",{kind:"platform",token:tokenA},{Origin:"https://foreign.invalid"});assert.equal(foreign.status,403);assert.equal(foreign.headers.getSetCookie().length,0);
+ const create=async(kind,token)=>{const response=await post("invitation-context",{kind,token});assert.equal(response.status,200);remember(response);assert.ok(response.headers.getSetCookie().every(value=>/HttpOnly/i.test(value)&&/SameSite=lax/i.test(value)));const data=(await response.json()).data;assert.deepEqual(Object.keys(data),["flow_id"]);return data.flow_id};
+ const flowA=await create("platform",tokenA),flowB=await create("platform",tokenB),tenantFlow=await create("tenant",tokenA);
+ assert.notEqual(flowA,flowB);
+ flowAuthSuccess=true;flowCodeSequence=0;
+ try{
+  const issueA=await post("invitation-register",{token:tokenA,password:"synthetic password"},{"X-Bidora-Invitation-Flow":flowA});assert.equal(issueA.status,202);remember(issueA);
+  const issueB=await post("invitation-register",{token:tokenB,password:"synthetic password"},{"X-Bidora-Invitation-Flow":flowB});assert.equal(issueB.status,202);remember(issueB);
+  for(const [issued,flow] of [[issueA,flowA],[issueB,flowB]]){
+   const verified=await post("verify-email",{token:"001234",challenge_ref:issued.headers.get("X-Bidora-Code-Challenge")},{"X-Bidora-Invitation-Flow":flowB});
+   assert.equal(verified.status,204);assert.equal(verified.headers.get("X-Bidora-Invitation-Next"),"/login?invitation="+flow);
+   assert.equal(verified.headers.get("X-Bidora-Invitation-Next").includes(tokenA),false);
+  }
+  for(const [flow,kind] of [[flowA,"platform"],[flowB,"platform"],[tenantFlow,"tenant"]]){
+   const signed=await post("login-code",{code:"001234",method:"EMAIL_OTP"},{"X-Bidora-Invitation-Flow":flow});
+   assert.equal(signed.status,204);assert.equal(signed.headers.get("X-Bidora-Invitation-Next"),"/invitations/"+kind+"?complete=1&invitation="+flow);
+  }
+  const forged=await post("login-code",{code:"001234",method:"EMAIL_OTP"},{"X-Bidora-Invitation-Flow":crypto.randomUUID()});assert.equal(forged.status,400);
+  const removed=await fetch(webOrigin+"/api/invitations/platform/accept",{method:"POST",headers:{...headers,Cookie:cookie()+"; __Host-bidora_session="+"A".repeat(43)+"; __Host-bidora_csrf="+"B".repeat(43),"X-CSRF-Token":"B".repeat(43),"Idempotency-Key":crypto.randomUUID(),"X-Bidora-Invitation-Flow":flowA},body:JSON.stringify({token:tokenA})});
+  assert.equal(removed.status,204);
+  assert.ok(removed.headers.getSetCookie().some(value=>value.startsWith("bidora_dev_invitation_"+flowA+"=")&&value.includes("Max-Age=0")));
+  assert.equal(removed.headers.getSetCookie().some(value=>value.startsWith("bidora_dev_invitation_"+flowB+"=")),false);
+ }finally{flowAuthSuccess=false}
+});
+
+test("invitation activation BFF requires Origin network and idempotency, never forwards inviter cookies, and clears only its locator",async()=>{
+ const headers={Origin:webOrigin,"Content-Type":"application/json","X-Bidora-Client-IP":"192.0.2.25"};
+ const token="A".repeat(43),body=JSON.stringify({token,password:"synthetic activation password"});
+ const context=await fetch(webOrigin+"/api/auth/invitation-context",{method:"POST",headers,body:JSON.stringify({kind:"platform",token})});
+ const flow=(await context.json()).data.flow_id;
+ const cookie=context.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ")+"; __Host-bidora_session=inviter-session";
+ const key=crypto.randomUUID(),all={...headers,Cookie:cookie,"X-Bidora-Invitation-Flow":flow,"Idempotency-Key":key},target=webOrigin+"/api/auth/invitation-activate";
+ invitationActivationRequest=null;
+ for(const [name,status] of [["Origin",403],["X-Bidora-Client-IP",503],["Idempotency-Key",400]]){
+  const missing={...all};delete missing[name];assert.equal((await fetch(target,{method:"POST",headers:missing,body})).status,status);assert.equal(invitationActivationRequest,null);
+ }
+ const mismatch=await fetch(target,{method:"POST",headers:all,body:JSON.stringify({token:"B".repeat(42)+"A",password:"synthetic activation password"})});assert.equal(mismatch.status,400);assert.equal(invitationActivationRequest,null);
+ const activated=await fetch(target,{method:"POST",headers:all,body});
+ assert.equal(activated.status,204);assert.equal(await activated.text(),"");assert.equal(activated.headers.get("X-Bidora-Invitation-Next"),null);
+ assert.deepEqual(invitationActivationRequest,{body,cookie:undefined,key,ip:"192.0.2.25"});
+ assert.ok(activated.headers.getSetCookie().some(value=>value.startsWith("bidora_dev_invitation_"+flow+"=")&&value.includes("Max-Age=0")));
+ assert.equal(activated.headers.getSetCookie().some(value=>/bidora_(?:dev_)?(?:session|csrf)=/.test(value)),false);
+});
 
 test("public password requirements use current values and reject invalid policy responses", async () => {
   publicMinimum=20;let response=await fetch(webOrigin+"/api/auth/password-policy");assert.equal(response.status,200);assert.equal((await response.json()).data.minimum_password_bytes,20);
@@ -102,7 +250,33 @@ test("administrator invitation BFF forwards one guarded command and rejects miss
     assert.ok([400, 403].includes((await fetch(webOrigin + path, { method: "POST", headers: invalid, body })).status), name);
   }
   assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify({ ...JSON.parse(body), secret: "unwanted" }) })).status, 400);
-  assert.equal(platformRequests.length, before + 1);
+  const namedBody = JSON.stringify({ email: "invited@example.test", role_key: "PLATFORM_OWNER", first_name: "Amina", last_name: "Njoroge" });
+  assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: namedBody })).status, 201);
+  assert.equal(managedRequests.at(-1).body, namedBody);
+  for (const names of [{ first_name: "Amina" }, { first_name: " Amina", last_name: "Njoroge" }, { first_name: "A".repeat(101), last_name: "Njoroge" }, { first_name: "Amina", last_name: null }]) {
+    assert.equal((await fetch(webOrigin + path, { method: "POST", headers, body: JSON.stringify({ email: "invited@example.test", role_key: "PLATFORM_OWNER", ...names }) })).status, 400);
+  }
+  assert.equal(platformRequests.length, before + 2);
+});
+
+test("invitation removal BFF requires Origin CSRF context idempotency and an exact version", async () => {
+ const id="00000000-0000-4000-8000-000000000001",path="/api/platform/administrator-invitations/"+id;
+ const headers={Origin:webOrigin,"X-CSRF-Token":"A".repeat(43),"X-Bidora-Platform-Context-Generation":"7","Idempotency-Key":id,"If-Match":'"1"'};
+ const before=platformRequests.length;
+ for(const name of Object.keys(headers)){
+  const invalid={...headers};delete invalid[name];
+  assert.ok([400,403].includes((await fetch(webOrigin+path,{method:"DELETE",headers:invalid})).status));
+ }
+ for(const version of ["1",'"0"', '"-1"', "*",'"1,2"'])assert.equal((await fetch(webOrigin+path,{method:"DELETE",headers:{...headers,"If-Match":version}})).status,400);
+ assert.equal((await fetch(webOrigin+path+"?unexpected=1",{method:"DELETE",headers})).status,400);
+ assert.equal((await fetch(webOrigin+path,{method:"DELETE",headers,body:"{}"})).status,400);
+ assert.equal(platformRequests.length,before);
+ const response=await fetch(webOrigin+path,{method:"DELETE",headers});
+ assert.equal(response.status,204);assert.equal(await response.text(),"");
+ assert.equal(response.headers.get("cache-control"),"private, no-store");
+ assert.deepEqual(platformRequests.at(-1),{path:"/v1/platform/administrator-invitations/"+id,method:"DELETE",generation:"7",origin:webOrigin});
+ assert.deepEqual(managedRequests.at(-1),{version:'"1"',key:id,csrf:headers["X-CSRF-Token"],body:""});
+ assert.equal(platformRequests.length,before+1);
 });
 
 test("financial adjustment BFF forwards only guarded maker/checker commands", async () => {
@@ -290,6 +464,11 @@ test.before(async () => {
   webOrigin = `http://127.0.0.1:${webPort}`;
   backend = http.createServer((request, response) => {
     forwarded.push(request.headers["x-forwarded-for"] ?? null);
+    if (request.url === "/v1/auth/session/renew") {
+      renewal = { method: request.method, cookie: request.headers.cookie, csrf: request.headers["x-csrf-token"], origin: request.headers.origin, ip: request.headers["x-forwarded-for"] };
+      response.writeHead(renewalStatus, { "Content-Type": "application/json", "Set-Cookie": "__Host-bidora_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax" });
+      response.end(renewalStatus === 200 ? JSON.stringify({ data: { idle_expires_at: new Date(Date.now()+300000).toISOString(), absolute_expires_at: new Date(Date.now()+3600000).toISOString(), observed_at: new Date().toISOString() }, meta: { trace_id: "fixture" } }) : jsonError(renewalStatus === 401 ? "SESSION_INVALID" : "AUTHENTICATION_UNAVAILABLE")); return;
+    }
     if (request.url === "/v1/auth/login-code/cancel") {
       cancelAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"], cookie: request.headers.cookie, origin: request.headers.origin };
       const status = request.headers["x-forwarded-for"] ? cancelStatus : 503;
@@ -298,6 +477,21 @@ test.before(async () => {
       response.end(status === 204 ? undefined : jsonError("AUDIT_CONTEXT_UNAVAILABLE"));
       return;
     }
+    if(request.url==="/v1/auth/invitation-activate"){
+     let body="";request.on("data",chunk=>body+=chunk);request.on("end",()=>{invitationActivationRequest={body,cookie:request.headers.cookie,key:request.headers["idempotency-key"],ip:request.headers["x-forwarded-for"]};response.writeHead(204);response.end()});return;
+    }
+    if(request.url==="/v1/auth/invitation-details"){
+      let body="";request.on("data",chunk=>{body+=chunk});request.on("end",()=>{
+        invitationDetailsRequest={body,cookie:request.headers.cookie};response.writeHead(200,{"Content-Type":"application/json"});response.end(JSON.stringify({data:{email:"s***@e***.test",role_key:"PLATFORM_OWNER"}}));
+      });return;
+    }
+    if (request.url === "/v1/auth/invitation-register") {
+      let body="";request.on("data",chunk=>{body+=chunk});request.on("end",()=>{
+        invitationRegistrationRequest={body,ip:request.headers["x-forwarded-for"],origin:request.headers.origin,cookie:request.headers.cookie};
+        response.writeHead(202,{"Content-Type":"text/plain","X-Bidora-Code-Challenge":flowAuthSuccess?`00000000-0000-4000-8000-${String(++flowCodeSequence).padStart(12,"0")}`:"00000000-0000-4000-8000-000000000001"});response.end("Accepted");
+      });return;
+    }
+    if(flowAuthSuccess&&(request.url==="/v1/auth/login-code/verify"||request.url==="/v1/auth/verify-email")){response.writeHead(204);response.end();return;}
     if (request.url === "/v1/auth/login-code/verify") loginAuditContext = { ip: request.headers["x-forwarded-for"], browser: request.headers["user-agent"] };
     if (request.url === "/v1/auth/password-policy") { response.writeHead(200, { "Content-Type": "application/json" }); response.end(JSON.stringify({data:{minimum_password_bytes:publicMinimum,maximum_password_bytes:128},meta:{trace_id:"synthetic-policy"}})); return; }
     if (request.url === "/v1/auth/google/start") {
@@ -321,15 +515,26 @@ test.before(async () => {
       response.end();
       return;
     }
+    if (request.url === "/v1/platform/administrator-invitations/accept" || request.url === "/v1/shared/invitations/accept") {
+      let body = ""; request.on("data", chunk => { body += chunk; });
+      request.on("end", () => {
+        acceptanceRequests.push({path:request.url,method:request.method,body,csrf:request.headers["x-csrf-token"],key:request.headers["idempotency-key"],cookie:request.headers.cookie,origin:request.headers.origin,ip:request.headers["x-forwarded-for"]});
+        const cookies = request.url.startsWith("/v1/platform/") && acceptanceStatus === 204 ? {"Set-Cookie":["__Host-bidora_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax","__Host-bidora_csrf=; Path=/; Max-Age=0; Secure; SameSite=Lax"]} : {};
+        response.writeHead(acceptanceStatus, {"Content-Type":"application/json",...cookies});
+        response.end(acceptanceStatus===204 ? undefined : jsonError("PLATFORM_ASSURANCE_REQUIRED"));
+      }); return;
+    }
     if (request.url.startsWith("/v1/platform/")) {
       platformRequests.push({ path: request.url, method: request.method, generation: request.headers["x-bidora-platform-context-generation"], origin: request.headers.origin });
       const reconciliation = /^\/v1\/platform\/commercial\/payments\/[0-9a-f-]{36}\/reconciliation$/.test(request.url);
       const adjustment = request.url.startsWith("/v1/platform/commercial/financial-adjustments") && request.method === "POST";
-      const managed = request.url.startsWith("/v1/platform/settings/google") || request.url.startsWith("/v1/platform/notification-templates") || request.url === "/v1/platform/administrator-invitations" || reconciliation || adjustment;
+      const removingInvitation = /^\/v1\/platform\/administrator-invitations\/[a-f0-9-]{36}$/.test(request.url) && request.method === "DELETE";
+      const managed = removingInvitation || request.url.startsWith("/v1/platform/settings/google") || request.url.startsWith("/v1/platform/notification-templates") || request.url === "/v1/platform/administrator-invitations" || reconciliation || adjustment;
       let managedBody = ""; request.on("data", (chunk) => { if (managed) managedBody += chunk; });
       request.on("end", () => {
         if (managed) managedRequests.push({ version: request.headers["if-match"], key: request.headers["idempotency-key"], csrf: request.headers["x-csrf-token"], body: managedBody });
-        const status = platformStatus === 200 ? reconciliation ? 202 : request.url === "/v1/platform/commercial/financial-adjustments" && request.method === "POST" ? 201 : request.url === "/v1/platform/administrator-invitations" || request.url === "/v1/platform/support/cases" && request.method === "POST" || request.url.startsWith("/v1/platform/commercial/plans/") && request.method === "POST" || request.url.endsWith("/reissue") && request.method === "POST" ? 201 : 200 : platformStatus;
+        const status = platformStatus === 200 ? removingInvitation ? 204 : reconciliation ? 202 : request.url === "/v1/platform/commercial/financial-adjustments" && request.method === "POST" ? 201 : request.url === "/v1/platform/administrator-invitations" || request.url === "/v1/platform/support/cases" && request.method === "POST" || request.url.startsWith("/v1/platform/commercial/plans/") && request.method === "POST" || request.url.endsWith("/reissue") && request.method === "POST" ? 201 : 200 : platformStatus;
+        if (status === 204) { response.writeHead(204, { "Cache-Control": "private, no-store" }); response.end(); return; }
         if (request.url.startsWith("/v1/platform/audit/actions/export?") && status === 200) {
           response.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "private, no-store" });
           response.end("id,occurred_at_utc,action,module,result,administrator_id,affected_record_id\n");

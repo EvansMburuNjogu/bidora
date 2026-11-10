@@ -5,7 +5,7 @@
     "/v1/platform/commercial/ai-usage": {
       "get": {
         "summary": "List settled control-plane AI credit measurements, newest first",
-        "description": "Current non-support Platform Billing Administrator with matching platform context generation and recent trusted administrator assurance. Every page rechecks authority and commits a control-plane read audit. Neither Platform Owner alone nor tenant headers authorize access. Reserved/released operations, estimates, prices, costs, content and totals are excluded. Cursor pagination is not a snapshot; concurrent settlements can appear on a later first page.",
+        "description": "Current non-support Platform Billing Administrator or Platform Owner with invoice-read or payment-read authority, matching platform context generation and trusted administrator assurance. Every page rechecks authority and commits a control-plane read audit. Tenant headers do not authorize access. Reserved/released operations, estimates, prices, costs, content and totals are excluded. Cursor pagination is not a snapshot; concurrent settlements can appear on a later first page.",
         "parameters": [
           { "name": "X-Bidora-Platform-Context-Generation", "in": "header", "required": true, "schema": { "type": "integer", "minimum": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },

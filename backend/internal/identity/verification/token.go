@@ -16,14 +16,21 @@ const TokenBytes = 32
 const Lifetime = 30 * time.Minute
 
 type Token struct {
-	raw  string
-	hash [32]byte
+	raw                string
+	hash               [32]byte
+	display, reference string
 }
 
 func (Token) Format(s fmt.State, verb rune) { fmt.Fprint(s, "[REDACTED verification token]") }
-func (t Token) RevealForDelivery() string   { return t.raw }
-func (t Token) Hash() [32]byte              { return t.hash }
-func (t Token) IsZero() bool                { return t.raw == "" || t.hash == [32]byte{} }
+func (t Token) RevealForDelivery() string {
+	if t.display != "" {
+		return t.display
+	}
+	return t.raw
+}
+func (t Token) ChallengeRef() string { return t.reference }
+func (t Token) Hash() [32]byte       { return t.hash }
+func (t Token) IsZero() bool         { return t.raw == "" || t.hash == [32]byte{} }
 
 func Generate() (Token, error) { return GenerateWithRandom(rand.Reader) }
 func GenerateWithRandom(random io.Reader) (Token, error) {

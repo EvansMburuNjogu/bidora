@@ -58,7 +58,7 @@
         "security": [{"browserSession": []}],
         "description": "Requires exact Origin and session-bound CSRF. The current verified account email must match the invitation. Invalid, expired, consumed, replaced, mismatched and replayed tokens share one failure. Success creates no session and atomically creates one active membership and only the selected server-owned fixed-role capability bundle.",
         "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}, {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string"}}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["token"], "properties": {"token": {"type": "string", "minLength": 43, "maxLength": 43}}}}}},
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["token"], "properties": {"token": {"type": "string", "minLength": 29, "maxLength": 43,"description":"Secret link context plus six digits, or a legacy strong token. A bare six-digit code is insufficient."}}}}}},
         "responses": {"204": {"description": "Invitation accepted; no body or new cookies."}, "400": {"$ref": "#/components/responses/Failure"}, "401": {"$ref": "#/components/responses/Failure"}, "403": {"$ref": "#/components/responses/Failure"}, "413": {"$ref": "#/components/responses/Failure"}, "415": {"$ref": "#/components/responses/Failure"}, "503": {"$ref": "#/components/responses/Failure"}}
       }
     }

@@ -15,7 +15,7 @@
             "browserSession": []
           }
         ],
-        "description": "Requires current platform.admin.read and TOTP AAL2 within 15 minutes; write additionally requires effective PLATFORM_OWNER. Only tighter ordinary limits within mandatory 30-minute idle/12-hour absolute maxima. Each saved change atomically revokes ordinary sessions to prevent resurrection on relaxation and commits receipt/audit/outbox. Verified administrator profiles, MFA, passwords and CSRF remain unchanged. No provider call.",
+        "description": "Requires current platform.admin.read and valid administrator AAL2. Reading settings is not a step-up ceremony. Mandatory email verification, session expiry and permissions still apply.",
         "parameters": [
           {
             "name": "Origin",
@@ -71,7 +71,7 @@
             "browserSession": []
           }
         ],
-        "description": "Requires current platform.admin.read and TOTP AAL2 within 15 minutes; write additionally requires effective PLATFORM_OWNER. Only tighter ordinary limits within mandatory 30-minute idle/12-hour absolute maxima. Each saved change atomically revokes ordinary sessions to prevent resurrection on relaxation and commits receipt/audit/outbox. Verified administrator profiles, MFA, passwords and CSRF remain unchanged. No provider call.",
+        "description": "Requires effective Platform Owner authority, session-bound CSRF, exact version/idempotency and recent verification under the saved step-up window. Session limits are persisted without extension; only expired/invalid or excess concurrent sessions are revoked. Unrelated valid users are not signed out. Email verification and assurance timestamps are never reset.",
         "parameters": [
           {
             "name": "Origin",
@@ -332,6 +332,13 @@
             "minimum": 3600,
             "maximum": 604800,
             "multipleOf": 60
+          },
+          "step_up_seconds": {
+            "type": "integer",
+            "minimum": 300,
+            "maximum": 3600,
+            "multipleOf": 60,
+            "description": "Sensitive Platform action verification window, default 900 seconds. Omission in legacy requests preserves the saved value; ordinary navigation does not use this timer."
           },
           "allow_multiple_sessions": {
             "type": "boolean"

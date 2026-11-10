@@ -1,5 +1,7 @@
 # Document AI completion reconciliation service-loop policy
 
+> Historical decision: the unmounted worker boundary was removed in BE-SIM-01. This is not an active service or startup instruction.
+
 Status: **OPTION 1 APPROVED — SOURCE IMPLEMENTED_NOT_VERIFIED — WORKER UNMOUNTED**
 
 Date: 2026-10-20

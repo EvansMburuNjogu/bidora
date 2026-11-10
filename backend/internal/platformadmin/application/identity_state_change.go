@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
 	"context"
 	"strings"
@@ -14,6 +15,7 @@ type IdentityStateAction string
 const (
 	DisableAdministrator    IdentityStateAction = "DISABLE_IDENTITY"
 	ReactivateAdministrator IdentityStateAction = "REACTIVATE_IDENTITY"
+	DeleteAdministrator     IdentityStateAction = "DELETE_IDENTITY"
 )
 
 type IdentityStateChangeInput struct {
@@ -100,7 +102,7 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 		if input.Action == DisableAdministrator && identity.Disabled {
 			return ErrConcurrentChange
 		}
-		if input.Action == ReactivateAdministrator && !identity.Disabled {
+		if (input.Action == ReactivateAdministrator || input.Action == DeleteAdministrator) && !identity.Disabled {
 			return ErrConcurrentChange
 		}
 		governance, txErr := tx.LockGovernance(txCtx)
@@ -135,7 +137,15 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 				}
 			}
 		}
-		if input.Action == DisableAdministrator {
+		if input.Action == DeleteAdministrator {
+			deletion, ok := tx.(interface {
+				DeleteDisabledAdministrator(context.Context, AdministratorIdentity, time.Time) error
+			})
+			if !ok {
+				return ErrInvitationConflict
+			}
+			txErr = deletion.DeleteDisabledAdministrator(txCtx, identity, now)
+		} else if input.Action == DisableAdministrator {
 			txErr = tx.SetAdministratorDisabled(txCtx, identity, now)
 		} else {
 			txErr = tx.SetAdministratorActive(txCtx, identity, now)
@@ -165,7 +175,9 @@ func (s *RoleChangeService) ChangeIdentityState(ctx context.Context, input Ident
 			return txErr
 		}
 		result = IdentityStateChangeResult{ChangeID: changeID, TargetUserID: input.TargetUserID, Action: input.Action, State: "EXECUTED", RevokedSessions: revoked}
-		notification = securityDeliveryRequest(changeID, input.ActorID, identity, input.CorrelationID, now)
+		if input.Action != DeleteAdministrator {
+			notification = securityDeliveryRequest(changeID, input.ActorID, identity, input.CorrelationID, now)
+		}
 		return nil
 	})
 	if err == nil && notification != nil && s.delivery != nil {
@@ -179,7 +191,7 @@ func validateIdentityStateInput(ctx context.Context, s *RoleChangeService, input
 	if ctx == nil || s == nil || s.uow == nil || s.ids == nil || s.clock == nil || input.ActorID.IsZero() || input.SessionID.IsZero() || input.TargetUserID.IsZero() || input.CorrelationID.IsZero() || input.IdempotencyKey.IsZero() || input.PlatformContextGeneration < 1 || input.ExpectedAdministratorVersion < 1 || input.ExpectedTargetContextGeneration < 1 || reason != input.Reason || len(reason) < 1 || len(reason) > 2000 {
 		return "", ErrInvitationInvalid
 	}
-	if input.Action != DisableAdministrator && input.Action != ReactivateAdministrator {
+	if input.Action != DisableAdministrator && input.Action != ReactivateAdministrator && input.Action != DeleteAdministrator {
 		return "", ErrInvitationInvalid
 	}
 	return reason, nil
@@ -193,7 +205,9 @@ func requireIdentityStateActor(ctx context.Context, tx RoleChangeTx, input Ident
 		return AuthorityFacts{}, ErrPlatformContextStale
 	}
 	eligible := false
-	if input.Action == DisableAdministrator {
+	if input.Action == DeleteAdministrator {
+		eligible = facts.Grants("platform.admin.identity.disable") && facts.Grants("platform.governance.approve") && containsRole(facts.Roles, domain.PlatformOwner)
+	} else if input.Action == DisableAdministrator {
 		eligible = facts.Grants("platform.admin.identity.disable") && (containsRole(facts.Roles, domain.PlatformOwner) || containsRole(facts.Roles, domain.SecurityAuditAdministrator))
 	} else {
 		eligible = facts.Grants("platform.admin.identity.reactivate") && containsRole(facts.Roles, domain.PlatformOwner)
@@ -201,7 +215,7 @@ func requireIdentityStateActor(ctx context.Context, tx RoleChangeTx, input Ident
 	if !eligible {
 		return AuthorityFacts{}, ErrPlatformAccessForbidden
 	}
-	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || facts.AssuredAt.Before(now.Add(-recentPlatformAssurance)) {
+	if !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.After(now) || !securitypolicy.Recent(ctx, facts.AssuredAt, now) {
 		return AuthorityFacts{}, ErrPlatformAssuranceRequired
 	}
 	return facts, nil

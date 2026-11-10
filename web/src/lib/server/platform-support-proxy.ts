@@ -19,7 +19,7 @@ export async function proxyPlatformSupport(request: Request, caseID?: string, ac
   if (!post && (request.method !== "GET" || request.body || request.headers.get("content-length") && request.headers.get("content-length") !== "0")) return failure(400);
   if (post && url.search || caseID && url.search || post && request.headers.get("origin") !== browser) return failure(post ? 403 : 400);
   const params = [...url.searchParams.entries()];
-  if (!post && (params.length > 2 || new Set(params.map(([key]) => key)).size !== params.length || params.some(([key, value]) => key === "limit" ? !/^(?:[1-9]|[1-4]\d|50)$/.test(value) : key === "cursor" ? !/^[A-Za-z0-9_-]{1,384}$/.test(value) : true))) return failure(400);
+  if (!post && (params.length > 4 || new Set(params.map(([key]) => key)).size !== params.length || params.some(([key, value]) => key === "limit" ? !/^(?:[1-9]|[1-4]\d|50)$/.test(value) : key === "cursor" ? !/^[A-Za-z0-9_-]{1,384}$/.test(value) : key === "state" ? !["OPEN", "RESOLVED"].includes(value) : key === "assignment" ? !["ASSIGNED", "UNASSIGNED"].includes(value) : true))) return failure(400);
   const csrf = request.headers.get("x-csrf-token"), key = request.headers.get("idempotency-key");
   const headers = new Headers({ Accept: "application/json", Origin: browser, "X-Bidora-Platform-Context-Generation": generation });
   let body: ArrayBuffer | undefined;

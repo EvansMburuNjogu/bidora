@@ -15,7 +15,7 @@ const ControlApplicationGeneration int64 = 1
 // ControlSchemaVersion is the exact current application schema, including the
 // restricted Platform audit projection. Reader/writer generations are checked
 // independently; an unknown newer schema is not implicitly accepted.
-const ControlSchemaVersion int64 = 56
+const ControlSchemaVersion int64 = 60
 
 type compatibilityQuerier interface {
 	GetControlRegistryCompatibility(context.Context) (registrysql.GetControlRegistryCompatibilityRow, error)

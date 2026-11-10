@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"bidora/backend/internal/identity/securitypolicy"
 	pa "bidora/backend/internal/platformadmin/application"
 	pd "bidora/backend/internal/platformadmin/domain"
 	platformpolicy "bidora/backend/internal/platformadmin/domain"
@@ -93,7 +94,7 @@ func (t *RegionalPolicyTx) AuthorizeRegional(ctx context.Context, s app.Regional
 			allowed = facts.Grants("platform.reference.manage")
 		}
 	}
-	if !allowed || facts.ContextGeneration != s.ContextGeneration || !platformpolicy.AdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod) || facts.AssuredAt.IsZero() || facts.AssuredAt.After(at) || facts.AssuredAt.Before(at.Add(-15*time.Minute)) {
+	if !allowed || facts.ContextGeneration != s.ContextGeneration || !platformpolicy.CurrentAdministratorAssurance(facts.AssuranceLevel, facts.AssuranceMethod, facts.AssuredAt, at) || write && !securitypolicy.Recent(ctx, facts.AssuredAt, at) {
 		return app.ErrInformationForbidden
 	}
 	return nil

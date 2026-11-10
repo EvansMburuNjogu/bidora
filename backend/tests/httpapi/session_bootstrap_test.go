@@ -56,7 +56,7 @@ func TestSessionBootstrapReturnsOnlyValidatedCSRFValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != 200 || toucher.calls != 1 {
+	if response.StatusCode != 200 || toucher.calls != 0 {
 		t.Fatal("bootstrap failed", response.StatusCode, toucher.calls)
 	}
 	var body struct {

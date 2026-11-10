@@ -13,12 +13,12 @@
         "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["first_name", "last_name", "email", "password"], "properties": {"first_name": {"type": "string", "minLength": 1, "maxLength": 100, "x-max-utf8-bytes": 100, "description": "Display spelling preserved exactly; leading/trailing whitespace and control characters are rejected."}, "last_name": {"type": "string", "minLength": 1, "maxLength": 100, "x-max-utf8-bytes": 100, "description": "Display spelling preserved exactly; leading/trailing whitespace and control characters are rejected."}, "email": {"type": "string", "maxLength": 254}, "password": {"type": "string", "minLength": 12, "maxLength": 128}}}}}},
         "responses": {
-          "202": {"description": "Generic accepted response for newly created and existing identities. No body."},
+          "202": {"description": "Generic accepted response for newly created and existing identities. No body.", "headers":{"X-Bidora-Code-Challenge":{"schema":{"type":"string","format":"uuid"},"description":"Random request reference for six-digit email verification; also present for ineligible/existing targets."}}},
           "400": {"$ref": "#/components/responses/Failure"},
           "403": {"$ref": "#/components/responses/Failure"},
           "413": {"$ref": "#/components/responses/Failure"},
           "415": {"$ref": "#/components/responses/Failure"},
-          "429": {"description": "Registration attempt limit reached.", "headers": {"Retry-After": {"schema": {"type": "string", "const": "900"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}},
+          "429": {"description": "Registration attempt limit reached.", "headers": {"Retry-After": {"schema": {"type": "integer", "minimum": 1, "maximum": 3600},"description":"Actual remaining identity/network quota or denial wait."}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}},
           "503": {"$ref": "#/components/responses/Failure"}
         }
       }

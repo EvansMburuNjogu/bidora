@@ -38,7 +38,7 @@ export type PlatformRoleAssignment = {
 };
 export type PlatformAssignmentHistory = { assignments: PlatformRoleAssignment[]; next_cursor: string | null };
 export type PlatformAdministratorChange = {
-  id: string; action: "ASSIGN_ROLE" | "REVOKE_ROLE" | "DISABLE_IDENTITY" | "REACTIVATE_IDENTITY" | "ACTIVATE_OWNER_INVITATION";
+  id: string; action: "ASSIGN_ROLE" | "REVOKE_ROLE" | "DISABLE_IDENTITY" | "REACTIVATE_IDENTITY" | "DELETE_IDENTITY" | "ACTIVATE_OWNER_INVITATION";
   target_user_id: string | null; role_key: PlatformRole | null; reason: string;
   state: "PENDING_APPROVAL" | "EXECUTED" | "REJECTED" | "EXPIRED";
   version: number; maker_id: string; created_at: string; expires_at: string | null;
@@ -69,7 +69,9 @@ function role(value: unknown): value is PlatformRole { return typeof value === "
 
 export function parsePlatformInvitationReceipt(value: unknown): PlatformInvitationReceipt | null {
   const root = object(value), data = object(root?.data), meta = object(root?.meta);
-  if (!root || !data || !meta || !exact(root, ["data", "meta"]) || !exact(data, ["id", "email", "role_key", "state", "version", "created_at", "expires_at", "delivery_state", "governance_change_id"]) ||
+  const { first_name, last_name, ...legacy } = data ?? {};
+  if ((first_name !== undefined || last_name !== undefined) && (typeof first_name !== "string" || typeof last_name !== "string" || new TextEncoder().encode(first_name).length > 100 || new TextEncoder().encode(last_name).length > 100)) return null;
+  if (!root || !data || !meta || !exact(root, ["data", "meta"]) || !exact(legacy, ["id", "email", "role_key", "state", "version", "created_at", "expires_at", "delivery_state", "governance_change_id"]) ||
       !uuid.test(String(data.id)) || typeof data.email !== "string" || !role(data.role_key) || !Number.isSafeInteger(data.version) || Number(data.version) < 1 || !instant(data.created_at) ||
       !(data.expires_at === null || instant(data.expires_at)) || !optionalUUID(data.governance_change_id) ||
       !["ACTIVE", "PENDING_APPROVAL"].includes(String(data.state)) || !["NOT_READY", "ACCEPTED_FOR_DELIVERY", "DELIVERY_UNCONFIRMED"].includes(String(data.delivery_state)) ||
@@ -157,7 +159,7 @@ function parseChange(raw: unknown): PlatformAdministratorChange | null {
   const v = object(raw);
   if (!v || !exact(v, ["id", "action", "target_user_id", "invitation_id", "role_key", "assignment_id", "expected_user_version", "expected_target_context_generation", "expected_assignment_version", "reason", "decision_reason", "state", "version", "maker_id", "checker_id", "created_at", "expires_at", "decided_at", "sessions_revoked"]) ||
       typeof v.id !== "string" || !uuid.test(v.id) ||
-      !["ASSIGN_ROLE", "REVOKE_ROLE", "DISABLE_IDENTITY", "REACTIVATE_IDENTITY", "ACTIVATE_OWNER_INVITATION"].includes(String(v.action)) ||
+      !["ASSIGN_ROLE", "REVOKE_ROLE", "DISABLE_IDENTITY", "REACTIVATE_IDENTITY", "DELETE_IDENTITY", "ACTIVATE_OWNER_INVITATION"].includes(String(v.action)) ||
       !optionalUUID(v.target_user_id) || !optionalUUID(v.invitation_id) || !optionalUUID(v.assignment_id) ||
       !(v.role_key === null || role(v.role_key)) ||
       ![v.expected_user_version, v.expected_target_context_generation, v.expected_assignment_version].every((item) => item === null || Number.isSafeInteger(item) && Number(item) > 0) ||

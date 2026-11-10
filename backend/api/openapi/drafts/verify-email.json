@@ -38,12 +38,12 @@
           }
         },
         "responses": {
-          "202": {"description": "Generic accepted response. Delivery and account existence are not disclosed."},
+          "202": {"description": "Generic accepted response. Delivery and account existence are not disclosed.", "headers":{"X-Bidora-Code-Challenge":{"schema":{"type":"string","format":"uuid"},"description":"Random per-request reference for the new six-digit code, including for ineligible targets."}}},
           "400": {"$ref": "#/components/responses/Failure"},
           "403": {"$ref": "#/components/responses/Failure"},
           "413": {"$ref": "#/components/responses/Failure"},
           "415": {"$ref": "#/components/responses/Failure"},
-          "429": {"description": "Fail-closed attempt denial with Retry-After: 900.", "headers": {"Retry-After": {"schema": {"type": "integer", "const": 900}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}},
+          "429": {"description": "Fail-closed attempt denial with the effective remaining quota/block wait.", "headers": {"Retry-After": {"schema": {"type": "integer", "minimum":1,"maximum":3600}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}},
           "503": {"$ref": "#/components/responses/Failure"}
         }
       }
@@ -52,7 +52,7 @@
       "post": {
         "operationId": "verifyEmailOwnership",
         "summary": "Consume an email verification token",
-        "description": "Requires an exact approved HTTPS Origin. The token is supplied only in a strict JSON body, never in the URL. Invalid, expired, consumed and unknown tokens return the same failure. Success does not authenticate the browser or grant tenant authority.",
+        "description": "Requires an exact approved HTTPS Origin and trusted network context for six-digit codes. New codes are numeric, scoped to a random reference and purpose through a server HMAC, with per-reference failure limits and network limits. Legacy strong tokens remain valid. Codes are supplied only in strict JSON, never in URLs. Invalid, expired, consumed and unknown tokens return the same failure. Success does not authenticate the browser or grant tenant authority.",
         "security": [],
         "parameters": [
           {"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}
@@ -66,7 +66,8 @@
                 "additionalProperties": false,
                 "required": ["token"],
                 "properties": {
-                  "token": {"type": "string", "minLength": 43, "maxLength": 43}
+                  "token": {"type": "string", "minLength": 6, "maxLength": 43, "description": "Six numeric digits with challenge_ref, or a legacy 43-character token."},
+                  "challenge_ref": {"type":"string","format":"uuid","description":"Required with six digits; random per-request reference supplied by the issuance response and email link."}
                 }
               }
             }

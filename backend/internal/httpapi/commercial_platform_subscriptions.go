@@ -46,11 +46,11 @@ func (h *PlatformSubscriptionHandler) inventory(c fiber.Ctx) error {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	values, e := url.ParseQuery(string(c.Request().URI().QueryString()))
-	if e != nil || len(values) > 3 {
+	if e != nil || len(values) > 5 {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
 	for name, list := range values {
-		if len(list) != 1 || name != "limit" && name != "cursor" && name != "state" {
+		if len(list) != 1 || name != "limit" && name != "cursor" && name != "state" && name != "plan" && name != "cadence" {
 			return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 		}
 	}
@@ -82,11 +82,14 @@ func (h *PlatformSubscriptionHandler) inventory(c fiber.Ctx) error {
 	if _, ok := values["state"]; ok && state == "" {
 		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
 	}
+	if values.Has("plan") && values.Get("plan") == "" || values.Has("cadence") && values.Get("cadence") == "" {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
 	subject, ok := subscriptionSubject(c)
 	if !ok {
 		return nil
 	}
-	result, e := h.usecase.InventoryPlatformSubscriptions(c.Context(), app.PlatformSubscriptionInventoryInput{Subject: subject, AfterID: cursor, Limit: int32(limit), State: state})
+	result, e := h.usecase.InventoryPlatformSubscriptions(c.Context(), app.PlatformSubscriptionInventoryInput{Subject: subject, AfterID: cursor, Limit: int32(limit), State: state, Plan: values.Get("plan"), Cadence: values.Get("cadence")})
 	if e != nil {
 		return platformSubscriptionFailure(c, e)
 	}
