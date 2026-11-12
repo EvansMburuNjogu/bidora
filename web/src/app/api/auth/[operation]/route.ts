@@ -66,6 +66,10 @@ export async function POST(request:Request,context:RouteContext<"/api/auth/[oper
   else submitted={email:target.email};
   upstreamRequest=forwarded(request,submitted);
  }
+ if(operation==="verify-email"&&invitation){
+  const headers=new Headers(upstreamRequest.headers);headers.delete("cookie");
+  upstreamRequest=new Request(upstreamRequest,{headers});
+ }
  const response=await proxyAuth(upstreamRequest,op);
  if(response.status===202){
   const reference=response.headers.get("X-Bidora-Code-Challenge")??"";

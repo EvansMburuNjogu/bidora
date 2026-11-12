@@ -39,6 +39,8 @@ var control = map[string]string{
 	"bidora_control_eventing.inbox_events":                      "I",
 	"bidora_control_eventing.outbox_events":                     "SIU",
 	"bidora_control_meta.schema_compatibility":                  "S",
+	"platform_settings.organization_reference_catalogue":        "SIU",
+	"platform_settings.organization_reference_commands":         "SI",
 	"bidora_tenancy.database_clusters":                          "S",
 	"bidora_tenancy.tenant_database_assignments":                "S",
 	"bidora_tenancy.tenant_schema_versions":                     "S",
@@ -137,6 +139,7 @@ var control = map[string]string{
 	"tenancy.organization_creation_lifetime_markers":            "S",
 	"tenancy.organization_creation_operations":                  "SI",
 	"tenancy.provisioning_jobs":                                 "I",
+	"tenancy.provisioning_job_status_v1":                        "S",
 	"tenancy.membership_offboarding_events":                     "SI",
 	"tenancy.membership_offboarding_operations":                 "SIU",
 	"tenancy.memberships":                                       "SIU",
@@ -213,7 +216,7 @@ func Load(plane string) (Manifest, error) {
 	switch plane {
 	case "control":
 		source = control
-		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 60}
+		result = Manifest{Plane: plane, CompatibilitySet: "control_registry", CompatibilityVersion: 62}
 	case "tenant":
 		source = tenant
 		result = Manifest{Plane: plane, CompatibilitySet: "tenant_common+tenant_tenderpreneur", CompatibilityVersion: 9_000_034}

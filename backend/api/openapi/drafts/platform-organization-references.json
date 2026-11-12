@@ -1,0 +1,34 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Organization Reference Catalogues", "version": "0.1.0-draft"},
+  "x-status": "source-connected-verification-separate",
+  "paths": {
+    "/v1/shared/platform/organization-references/{kind}": {
+      "get": {"operationId": "listSharedOrganizationReferences", "description": "Enabled organization reference entries for the authenticated browser; no tenant authority is conferred.", "security": [{"browserSession": []}], "parameters": [{"$ref": "#/components/parameters/OrganizationReferenceKind"}], "responses": {"200": {"description": "Enabled entries", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationReferenceListResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/v1/platform/organization-references/{kind}": {
+      "get": {"operationId": "listPlatformOrganizationReferences", "description": "Read current catalogue under platform.reference.read.", "security": [{"browserSession": []}], "parameters": [{"$ref": "#/components/parameters/OrganizationReferenceKind"},{"$ref": "#/components/parameters/OrganizationReferenceContext"}], "responses": {"200": {"description": "All entries", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationReferenceListResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}},
+      "post": {"operationId": "createPlatformOrganizationReference", "description": "Create an entry under current reference-management authority, with fresh assurance, idempotency and audit.", "security": [{"browserSession": [], "csrfCookie": []}], "parameters": [{"$ref": "#/components/parameters/OrganizationReferenceKind"},{"$ref": "#/components/parameters/OrganizationReferenceContext"},{"$ref": "#/components/parameters/OrganizationReferenceCSRF"},{"$ref": "#/components/parameters/OrganizationReferenceKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationReferenceWrite"}}}}, "responses": {"200": {"description": "Saved entry", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationReferenceResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "409": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/v1/platform/organization-references/{kind}/{code}": {
+      "put": {"operationId": "updatePlatformOrganizationReference", "description": "Update an entry using its current version; historical organization values are not rewritten.", "security": [{"browserSession": [], "csrfCookie": []}], "parameters": [{"$ref": "#/components/parameters/OrganizationReferenceKind"},{"$ref": "#/components/parameters/OrganizationReferenceCode"},{"$ref": "#/components/parameters/OrganizationReferenceContext"},{"$ref": "#/components/parameters/OrganizationReferenceCSRF"},{"$ref": "#/components/parameters/OrganizationReferenceKey"},{"$ref": "#/components/parameters/OrganizationReferenceVersion"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationReferenceWrite"}}}}, "responses": {"200": {"description": "Saved entry", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationReferenceResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "409": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}}
+    }
+  },
+  "components": {
+    "parameters": {
+      "OrganizationReferenceKind": {"name": "kind", "in": "path", "required": true, "schema": {"type": "string", "enum": ["business-types", "industries"]}},
+      "OrganizationReferenceCode": {"name": "code", "in": "path", "required": true, "schema": {"type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}},
+      "OrganizationReferenceContext": {"name": "X-Bidora-Platform-Context-Generation", "in": "header", "required": true, "schema": {"type": "integer", "minimum": 1}},
+      "OrganizationReferenceCSRF": {"name": "X-CSRF-Token", "in": "header", "required": true, "schema": {"type": "string"}},
+      "OrganizationReferenceKey": {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "OrganizationReferenceVersion": {"name": "If-Match", "in": "header", "required": true, "schema": {"type": "string"}}
+    },
+    "schemas": {
+      "OrganizationReferenceWrite": {"type": "object", "additionalProperties": false, "required": ["code", "label", "enabled"], "properties": {"code": {"type": "string", "maxLength": 64}, "label": {"type": "string", "minLength": 1, "maxLength": 100}, "enabled": {"type": "boolean"}}},
+      "OrganizationReferenceEntry": {"type": "object", "additionalProperties": false, "required": ["kind", "code", "label", "enabled", "version", "updated_at"], "properties": {"kind": {"type": "string", "enum": ["BUSINESS_TYPE", "INDUSTRY"]}, "code": {"type": "string"}, "label": {"type": "string"}, "enabled": {"type": "boolean"}, "version": {"type": "integer", "minimum": 1}, "updated_at": {"type": "string", "format": "date-time"}}},
+      "OrganizationReferenceResponse": {"type": "object", "required": ["data", "meta"], "properties": {"data": {"$ref": "#/components/schemas/OrganizationReferenceEntry"}, "meta": {"type": "object"}}},
+      "OrganizationReferenceListResponse": {"type": "object", "required": ["data", "meta"], "properties": {"data": {"type": "array", "maxItems": 500, "items": {"$ref": "#/components/schemas/OrganizationReferenceEntry"}}, "meta": {"type": "object"}}}
+    },
+    "responses": {"Error": {"description": "Safe failure response"}}
+  }
+}

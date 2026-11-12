@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter,useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,6 +57,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
   const [resendUntil, setResendUntil] = useState(0);
   const [now, setNow] = useState(0);
   const [completed, setCompleted] = useState(false);
+  const [continuationUnavailable, setContinuationUnavailable] = useState(false);
 
   useEffect(() => {
     if (mode !== "login-code" && mode !== "password-recovery") return;
@@ -180,7 +181,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
       }
       if (mode === "register" && response.status === 202) {
         form.reset();
-        toast.success("Check your email", { description: "Enter the verification code to continue." });
+        toast.info("Check your email", { description: "If your account can be registered, check your inbox for a verification code. If you already have an account, sign in or request a new code." });
         router.push(withInvitation("/verify-email" + emailCodeQuery(response),flow));
         return;
       }
@@ -192,15 +193,34 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
       }
       if ((mode === "password-reset" || mode === "verify-email") && response.status === 204) {
         form.reset();
-        toast.success(mode === "password-reset" ? "Password reset" : "Email verified");
+        const continued = mode === "verify-email" && response.headers.get("X-Bidora-Registration-Session") === "1";
         const next=invitationNext(response.headers.get("X-Bidora-Invitation-Next"));
-        if(mode==="verify-email"&&next)window.location.assign(next);
+        if (mode === "verify-email" && !continued && !next) {
+          setCompleted(true);
+          setContinuationUnavailable(true);
+          return;
+        }
+        toast.success(mode === "password-reset" ? "Password reset" : "Email verified", { description: continued ? "Continue setting up your account." : "Sign in to continue." });
+        // Full navigation prevents a prefetched unauthenticated session from being reused.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        if (continued) window.location.assign("/organization/create");
+        else if(mode==="verify-email"&&next)window.location.assign(next);
         else router.push(withInvitation("/login",flow));
         return;
       }
       if (mode === "verify-email" && response.status === 400) {
         setVerificationAttempt(value => value + 1);
         setFieldError({ field: "token", message: "Invalid or expired code. Check your email or resend a code." });
+        return;
+      }
+      if (mode === "verify-email" && response.status === 503) {
+        const body = await response.json().catch(() => null);
+        if (body?.error?.code === "REGISTRATION_CONTINUATION_UNAVAILABLE") {
+          setContinuationUnavailable(true);
+          setCompleted(true);
+          return;
+        }
+        toast.error("Verification could not be confirmed", { description: "Try signing in. If your email is not verified, request a new code." });
         return;
       }
       if ((mode === "register" || mode === "password-reset") && response.status === 400) passwordPolicy.retry();
@@ -338,7 +358,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
 
           {needsEmail && (
             <Field data-invalid={fieldError?.field === "email"}>
-              <FieldLabel htmlFor={`${mode}-email`}>{mode === "login" ? "Work email" : mode === "register" ? "Work email address" : "Email address"}</FieldLabel>
+              <FieldLabel htmlFor={`${mode}-email`}>{mode === "login" ? "Work email" : "Email address"}</FieldLabel>
               <Input
                 id={`${mode}-email`}
                 name="email"
@@ -352,6 +372,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
                 aria-invalid={fieldError?.field === "email" || undefined}
                 onChange={() => fieldError?.field === "email" && setFieldError(null)}
               />
+              {mode === "register" && <FieldDescription>Use an email address you can access. A work email is recommended.</FieldDescription>}
               {fieldError?.field === "email" && <FieldError>{fieldError.message}</FieldError>}
             </Field>
           )}
@@ -443,7 +464,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
           )}
 
           <Button type="submit" size="lg" className="w-full" disabled={((mode === "register" || mode === "password-reset") && passwordPolicy.minimum === null) || pending || restartPending || resendPending || completed || challengeExpired || (mode === "password-recovery" && resendSeconds > 0) || (mode === "register" && (!termsAccepted || !privacyAccepted))} aria-describedby={mode === "register" ? "registration-policy-status" : undefined}>
-            {completed ? "Verified. Continuing…" : pending ? mode === "password-recovery" ? "Sending…" : "Verifying…" : mode === "password-recovery" && resendSeconds > 0 ? `Try again in ${countdownLabel(resendUntil, now)}` : config[mode].submit}
+            {continuationUnavailable ? "Email verified" : completed ? "Verified. Continuing…" : pending ? mode === "register" ? "Creating account…" : mode === "password-recovery" ? "Sending…" : "Verifying…" : mode === "password-recovery" && resendSeconds > 0 ? `Try again in ${countdownLabel(resendUntil, now)}` : config[mode].submit}
             {mode === "login" && !pending && <ArrowRightIcon aria-hidden="true" />}
           </Button>
         </FieldGroup>
@@ -460,7 +481,7 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
             {resendPending ? "Sending…" : resendSeconds > 0 ? `Resend in ${resendSeconds}s` : "Resend code"}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={pending || restartPending || resendPending || completed} onClick={() => void restartLogin()}>
-            {restartPending ? "Returning…" : "Back to sign in"}
+            <ArrowLeftIcon aria-hidden="true" className="size-4" />{restartPending ? "Returning…" : "Back to sign in"}
           </Button>
         </div>
       )}
@@ -469,16 +490,17 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
         <GoogleAuthButton registration={mode === "register"} disabled={mode === "register" && (!termsAccepted || !privacyAccepted)} />
       )}
 
-      {(mode==="verify-email"||mode==="password-reset")&&<VerificationResendForm mode={mode} onResent={()=>setVerificationAttempt(value=>value+1)}/>}
+      {continuationUnavailable && <p role="alert" className="text-center text-sm text-muted-foreground">Your email is verified, but we could not confirm your session. <Link href={withInvitation("/login",flow)} className="font-medium text-foreground underline">Sign in to continue</Link>.</p>}
+      {(mode==="verify-email"||mode==="password-reset")&&!continuationUnavailable&&<VerificationResendForm mode={mode} onResent={()=>{if(recoveryTokenInput.current)recoveryTokenInput.current.value="";setVerificationAttempt(value=>value+1);setFieldError(null)}}/>}
 
-      <AuthRouteLink
+      {!continuationUnavailable && <AuthRouteLink
         mode={mode}
         flow={flow}
         onNavigate={() => {
           setFieldError(null);
           if (mode === "login-code") setVerificationAttempt((value) => value + 1);
         }}
-      />
+      />}
     </div>
   );
 }
@@ -486,22 +508,39 @@ export function AuthForm({ mode, recoveryUserId }: { mode: Mode; recoveryUserId?
 function VerificationResendForm({mode,onResent}:{mode:"verify-email"|"password-reset";onResent:()=>void}) {
  const router=useRouter();
  const [pending,setPending]=useState(false),[error,setError]=useState("");
- const locked=useRef(false);
+ const [countdown,setCountdown]=useState(mode==="verify-email"?30:0);
+ const locked=useRef(false),resendAt=useRef(0);
+ useEffect(()=>{
+  if(mode!=="verify-email")return;
+  resendAt.current=Date.now()+30_000;
+  const timer=window.setInterval(()=>setCountdown(Math.max(0,Math.ceil((resendAt.current-Date.now())/1000))),1000);
+  return()=>window.clearInterval(timer);
+ },[mode]);
  async function resend(){
-  if(locked.current)return;locked.current=true;setPending(true);setError("");
+  if(locked.current||countdown>0)return;
+  const challenge_ref=emailCodeReference(new URLSearchParams(window.location.search).get("challenge_ref"));
+  if(!challenge_ref){setError("Verification context is unavailable. Return to registration or reopen your invitation to request a new code.");return;}
+  locked.current=true;setPending(true);setError("");
   try{
-   const challenge_ref=emailCodeReference(new URLSearchParams(window.location.search).get("challenge_ref"));
-   const response=await submitAuth(mode==="password-reset"?"password-recovery":"verification-resend",{...(challenge_ref?{challenge_ref}:{})});
+   const response=await submitAuth(mode==="password-reset"?"password-recovery":"verification-resend",{challenge_ref});
    if(response.status===202){
-    const query=emailCodeQuery(response);if(query)router.replace(withInvitation((mode==="password-reset"?"/reset-password":"/verify-email")+query,emailCodeReference(new URLSearchParams(window.location.search).get("invitation"))));
-    onResent();toast.success("Code requested",{description:"Check your email for the latest code."});return;
+    const query=emailCodeQuery(response);
+    if(mode==="verify-email"&&!query){resendAt.current=Date.now()+30_000;setCountdown(30);setError("The new code request could not be confirmed. Please try again later.");return;}
+    if(query)router.replace(withInvitation((mode==="password-reset"?"/reset-password":"/verify-email")+query,emailCodeReference(new URLSearchParams(window.location.search).get("invitation"))));
+    if(mode==="verify-email"){resendAt.current=Date.now()+30_000;setCountdown(30);}
+    onResent();toast.info("Code requested",{description:"If the account is eligible, check your email for the latest code."});return;
    }
-   setError(response.status===429?"Please wait before requesting another code.":response.status===400?"Reopen your invitation to request another code.":"Unable to resend your code. Please try again.");
-  }catch{setError("Unable to resend your code. Please try again.")}
+   if(response.status===429&&mode==="verify-email"){
+    const retry=Number(response.headers.get("Retry-After"));
+    if(Number.isFinite(retry)&&retry>0&&retry<=3600){resendAt.current=Date.now()+retry*1000;setCountdown(Math.ceil(retry));return;}
+   }
+   setError(response.status===429?"Please try again later.":response.status===400?"Verification context expired. Return to registration or reopen your invitation.":"Unable to request a code. Please try again.");
+  }catch{setError("The request could not be confirmed. Please wait before trying again.")}
   finally{locked.current=false;setPending(false)}
  }
  return <div className="flex flex-col items-center gap-2">
-  <Button type="button" variant="link" disabled={pending} onClick={()=>void resend()}>{pending?"Sending…":"Resend code"}</Button>
+  {mode==="verify-email"&&countdown>0&&<p role="timer" aria-live="off" className="text-sm text-muted-foreground tabular-nums">You can resend a code in {countdownLabel(countdown*1000,0)}</p>}
+  <Button type="button" variant="outline" size="sm" disabled={pending||countdown>0} onClick={()=>void resend()}>{pending?"Sending…":"Resend code"}</Button>
   {error&&<p role="alert" className="type-meta text-destructive">{error}</p>}
  </div>;
 }
@@ -513,6 +552,7 @@ function AuthRouteLink({ mode, flow,onNavigate }: { mode: Mode;flow:string|null;
   if (mode === "register") {
     return <p className="type-body text-center text-muted-foreground">Already have an account? <Link href={withInvitation("/login",flow)} onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Sign in</Link></p>;
   }
-  if (mode === "login-code"||mode==="verify-email") return null;
-  return <p className="type-body text-center text-muted-foreground"><Link href={withInvitation("/login",flow)} onClick={onNavigate} className="font-medium text-foreground underline-offset-4 hover:underline">Back to sign in</Link></p>;
+  if (mode === "login-code") return null;
+  if (mode === "verify-email") return <p className="type-body text-center text-muted-foreground"><Link href={withInvitation("/register",flow)} onClick={onNavigate} className="inline-flex items-center gap-2 font-medium text-foreground underline-offset-4 hover:underline"><ArrowLeftIcon aria-hidden="true" className="size-4" />Back to registration</Link></p>;
+  return <p className="type-body text-center text-muted-foreground"><Link href={withInvitation("/login",flow)} onClick={onNavigate} className="inline-flex items-center gap-2 font-medium text-foreground underline-offset-4 hover:underline"><ArrowLeftIcon aria-hidden="true" className="size-4" />Back to sign in</Link></p>;
 }

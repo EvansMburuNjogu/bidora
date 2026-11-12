@@ -13,14 +13,16 @@ async function boundedBody(request: Request): Promise<Uint8Array | null> {
   catch { return null; }
   const body = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; } return body;
 }
-export async function proxyManagedSettings(request: Request, section: "google" | "templates" | "countries" | "operations" | "shared-countries" | "availability", key?: string, operation?: "history" | "preview" | "test"): Promise<Response> {
+export async function proxyManagedSettings(request: Request, section: "google" | "templates" | "countries" | "operations" | "shared-countries" | "availability" | "business-types" | "industries" | "shared-business-types" | "shared-industries", key?: string, operation?: "history" | "preview" | "test"): Promise<Response> {
   const api = apiOrigin(), browser = webOrigin(); if (!api || !browser) return failure(503);
-  if (new URL(request.url).search || key !== undefined && !(section === "countries" ? /^[A-Z]{2}$/ : /^[a-z][a-z0-9_.-]{0,99}$/).test(key) || (section === "google" || section === "operations" || (section === "shared-countries" || section === "availability")) && key !== undefined || section === "templates" && operation !== undefined && !key || section === "countries" && operation !== undefined && !key || (section === "shared-countries" || section === "availability") && operation !== undefined) return failure(400);
+  const references = section === "business-types" || section === "industries" || section === "shared-business-types" || section === "shared-industries";
+  const shared = section === "shared-countries" || section === "availability" || section === "shared-business-types" || section === "shared-industries";
+  if (new URL(request.url).search || key !== undefined && !(section === "countries" ? /^[A-Z]{2}$/ : references ? /^[a-z0-9]+(-[a-z0-9]+)*$/ : /^[a-z][a-z0-9_.-]{0,99}$/).test(key) || references && key !== undefined && key.length > 64 || (section === "google" || section === "operations" || shared) && key !== undefined || section === "templates" && operation !== undefined && !key || section === "countries" && operation !== undefined && !key || (shared || references) && operation !== undefined) return failure(400);
   const method = request.method;
-  const regional = section === "countries" || section === "operations" || (section === "shared-countries" || section === "availability");
-  if (method === "GET" ? operation === "preview" || operation === "test" : (section === "shared-countries" || section === "availability") ? true : method === "PUT" ? operation !== undefined || (section === "templates" || section === "countries") && !key : method === "POST" ? section === "countries" ? !!key || operation !== undefined : regional || operation !== "preview" && operation !== "test" : true) return failure(405);
-  const generation = request.headers.get("x-bidora-platform-context-generation"); if ((section !== "shared-countries" && section !== "availability") && (!generation || !/^[1-9]\d{0,18}$/.test(generation))) return failure(400);
-  const headers = new Headers({ Accept: "application/json", Origin: browser }); if ((section !== "shared-countries" && section !== "availability") && generation) headers.set("X-Bidora-Platform-Context-Generation", generation);
+  const regional = section === "countries" || section === "operations" || shared || references;
+  if (method === "GET" ? operation === "preview" || operation === "test" || references && !!key : shared ? true : method === "PUT" ? operation !== undefined || (section === "templates" || section === "countries" || references) && !key : method === "POST" ? section === "countries" || references ? !!key || operation !== undefined : regional || operation !== "preview" && operation !== "test" : true) return failure(405);
+  const generation = request.headers.get("x-bidora-platform-context-generation"); if (!shared && (!generation || !/^[1-9]\d{0,18}$/.test(generation))) return failure(400);
+  const headers = new Headers({ Accept: "application/json", Origin: browser }); if (!shared && generation) headers.set("X-Bidora-Platform-Context-Generation", generation);
   forwardAuditContext(request, headers);
   const cookie = backendCookieHeader(request.headers.get("cookie"), browser); if (cookie) headers.set("Cookie", cookie);
   let body: Uint8Array | undefined;
@@ -32,11 +34,11 @@ export async function proxyManagedSettings(request: Request, section: "google" |
     try { const json: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)); if (!json || typeof json !== "object" || Array.isArray(json)) return failure(400); } catch { return failure(400); }
     headers.set("Content-Type", "application/json"); headers.set("X-CSRF-Token", csrf);
     if (operation !== "preview") {
-      const version = request.headers.get("if-match"), idempotency = request.headers.get("idempotency-key"); if (!(method === "POST" && section === "countries") && (!version || !/^"[1-9]\d{0,18}"$/.test(version)) || !idempotency || !uuid.test(idempotency)) return failure(400);
+      const version = request.headers.get("if-match"), idempotency = request.headers.get("idempotency-key"); if (!(method === "POST" && (section === "countries" || references)) && (!version || !/^"[1-9]\d{0,18}"$/.test(version)) || !idempotency || !uuid.test(idempotency)) return failure(400);
       if (version) headers.set("If-Match", version); headers.set("Idempotency-Key", idempotency);
     }
   }
-  const path = regional ? (section === "shared-countries" || section === "availability") ? section === "availability" ? "/v1/shared/platform/availability" : "/v1/shared/platform/countries" : section === "operations" ? `/v1/platform/operational-policy${operation ? `/${operation}` : ""}` : `/v1/platform/countries${key ? `/${key}` : ""}${operation ? `/${operation}` : ""}` : section === "google" ? `/v1/platform/settings/google${operation ? `/${operation}` : ""}` : `/v1/platform/notification-templates${key ? `/${encodeURIComponent(key)}` : ""}${operation ? `/${operation}` : ""}`;
+  const path = references ? `/v1/${shared ? "shared/" : ""}platform/organization-references/${section.replace(/^shared-/, "")}${key ? `/${key}` : ""}` : regional ? (section === "shared-countries" || section === "availability") ? section === "availability" ? "/v1/shared/platform/availability" : "/v1/shared/platform/countries" : section === "operations" ? `/v1/platform/operational-policy${operation ? `/${operation}` : ""}` : `/v1/platform/countries${key ? `/${key}` : ""}${operation ? `/${operation}` : ""}` : section === "google" ? `/v1/platform/settings/google${operation ? `/${operation}` : ""}` : `/v1/platform/notification-templates${key ? `/${encodeURIComponent(key)}` : ""}${operation ? `/${operation}` : ""}`;
   let upstream: Response;
   try { upstream = await fetch(api + path, { method, headers, body: body as BodyInit | undefined, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(20_000) }); } catch { return failure(503); }
   if (![200, 400, 401, 403, 404, 409, 413, 415, 503].includes(upstream.status) || upstream.headers.get("content-type")?.split(";")[0] !== "application/json") { await upstream.body?.cancel(); return failure(503); }

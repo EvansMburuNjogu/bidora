@@ -3,11 +3,22 @@
   "info": {
     "title": "Bidora Tenderpreneur self-service organization creation",
     "version": "0.1.0-draft",
-    "description": "Approved unmounted intake contract. It records a durable REQUESTED organization and provisioning operation but never provisions a database or grants access by response alone."
+    "description": "Creator-scoped status is mounted in source. Intake remains unmounted until provisioning is available. A request never provisions a database or grants access by response alone; runtime verification remains separate."
   },
-  "x-status": "approved-implementation-unmounted-not-verified",
+  "x-status": "intake-unmounted-provisioner-unavailable",
   "paths": {
     "/v1/tenderpreneur/organizations": {
+      "get": {
+        "operationId": "getTenderpreneurOrganizationCreationStatus",
+        "summary": "Read the current creator's latest organization request",
+        "description": "Returns the latest creator-owned operation and job state or null. The response does not grant access or prove payment.",
+        "security": [{"browserSession": []}],
+        "parameters": [{"name": "Origin", "in": "header", "required": true, "schema": {"type": "string", "format": "uri"}}],
+        "responses": {
+          "200": {"description": "Creator-owned request status or null", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrganizationCreationStatusResponse"}}}},
+          "400": {"$ref": "#/components/responses/Failure"}, "401": {"$ref": "#/components/responses/Failure"}, "403": {"$ref": "#/components/responses/Failure"}, "503": {"$ref": "#/components/responses/Failure"}
+        }
+      },
       "post": {
         "operationId": "createTenderpreneurOrganization",
         "summary": "Request creation of the current Tenderpreneur account's pilot organization",
@@ -61,6 +72,18 @@
           "preferred_language": {"type": "string", "pattern": "^[A-Za-z0-9-]{1,35}$"},
           "currency": {"type": "string", "const": "KES"},
           "commercial_path": {"type": "string", "enum": ["TRIAL", "PAID"]}
+        }
+      },
+      "OrganizationCreationStatusResponse": {
+        "type": "object", "additionalProperties": false, "required": ["data", "meta"],
+        "properties": {
+          "data": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["operation_id", "tenant_id", "name", "state", "job_state", "commercial_path", "created_at", "updated_at"], "properties": {
+            "operation_id": {"type": "string", "format": "uuid"}, "tenant_id": {"type": "string", "format": "uuid"}, "name": {"type": "string"},
+            "state": {"type": "string", "enum": ["REQUESTED", "PLAN_SELECTED", "PROVISIONING", "SUBSCRIPTION_ACTIVATION", "ACTIVE", "FAILED", "REVIEW_REQUIRED", "CANCELLED"]},
+            "job_state": {"type": "string", "enum": ["WAITING_PAYMENT", "PENDING", "RUNNING", "RETRYABLE", "REVIEW_REQUIRED", "COMPLETED", "CANCELLED"]},
+            "commercial_path": {"type": "string", "enum": ["TRIAL", "PAID"]}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}
+          }}]},
+          "meta": {"$ref": "#/components/schemas/Meta"}
         }
       },
       "OrganizationCreationResponse": {

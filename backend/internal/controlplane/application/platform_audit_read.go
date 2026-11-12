@@ -79,7 +79,7 @@ func NewPlatformAuditService(uow PlatformAuditUnitOfWork, ids PlatformAuditIDs, 
 var platformAuditActions = map[string]bool{
 	"PlatformTenantSuspended": true, "PlatformTenantReactivated": true,
 	"PlatformInformationUpdated": true, "PlatformSessionPolicyUpdated": true,
-	"CountryConfigurationUpdated": true, "OperationalPolicyUpdated": true, "RestrictedRequestMetadataRead": true,
+	"CountryConfigurationUpdated": true, "OrganizationBusinessTypeUpdated": true, "OrganizationIndustryUpdated": true, "OperationalPolicyUpdated": true, "RestrictedRequestMetadataRead": true,
 	"PlatformGoogleConfigurationUpdated": true, "PlatformGoogleConnectionTested": true, "NotificationTemplateUpdated": true, "NotificationTemplateTested": true,
 	"UserLoggedIn": true, "EmailLoginCodeVerified": true, "MFALoginCompleted": true,
 	"PlatformOwnerBootstrapped": true, "PlatformAdministratorSessionsRevoked": true,

@@ -17,7 +17,12 @@ type EmailVerificationUseCase interface {
 	Verify(context.Context, identityapp.EmailVerificationInput) (identityapp.EmailVerificationResult, error)
 }
 
+type RegistrationContinuationUseCase interface {
+	Complete(context.Context, string, identityapp.EmailVerificationResult, identityapp.ID) (identityapp.LoginResult, bool, error)
+}
+
 type EmailVerificationHandler struct {
+	continuation RegistrationContinuationUseCase
 	codes        *EmailCodes
 	verification EmailVerificationUseCase
 	protection   *browser.Protection
@@ -31,6 +36,9 @@ func NewEmailVerificationHandler(verification EmailVerificationUseCase, protecti
 }
 
 func (h *EmailVerificationHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
+func (h *EmailVerificationHandler) EnableRegistrationContinuation(continuation RegistrationContinuationUseCase) {
+	h.continuation = continuation
+}
 func (h *EmailVerificationHandler) Handle(c fiber.Ctx) error {
 	if c == nil {
 		return errors.New("email_verification_http_context_required")
@@ -91,7 +99,7 @@ func (h *EmailVerificationHandler) Handle(c fiber.Ctx) error {
 			return fail(c, 400, "VERIFICATION_INVALID", "The code is invalid, expired or temporarily blocked.", false)
 		}
 	}
-	_, err = h.verification.Verify(c.Context(), identityapp.EmailVerificationInput{Token: token, CorrelationID: correlationID})
+	verified, err := h.verification.Verify(c.Context(), identityapp.EmailVerificationInput{Token: token, CorrelationID: correlationID})
 	if reservation != nil {
 		if finishErr := reservation.Finish(c.Context(), err == nil); finishErr != nil {
 			return fail(c, 503, "VERIFICATION_UNAVAILABLE", "Email verification is temporarily unavailable.", true)
@@ -102,6 +110,20 @@ func (h *EmailVerificationHandler) Handle(c fiber.Ctx) error {
 			return fail(c, 400, "VERIFICATION_INVALID", "The verification code is invalid or expired.", false)
 		}
 		return fail(c, 503, "VERIFICATION_UNAVAILABLE", "Email verification is temporarily unavailable.", true)
+	}
+	secret := c.Cookies("__Host-bidora_registration")
+	if secret != "" {
+		c.Cookie(&fiber.Cookie{Name: "__Host-bidora_registration", Path: "/", MaxAge: -1, Secure: true, HTTPOnly: true, SameSite: "Lax"})
+	}
+	if h.continuation != nil && secret != "" && c.Cookies("__Host-bidora_session") == "" {
+		result, issued, continuationErr := h.continuation.Complete(c.Context(), secret, verified, correlationID)
+		if continuationErr != nil {
+			return fail(c, 503, "REGISTRATION_CONTINUATION_UNAVAILABLE", "Email verified, but the session could not be confirmed. Sign in to continue.", false)
+		}
+		if issued {
+			c.Set("X-Bidora-Registration-Session", "1")
+			return writeInvitationSession(c, result)
+		}
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

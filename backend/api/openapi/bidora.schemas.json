@@ -5818,6 +5818,101 @@
       ],
       "type": "object"
     },
+    "platform_organization_references__OrganizationReferenceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "BUSINESS_TYPE",
+            "INDUSTRY"
+          ],
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "code",
+        "label",
+        "enabled",
+        "version",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "platform_organization_references__OrganizationReferenceListResponse": {
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/$defs/platform_organization_references__OrganizationReferenceEntry"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "meta": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_organization_references__OrganizationReferenceResponse": {
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/platform_organization_references__OrganizationReferenceEntry"
+        },
+        "meta": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "platform_organization_references__OrganizationReferenceWrite": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "label": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "label",
+        "enabled"
+      ],
+      "type": "object"
+    },
     "platform_plan_management__Draft": {
       "additionalProperties": false,
       "properties": {
@@ -7395,6 +7490,93 @@
             "state"
           ],
           "type": "object"
+        },
+        "meta": {
+          "$ref": "#/$defs/tenderpreneur_organization_creation__Meta"
+        }
+      },
+      "required": [
+        "data",
+        "meta"
+      ],
+      "type": "object"
+    },
+    "tenderpreneur_organization_creation__OrganizationCreationStatusResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "commercial_path": {
+                  "enum": [
+                    "TRIAL",
+                    "PAID"
+                  ],
+                  "type": "string"
+                },
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "job_state": {
+                  "enum": [
+                    "WAITING_PAYMENT",
+                    "PENDING",
+                    "RUNNING",
+                    "RETRYABLE",
+                    "REVIEW_REQUIRED",
+                    "COMPLETED",
+                    "CANCELLED"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "operation_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "state": {
+                  "enum": [
+                    "REQUESTED",
+                    "PLAN_SELECTED",
+                    "PROVISIONING",
+                    "SUBSCRIPTION_ACTIVATION",
+                    "ACTIVE",
+                    "FAILED",
+                    "REVIEW_REQUIRED",
+                    "CANCELLED"
+                  ],
+                  "type": "string"
+                },
+                "tenant_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "updated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation_id",
+                "tenant_id",
+                "name",
+                "state",
+                "job_state",
+                "commercial_path",
+                "created_at",
+                "updated_at"
+              ],
+              "type": "object"
+            }
+          ]
         },
         "meta": {
           "$ref": "#/$defs/tenderpreneur_organization_creation__Meta"

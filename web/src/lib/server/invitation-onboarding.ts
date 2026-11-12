@@ -17,11 +17,11 @@ export async function pendingInvitation(reference:string|null):Promise<PendingIn
   return (value?.kind==="platform"||value?.kind==="tenant")&&isInvitationToken(value.token)?{token:value.token,kind:value.kind}:null;
  }catch{return null}
 }
-async function remember(suffix:string,reference:string,value:unknown){
+async function remember(suffix:string,reference:string,value:unknown,maxAge?:number){
  const jar=await cookies(),prefix=name(suffix);
  const previous=jar.getAll().filter(cookie=>cookie.name.startsWith(prefix)&&cookie.name!==prefix+reference);
  for(const cookie of previous.slice(0,Math.max(0,previous.length-3)))jar.set(cookie.name,"",{...options(),maxAge:0});
- jar.set(prefix+reference,JSON.stringify(value),options());
+ jar.set(prefix+reference,JSON.stringify(value),{...options(),...(maxAge?{maxAge}:{})});
 }
 export async function saveInvitation(value:PendingInvitation):Promise<string>{
  const reference=crypto.randomUUID();
@@ -33,7 +33,7 @@ export async function clearInvitation(reference:string|null){
 }
 type CodeContext={purpose:"verify"|"recovery";email?:string;invitationToken?:string;flow?:string};
 export async function rememberCodeContext(reference:string,context:CodeContext){
- if(emailCodeReference(reference))await remember("code_",reference,context);
+ if(emailCodeReference(reference))await remember("code_",reference,context,context.purpose==="verify"&&context.email&&!context.invitationToken?90*60:undefined);
 }
 export async function codeContext(reference:string):Promise<CodeContext|null>{
  if(!emailCodeReference(reference))return null;

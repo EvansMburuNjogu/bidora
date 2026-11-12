@@ -303,6 +303,16 @@ func composeIdentity(config Config, control *postgres.Pool, redisClient *attempt
 	if err != nil {
 		return nil, err
 	}
+	continuation, err := registrationredis.NewContinuationStore(redisClient, config.RedisPrefix)
+	if err != nil {
+		return nil, err
+	}
+	registrationContinuation, err := identityapp.NewRegistrationContinuationService(continuation, result.sessionIssuer, loginCommitter)
+	if err != nil {
+		return nil, err
+	}
+	result.registration.EnableRegistrationContinuation(continuation)
+	result.verification.EnableRegistrationContinuation(registrationContinuation)
 	result.registration.EnableShortCodes(codes)
 	result.verification.EnableShortCodes(codes)
 	result.resend.EnableShortCodes(codes)
@@ -750,7 +760,10 @@ func BuildIdentityRuntime(config Config, state *health.State, control *postgres.
 		return fail(err)
 	}
 	if err = registerRegionalRuntime(app, browserMiddleware, control, config); err != nil {
-		return nil, err
+		return fail(err)
+	}
+	if err = registerOrganizationCreationRuntime(app, browserMiddleware, config, control, redisClient); err != nil {
+		return fail(err)
 	}
 	if err = registerManagedPesaPal(app, browserMiddleware, control, commercialModule, commercialStore, config); err != nil {
 		return nil, err

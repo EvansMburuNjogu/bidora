@@ -3,6 +3,14 @@ SELECT (u.email_verified_at IS NOT NULL)::boolean AS verified,(u.disabled_at IS 
 EXISTS(SELECT 1 FROM identity.mfa_factors f WHERE f.user_id=u.id AND f.state='ACTIVE') AS mfa_enrolled
 FROM identity.users u WHERE u.id=sqlc.arg(user_id) FOR UPDATE;
 
+-- name: GetLatestOrganizationCreationStatus :one
+SELECT o.id,o.tenant_id,o.state,o.commercial_path,o.created_at,o.updated_at,t.name,j.state AS job_state
+FROM tenancy.organization_creation_operations o
+JOIN bidora_tenancy.tenants t ON t.id=o.tenant_id
+JOIN tenancy.provisioning_job_status_v1 j ON j.operation_id=o.id
+WHERE o.creator_user_id=sqlc.arg(creator_user_id)
+ORDER BY o.created_at DESC,o.id DESC LIMIT 1;
+
 -- name: GetOrganizationCreationCommand :one
 SELECT request_hash,operation_id,tenant_id,response_state FROM tenancy.organization_creation_commands
 WHERE creator_user_id=sqlc.arg(creator_user_id) AND key_hash=sqlc.arg(key_hash);

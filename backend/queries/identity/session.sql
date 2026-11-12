@@ -1,3 +1,11 @@
+-- name: LockRegistrationContinuationUser :one
+SELECT u.id FROM identity.users u
+WHERE u.id=sqlc.arg(user_id) AND u.auth_epoch=sqlc.arg(auth_epoch)
+  AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.account_type IS NULL
+  AND NOT EXISTS (SELECT 1 FROM identity.mfa_factors f WHERE f.user_id=u.id AND f.state='ACTIVE')
+  AND NOT EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.idle_expires_at>sqlc.arg(at) AND s.absolute_expires_at>sqlc.arg(at))
+FOR UPDATE OF u;
+
 -- name: InsertSession :exec
 INSERT INTO identity.sessions (
     id, user_id, token_hash, csrf_hash, auth_epoch, rotated_from_session_id,

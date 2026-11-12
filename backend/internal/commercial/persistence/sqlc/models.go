@@ -1280,6 +1280,26 @@ type PlatformSettingsOperationalPolicyVersion struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type PlatformSettingsOrganizationReferenceCatalogue struct {
+	Kind      string
+	Code      string
+	Label     string
+	Enabled   bool
+	Version   int64
+	UpdatedBy pgtype.UUID
+	UpdatedAt pgtype.Timestamptz
+}
+
+type PlatformSettingsOrganizationReferenceCommand struct {
+	ActorID       pgtype.UUID
+	KeyHash       []byte
+	RequestHash   []byte
+	Kind          string
+	Code          string
+	ResultVersion int64
+	CreatedAt     pgtype.Timestamptz
+}
+
 type PlatformSettingsPesapalVersion struct {
 	VersionID            pgtype.UUID
 	Enabled              bool
@@ -1467,6 +1487,26 @@ type TenancyOrganizationCreationOperation struct {
 	UpdatedAt           pgtype.Timestamptz
 }
 
+type TenancyProvisioningCapacityObservation struct {
+	ID             pgtype.UUID
+	ClusterID      pgtype.UUID
+	QuotaVersion   int64
+	ClusterVersion int64
+	VerifierID     pgtype.UUID
+	AvailableSlots int32
+	EvidenceDigest []byte
+	ObservedAt     pgtype.Timestamptz
+	ExpiresAt      pgtype.Timestamptz
+}
+
+type TenancyProvisioningClusterQuota struct {
+	ClusterID      pgtype.UUID
+	MaxTenantSlots int32
+	Enabled        bool
+	Version        int64
+	UpdatedAt      pgtype.Timestamptz
+}
+
 type TenancyProvisioningJob struct {
 	ID              pgtype.UUID
 	OperationID     pgtype.UUID
@@ -1479,6 +1519,72 @@ type TenancyProvisioningJob struct {
 	SafeFailureCode *string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
+	LeaseToken      pgtype.UUID
+	LeaseExecutorID pgtype.UUID
+}
+
+type TenancyProvisioningJobEvent struct {
+	ID                 pgtype.UUID
+	JobID              pgtype.UUID
+	OperationID        pgtype.UUID
+	ExecutorID         pgtype.UUID
+	LeaseTokenHash     []byte
+	EventType          string
+	Checkpoint         string
+	VerificationKind   *string
+	VerificationDigest []byte
+	SafeFailureCode    *string
+	OccurredAt         pgtype.Timestamptz
+}
+
+type TenancyProvisioningJobStatusV1 struct {
+	OperationID pgtype.UUID
+	State       string
+}
+
+type TenancyProvisioningPlacementReservation struct {
+	ID             pgtype.UUID
+	JobID          pgtype.UUID
+	OperationID    pgtype.UUID
+	TenantID       pgtype.UUID
+	ClusterID      pgtype.UUID
+	Generation     int64
+	ClusterVersion int64
+	QuotaVersion   int64
+	TargetDigest   []byte
+	CreatedAt      pgtype.Timestamptz
+}
+
+type TenancyProvisioningVerifierAttestation struct {
+	ID                    pgtype.UUID
+	JobID                 pgtype.UUID
+	OperationID           pgtype.UUID
+	TenantID              pgtype.UUID
+	ReservationID         pgtype.UUID
+	ClusterID             pgtype.UUID
+	ReservationGeneration int64
+	LeaseTokenHash        []byte
+	FromCheckpoint        string
+	NextCheckpoint        string
+	VerificationKind      string
+	VerificationDigest    []byte
+	VerifierID            pgtype.UUID
+	IssuedAt              pgtype.Timestamptz
+	ExpiresAt             pgtype.Timestamptz
+}
+
+type TenancyProvisioningVerifierIdentity struct {
+	LoginRole    string
+	VerifierID   pgtype.UUID
+	Enabled      bool
+	RegisteredAt pgtype.Timestamptz
+}
+
+type TenancyProvisioningWorkerIdentity struct {
+	LoginRole    string
+	ExecutorID   pgtype.UUID
+	Enabled      bool
+	RegisteredAt pgtype.Timestamptz
 }
 
 type TenancyRoleGrant struct {

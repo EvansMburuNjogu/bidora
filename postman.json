@@ -1453,6 +1453,22 @@
           }
         },
         {
+          "description": "`listSharedOrganizationReferences` — source: `api/openapi/drafts/platform-organization-references.json`",
+          "name": "List shared organization references",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/shared/platform/organization-references/{{kind}}"
+            }
+          }
+        },
+        {
           "description": "`getSharedOrganizationCountryOptions` — source: `api/openapi/drafts/platform-regional-policy.json`",
           "name": "Get shared organization country options",
           "request": {
@@ -3727,6 +3743,123 @@
               "path": [],
               "query": [],
               "raw": "{{base_url}}/v1/platform/tenants/{{tenant_id}}/reactivate"
+            }
+          }
+        },
+        {
+          "description": "`listPlatformOrganizationReferences` — source: `api/openapi/drafts/platform-organization-references.json`",
+          "name": "List platform organization references",
+          "request": {
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/organization-references/{{kind}}"
+            }
+          }
+        },
+        {
+          "description": "`createPlatformOrganizationReference` — source: `api/openapi/drafts/platform-organization-references.json`",
+          "name": "Create platform organization reference",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"code\": \"{{totp_code}}\",\n  \"label\": \"replace-with-synthetic-value\",\n  \"enabled\": false\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/organization-references/{{kind}}"
+            }
+          }
+        },
+        {
+          "description": "`updatePlatformOrganizationReference` — source: `api/openapi/drafts/platform-organization-references.json`",
+          "name": "Update platform organization reference",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"code\": \"{{totp_code}}\",\n  \"label\": \"replace-with-synthetic-value\",\n  \"enabled\": false\n}"
+            },
+            "header": [
+              {
+                "key": "X-Bidora-Platform-Context-Generation",
+                "value": "{{platform_context_generation}}"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{expected_version}}"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/platform/organization-references/{{kind}}/{{code}}"
             }
           }
         },
@@ -8136,6 +8269,35 @@
                 }
               ],
               "raw": "{{base_url}}/v1/tenderpreneur/dashboard"
+            }
+          }
+        },
+        {
+          "description": "`getTenderpreneurOrganizationCreationStatus` — source: `api/openapi/drafts/tenderpreneur-organization-creation.json`",
+          "name": "Read the current creator's latest organization request",
+          "request": {
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}"
+              },
+              {
+                "key": "X-Bidora-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Bidora-Context-Generation",
+                "value": "{{context_generation}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [],
+              "query": [],
+              "raw": "{{base_url}}/v1/tenderpreneur/organizations"
             }
           }
         },

@@ -10,15 +10,24 @@ import (
 	"time"
 )
 
-type RegionalPolicyHandler struct{ service *app.RegionalPolicyService }
+type RegionalPolicyHandler struct {
+	service *app.RegionalPolicyService
+	// Remains false until the runtime composes an authoritative provisioner
+	// readiness check. Registration cannot be offered on settings alone.
+	organizationProvisioningReady bool
+}
 
 func NewRegionalPolicyHandler(service *app.RegionalPolicyService) *RegionalPolicyHandler {
-	return &RegionalPolicyHandler{service}
+	return &RegionalPolicyHandler{service: service}
 }
 func RegisterRegionalPolicyRoutes(f *fiber.App, b *BrowserSessionMiddleware, h *RegionalPolicyHandler) {
 	f.Get("/v1/platform/audit/actions/:audit_id/request-metadata", b.Platform, h.metadata)
 	f.Get("/v1/shared/platform/availability", b.OriginBound, h.availability)
 	f.Get("/v1/shared/platform/countries", b.OriginBound, h.sharedCountries)
+	f.Get("/v1/shared/platform/organization-references/:kind", b.OriginBound, h.sharedOrganizationReferences)
+	f.Get("/v1/platform/organization-references/:kind", b.Platform, h.organizationReferences)
+	f.Post("/v1/platform/organization-references/:kind", b.Platform, h.saveOrganizationReference)
+	f.Put("/v1/platform/organization-references/:kind/:code", b.Platform, h.saveOrganizationReference)
 	f.Get("/v1/platform/countries", b.Platform, h.countries)
 	f.Get("/v1/platform/countries/reference", b.Platform, h.references)
 	f.Post("/v1/platform/countries", b.Platform, h.saveCountry)
@@ -128,8 +137,88 @@ func (h *RegionalPolicyHandler) sharedCountries(c fiber.Ctx) error {
 			defaultCode = r.Code
 		}
 	}
-	return platformJSON(c, 200, fiber.Map{"countries": rows, "default_country": defaultCode, "billing_currency": commercial.CurrencyKES, "organization_registration_enabled": policy.RegistrationEnabled && !policy.UnderMaintenance(time.Now().UTC())}, nil)
+	return platformJSON(c, 200, fiber.Map{"countries": rows, "default_country": defaultCode, "billing_currency": commercial.CurrencyKES, "organization_registration_enabled": h.organizationProvisioningReady && policy.RegistrationEnabled && !policy.UnderMaintenance(time.Now().UTC())}, nil)
 }
+func organizationReferenceKind(value string) string {
+	switch value {
+	case "business-types":
+		return "BUSINESS_TYPE"
+	case "industries":
+		return "INDUSTRY"
+	default:
+		return ""
+	}
+}
+
+func (h *RegionalPolicyHandler) sharedOrganizationReferences(c fiber.Ctx) error {
+	if !settingsEmptyRead(c) {
+		return nil
+	}
+	kind := organizationReferenceKind(c.Params("kind"))
+	if kind == "" {
+		return fail(c, 404, "NOT_FOUND", "Reference list not found.", false)
+	}
+	rows, err := h.service.OrganizationReferences(c.Context(), app.RegionalSubject{}, kind, true)
+	if err != nil {
+		return informationFailure(c, err)
+	}
+	return platformJSON(c, 200, rows, nil)
+}
+
+func (h *RegionalPolicyHandler) organizationReferences(c fiber.Ctx) error {
+	if !settingsEmptyRead(c) {
+		return nil
+	}
+	kind := organizationReferenceKind(c.Params("kind"))
+	if kind == "" {
+		return fail(c, 404, "NOT_FOUND", "Reference list not found.", false)
+	}
+	subject, _, ok := regionalSubject(c, false)
+	if !ok {
+		return nil
+	}
+	rows, err := h.service.OrganizationReferences(c.Context(), subject, kind, false)
+	if err != nil {
+		return informationFailure(c, err)
+	}
+	return platformJSON(c, 200, rows, nil)
+}
+
+func (h *RegionalPolicyHandler) saveOrganizationReference(c fiber.Ctx) error {
+	kind := organizationReferenceKind(c.Params("kind"))
+	if kind == "" {
+		return fail(c, 404, "NOT_FOUND", "Reference list not found.", false)
+	}
+	var body struct {
+		Code    string `json:"code"`
+		Label   string `json:"label"`
+		Enabled bool   `json:"enabled"`
+	}
+	if !bindManagedSettings(c, &body, []string{"code", "label", "enabled"}, nil) {
+		return nil
+	}
+	subject, key, ok := regionalSubject(c, true)
+	if !ok {
+		return nil
+	}
+	var version int64
+	if c.Method() == "PUT" {
+		if c.Params("code") != body.Code {
+			return fail(c, 400, "INVALID_REQUEST", "The reference does not match this request.", false)
+		}
+		var valid bool
+		version, valid = ifMatch(c)
+		if !valid {
+			return fail(c, 400, "INVALID_REQUEST", "Reload the current reference version.", false)
+		}
+	}
+	out, err := h.service.SaveOrganizationReference(c.Context(), subject, app.OrganizationReference{Kind: kind, Code: body.Code, Label: body.Label, Enabled: body.Enabled, Version: version}, key)
+	if err != nil {
+		return informationFailure(c, err)
+	}
+	return platformJSON(c, 200, out, nil)
+}
+
 func (h *RegionalPolicyHandler) countryHistory(c fiber.Ctx) error {
 	if !settingsEmptyRead(c) {
 		return nil

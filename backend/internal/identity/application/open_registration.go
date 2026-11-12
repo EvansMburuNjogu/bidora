@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"bidora/backend/internal/identity/attempt"
 	"bidora/backend/internal/identity/email"
@@ -23,7 +24,19 @@ type OpenRegistrationInput struct {
 	Registration SelfRegistrationInput
 	NetworkScope attempt.Key
 }
-type OpenRegistrationResult struct{ Accepted, Created, VerificationIssued bool }
+
+// OpenRegistrationResult is internal to the application and transport. UserID is
+// set only when this request created the identity; it must never be exposed in
+// the public, anti-enumerating registration response.
+type OpenRegistrationResult struct {
+	Accepted, Created, VerificationIssued bool
+	UserID                                ID
+}
+
+func (OpenRegistrationResult) Format(s fmt.State, verb rune) {
+	fmt.Fprint(s, "[REDACTED open registration result]")
+}
+
 type OpenRegistrationService struct {
 	registrations *SelfRegistrationService
 	attempts      RegistrationAttemptController
@@ -77,7 +90,10 @@ func (s *OpenRegistrationService) Register(ctx context.Context, input OpenRegist
 	if err != nil {
 		return OpenRegistrationResult{}, err
 	}
-	result := OpenRegistrationResult{Accepted: registered.Accepted, Created: registered.Created}
+	if registered.Created == registered.UserID.IsZero() {
+		return OpenRegistrationResult{}, safe("registration_unavailable", nil)
+	}
+	result := OpenRegistrationResult{Accepted: registered.Accepted, Created: registered.Created, UserID: registered.UserID}
 	if !registered.Created {
 		return result, nil
 	}

@@ -3,6 +3,8 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -37,7 +39,12 @@ type InvitationIdentityReader interface {
 	LookupInvitationIdentity(context.Context, string) (identityapp.RecoveryAccountFacts, error)
 }
 
+type RegistrationContinuationStore interface {
+	Save(context.Context, string, identityapp.ID) error
+}
+
 type RegistrationHandler struct {
+	continuation RegistrationContinuationStore
 	activation   InvitationActivationUseCase
 	codes        *EmailCodes
 	credentials  InvitationIdentityReader
@@ -60,6 +67,9 @@ func (h *RegistrationHandler) EnableInvitationVerification(reader InvitationIden
 	h.resend = resend
 }
 func (h *RegistrationHandler) EnableShortCodes(codes *EmailCodes) { h.codes = codes }
+func (h *RegistrationHandler) EnableRegistrationContinuation(store RegistrationContinuationStore) {
+	h.continuation = store
+}
 func (h *RegistrationHandler) EnableInvitationRegistration(resolver InvitationRegistrationResolver) {
 	h.invitation = resolver
 }
@@ -253,6 +263,18 @@ func (h *RegistrationHandler) handle(c fiber.Ctx, invited, details bool) error {
 	}
 	if reference != "" {
 		c.Set(EmailCodeChallengeHeader, reference)
+	}
+	if !invited && h.continuation != nil {
+		var raw [32]byte
+		if _, secretErr := rand.Read(raw[:]); secretErr == nil {
+			secret := base64.RawURLEncoding.EncodeToString(raw[:])
+			// The cookie has the same shape for new and existing accounts. The
+			// generic 202 response must not disclose account existence or delivery.
+			if result.Created && !result.UserID.IsZero() {
+				_ = h.continuation.Save(c.Context(), secret, result.UserID)
+			}
+			c.Cookie(&fiber.Cookie{Name: "__Host-bidora_registration", Value: secret, Path: "/", MaxAge: int(identityapp.RegistrationContinuationLifetime.Seconds()), Secure: true, HTTPOnly: true, SameSite: "Lax"})
+		}
 	}
 	return c.SendStatus(fiber.StatusAccepted)
 }

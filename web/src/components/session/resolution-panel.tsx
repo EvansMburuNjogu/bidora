@@ -14,8 +14,8 @@ const actionCopy: Record<RequiredAction, { title: string; message: string }> = {
     message: "Choose how you’ll use Bidora. Your choice is permanent and does not grant organization access.",
   },
   ESTABLISH_TENDERPRENEUR_MEMBERSHIP: {
-    title: "Choose how to join",
-    message: "Accept an invitation from an existing Tenderpreneur organization, or request a new organization of your own.",
+    title: "Set up your organization",
+    message: "Request a private Tenderpreneur workspace for your organization.",
   },
   ENROLL_PLATFORM_MFA: {
     title: "Verify your email",

@@ -24,7 +24,7 @@ export function AccountTypeSelection() {
         idempotencyKey.current,
       );
       if (response.status === 204) {
-        toast.success("Account setup saved", { description: "Choose how to join a Tenderpreneur organization." });
+        toast.success("Account setup saved", { description: "Continue to set up your organization." });
         refresh();
         return;
       }
@@ -40,10 +40,10 @@ export function AccountTypeSelection() {
       toast.error("Unable to finish setup", {
         description: response.status === 403
           ? "This account cannot select that account type."
-          : "Nothing was changed. Please try again.",
+          : "The result could not be confirmed. Refresh your account details before retrying.",
       });
     } catch {
-      toast.error("Bidora is unavailable", { description: "Nothing was changed. Please try again." });
+      toast.error("Bidora is unavailable", { description: "The result could not be confirmed. Refresh your account details before retrying." });
     } finally {
       setPending(false);
     }

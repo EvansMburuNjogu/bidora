@@ -252,6 +252,28 @@ func (q *Queries) ListCurrentUserActiveSessions(ctx context.Context, arg ListCur
 	return items, nil
 }
 
+const lockRegistrationContinuationUser = `-- name: LockRegistrationContinuationUser :one
+SELECT u.id FROM identity.users u
+WHERE u.id=$1 AND u.auth_epoch=$2
+  AND u.email_verified_at IS NOT NULL AND u.disabled_at IS NULL AND u.account_type IS NULL
+  AND NOT EXISTS (SELECT 1 FROM identity.mfa_factors f WHERE f.user_id=u.id AND f.state='ACTIVE')
+  AND NOT EXISTS (SELECT 1 FROM identity.sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.idle_expires_at>$3 AND s.absolute_expires_at>$3)
+FOR UPDATE OF u
+`
+
+type LockRegistrationContinuationUserParams struct {
+	UserID    pgtype.UUID
+	AuthEpoch int64
+	At        pgtype.Timestamptz
+}
+
+func (q *Queries) LockRegistrationContinuationUser(ctx context.Context, arg LockRegistrationContinuationUserParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockRegistrationContinuationUser, arg.UserID, arg.AuthEpoch, arg.At)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const revokeAllUserSessions = `-- name: RevokeAllUserSessions :execrows
 UPDATE identity.sessions
 SET revoked_at = $1

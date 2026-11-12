@@ -62,6 +62,19 @@ func (tx *organizationCreationTx) LockCreator(ctx context.Context, userID tenant
 	}
 	return tenantapp.OrganizationCreatorFacts{Verified: row.Verified, Disabled: row.Disabled, Tenderpreneur: row.Tenderpreneur, MFAEnrolled: row.MfaEnrolled}, nil
 }
+func (tx *organizationCreationTx) LatestOrganizationCreationStatus(ctx context.Context, creatorID tenantapp.ID) (tenantapp.OrganizationCreationStatus, bool, error) {
+	row, err := tx.queries.GetLatestOrganizationCreationStatus(ctx, organizationCreationUUID(creatorID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return tenantapp.OrganizationCreationStatus{}, false, nil
+	}
+	if err != nil {
+		return tenantapp.OrganizationCreationStatus{}, false, err
+	}
+	if !row.ID.Valid || !row.TenantID.Valid || !row.CreatedAt.Valid || !row.UpdatedAt.Valid {
+		return tenantapp.OrganizationCreationStatus{}, false, errors.New("organization_creation_status_invalid")
+	}
+	return tenantapp.OrganizationCreationStatus{OperationID: tenantapp.ID(row.ID.Bytes), TenantID: tenantapp.ID(row.TenantID.Bytes), Name: row.Name, State: row.State, JobState: row.JobState, CommercialPath: tenantapp.OrganizationCommercialPath(row.CommercialPath), CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}, true, nil
+}
 func (tx *organizationCreationTx) GetOrganizationCreationCommand(ctx context.Context, creatorID tenantapp.ID, keyHash [32]byte) (tenantapp.OrganizationCreationCommand, bool, error) {
 	row, err := tx.queries.GetOrganizationCreationCommand(ctx, registrysql.GetOrganizationCreationCommandParams{CreatorUserID: organizationCreationUUID(creatorID), KeyHash: keyHash[:]})
 	if errors.Is(err, pgx.ErrNoRows) {

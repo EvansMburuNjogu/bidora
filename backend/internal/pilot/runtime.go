@@ -1208,7 +1208,10 @@ func Build(config Config, deps Dependencies) (*Runtime, error) {
 		return fail(err)
 	}
 	if err = registerRegionalRuntime(app, browserMiddleware, deps.Control, config); err != nil {
-		return nil, err
+		return fail(err)
+	}
+	if err = registerOrganizationCreationRuntime(app, browserMiddleware, config, deps.Control, redisClient); err != nil {
+		return fail(err)
 	}
 	if err = registerManagedPesaPal(app, browserMiddleware, deps.Control, commercialModule, commercialStore, config); err != nil {
 		return nil, err

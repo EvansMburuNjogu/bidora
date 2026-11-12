@@ -11,6 +11,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getLatestOrganizationCreationStatus = `-- name: GetLatestOrganizationCreationStatus :one
+SELECT o.id,o.tenant_id,o.state,o.commercial_path,o.created_at,o.updated_at,t.name,j.state AS job_state
+FROM tenancy.organization_creation_operations o
+JOIN bidora_tenancy.tenants t ON t.id=o.tenant_id
+JOIN tenancy.provisioning_job_status_v1 j ON j.operation_id=o.id
+WHERE o.creator_user_id=$1
+ORDER BY o.created_at DESC,o.id DESC LIMIT 1
+`
+
+type GetLatestOrganizationCreationStatusRow struct {
+	ID             pgtype.UUID
+	TenantID       pgtype.UUID
+	State          string
+	CommercialPath string
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+	Name           string
+	JobState       string
+}
+
+func (q *Queries) GetLatestOrganizationCreationStatus(ctx context.Context, creatorUserID pgtype.UUID) (GetLatestOrganizationCreationStatusRow, error) {
+	row := q.db.QueryRow(ctx, getLatestOrganizationCreationStatus, creatorUserID)
+	var i GetLatestOrganizationCreationStatusRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.State,
+		&i.CommercialPath,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Name,
+		&i.JobState,
+	)
+	return i, err
+}
+
 const getOrganizationCreationCommand = `-- name: GetOrganizationCreationCommand :one
 SELECT request_hash,operation_id,tenant_id,response_state FROM tenancy.organization_creation_commands
 WHERE creator_user_id=$1 AND key_hash=$2

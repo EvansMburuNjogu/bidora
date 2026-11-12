@@ -6,6 +6,7 @@ const names = new Map([
   ["__Host-bidora_login_code", "bidora_dev_login_code"],
   ["__Host-bidora_mfa_login", "bidora_dev_mfa_login"],
   ["__Host-bidora_google_oidc", "bidora_dev_google_oidc"],
+  ["__Host-bidora_registration", "bidora_dev_registration"],
 ]);
 
 function enabled(webOrigin: string): boolean {

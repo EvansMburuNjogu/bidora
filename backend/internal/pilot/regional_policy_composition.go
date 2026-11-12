@@ -8,7 +8,9 @@ import (
 	"bidora/backend/internal/postgres"
 	tenant "bidora/backend/internal/tenancy/application"
 	"context"
+	"errors"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5"
 	"time"
 )
 
@@ -50,6 +52,14 @@ func organizationRegionalPolicy(ctx context.Context, db postgres.DBTX, c tenant.
 	country, e := owner.Country(ctx, c.Country, true)
 	if e != nil || !country.Enabled || c.Timezone != country.Timezone || c.Locale != country.Locale || c.PreferredLanguage != country.Language {
 		return tenant.ErrOrganizationCreationInvalid
+	}
+	for _, reference := range []struct{ kind, code string }{{"BUSINESS_TYPE", c.BusinessType}, {"INDUSTRY", c.PrimaryIndustry}} {
+		if err := owner.FenceActiveOrganizationReference(ctx, reference.kind, reference.code); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return tenant.ErrOrganizationCreationInvalid
+			}
+			return tenant.ErrOrganizationCreationUnavailable
+		}
 	}
 	return nil
 }

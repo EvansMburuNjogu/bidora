@@ -54,6 +54,39 @@ type tenderpreneurOrganizationCreationBody struct {
 	CommercialPath    string `json:"commercial_path"`
 }
 
+// Status returns only the current creator's latest request, not tenant access.
+func (h *TenderpreneurOrganizationCreationHandler) Status(c fiber.Ctx) error {
+	if c == nil {
+		return errors.New("organization_creation_http_context_required")
+	}
+	c.Set("Cache-Control", "private, no-store")
+	c.Set("X-Content-Type-Options", "nosniff")
+	if h == nil || h.service == nil {
+		return organizationCreationFailure(c, tenantapp.ErrOrganizationCreationUnavailable)
+	}
+	if len(c.Request().URI().QueryString()) != 0 || len(c.Body()) != 0 {
+		return fail(c, 400, "INVALID_REQUEST", "The request is invalid.", false)
+	}
+	principal, ok := SessionPrincipalFrom(c)
+	if !ok {
+		return fail(c, 401, "SESSION_INVALID", "Authentication is required.", false)
+	}
+	reader, ok := h.service.(interface {
+		Status(context.Context, tenantapp.ID) (tenantapp.OrganizationCreationStatus, bool, error)
+	})
+	if !ok {
+		return organizationCreationFailure(c, tenantapp.ErrOrganizationCreationUnavailable)
+	}
+	result, found, err := reader.Status(c.Context(), tenantapp.ID(principal.UserID))
+	if err != nil {
+		return organizationCreationFailure(c, err)
+	}
+	if !found {
+		return c.JSON(fiber.Map{"data": nil, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
+	}
+	return c.JSON(fiber.Map{"data": fiber.Map{"operation_id": uuid.UUID(result.OperationID).String(), "tenant_id": uuid.UUID(result.TenantID).String(), "name": result.Name, "state": result.State, "job_state": result.JobState, "commercial_path": string(result.CommercialPath), "created_at": result.CreatedAt, "updated_at": result.UpdatedAt}, "meta": meta{TraceID: c.GetRespHeader("X-Request-ID")}})
+}
+
 func (h *TenderpreneurOrganizationCreationHandler) Handle(c fiber.Ctx) error {
 	if c == nil {
 		return errors.New("organization_creation_http_context_required")

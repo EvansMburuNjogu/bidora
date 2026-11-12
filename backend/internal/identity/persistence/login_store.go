@@ -101,6 +101,24 @@ func (c *LoginCommitter) CommitLoginSession(ctx context.Context, commit identity
 	})
 }
 
+// CommitRegistrationSession rechecks the verified identity and current security
+// state while holding the user row lock before inserting session evidence.
+func (c *LoginCommitter) CommitRegistrationSession(ctx context.Context, commit identityapp.SessionCommit) error {
+	if ctx == nil || c == nil || c.runner == nil || commit.UserID.IsZero() || commit.AuthEpoch < 1 || commit.CreatedAt.IsZero() {
+		return errors.New("registration_session_invalid")
+	}
+	return c.runner.WithinTransaction(ctx, func(txCtx context.Context, db postgres.DBTX) error {
+		if txCtx == nil || db == nil {
+			return errors.New("registration_session_unavailable")
+		}
+		_, err := identitysql.New(db).LockRegistrationContinuationUser(txCtx, identitysql.LockRegistrationContinuationUserParams{UserID: identityID(commit.UserID), AuthEpoch: commit.AuthEpoch, At: identityTime(commit.CreatedAt)})
+		if err != nil {
+			return err
+		}
+		return CommitLoginSessionWithin(txCtx, db, commit)
+	})
+}
+
 // CommitLoginSessionWithin keeps session/audit insertion in the owner's existing
 // transaction, so promotion cannot commit without its replacement session.
 func CommitLoginSessionWithin(ctx context.Context, db postgres.DBTX, commit identityapp.SessionCommit) error {

@@ -51,7 +51,7 @@ UPDATE identity.users AS u
 SET email_verified_at = COALESCE(u.email_verified_at, sqlc.arg(consumed_at)),
     updated_at = sqlc.arg(consumed_at)
 FROM consumed
-WHERE u.id = consumed.user_id
+WHERE u.id = consumed.user_id AND u.disabled_at IS NULL
 RETURNING u.id, u.email_verified_at, u.auth_epoch;
 
 -- name: InsertEmailVerifiedAudit :exec

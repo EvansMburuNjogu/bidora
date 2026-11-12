@@ -1,5 +1,9 @@
 import "server-only";
 import { apiOrigin, webOrigin } from "@/lib/server/origins";
+import { backendCookieHeader } from "@/lib/server/development-cookies";
+import { clientNetwork } from "@/lib/server/client-network";
+import { forwardAuditContext } from "@/lib/server/audit-request-context";
+import { boundedUpstreamBody } from "@/lib/server/bounded-upstream-body";
 
 function safeFailure(status: 400 | 403 | 413 | 415 | 503): Response {
   const messages = {
@@ -38,12 +42,32 @@ async function boundedBody(request: Request): Promise<{ body?: ArrayBuffer; tooL
     : { body: output.buffer.slice(0, size), tooLarge: false };
 }
 
+async function proxyOrganizationCreationStatus(request: Request, backend: string, browser: string): Promise<Response> {
+  if (request.body || Number(request.headers.get("content-length") ?? "0") !== 0) return safeFailure(400);
+  const headers = new Headers({ Accept: "application/json", Origin: browser });
+  const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
+  if (cookie) headers.set("Cookie", cookie);
+  const network = clientNetwork(request);
+  if (!network.ok) return safeFailure(503);
+  if (network.address) headers.set("X-Forwarded-For", network.address);
+  forwardAuditContext(request, headers);
+  let upstream: Response;
+  try { upstream = await fetch(backend + "/v1/tenderpreneur/organizations", { method: "GET", headers, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10_000) }); }
+  catch { return safeFailure(503); }
+  if (![200, 400, 401, 403, 503].includes(upstream.status) || upstream.headers.get("content-type")?.split(";")[0] !== "application/json") { await upstream.body?.cancel(); return safeFailure(503); }
+  const bytes = await boundedUpstreamBody(upstream);
+  if (!bytes) return safeFailure(503);
+  return new Response(bytes, { status: upstream.status, headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Type": "application/json", Vary: "Cookie, Origin" } });
+}
+
 export async function proxyOrganizationCreation(request: Request): Promise<Response> {
   const backend = apiOrigin();
   const browser = webOrigin();
   if (!backend || !browser) return safeFailure(503);
-  if (request.headers.get("origin") !== browser) return safeFailure(403);
   if (new URL(request.url).search) return safeFailure(400);
+  if (request.method === "GET") return proxyOrganizationCreationStatus(request, backend, browser);
+  if (request.method !== "POST") return safeFailure(400);
+  if (request.headers.get("origin") !== browser) return safeFailure(403);
   if (request.headers.get("content-type")?.split(";")[0] !== "application/json") return safeFailure(415);
 
   const csrf = request.headers.get("x-csrf-token");
@@ -63,8 +87,12 @@ export async function proxyOrganizationCreation(request: Request): Promise<Respo
     "X-CSRF-Token": csrf,
     "Idempotency-Key": idempotency,
   });
-  const cookie = request.headers.get("cookie");
+  const cookie = backendCookieHeader(request.headers.get("cookie"), browser);
   if (cookie) headers.set("Cookie", cookie);
+  const network = clientNetwork(request);
+  if (!network.ok) return safeFailure(503);
+  if (network.address) headers.set("X-Forwarded-For", network.address);
+  forwardAuditContext(request, headers);
 
   let upstream: Response;
   try {
@@ -93,7 +121,7 @@ export async function proxyOrganizationCreation(request: Request): Promise<Respo
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
-  const bytes = new Uint8Array(await upstream.arrayBuffer());
-  if (bytes.byteLength > 65_536) return safeFailure(503);
+  const bytes = await boundedUpstreamBody(upstream);
+  if (!bytes) return safeFailure(503);
   return new Response(bytes, { status: upstream.status, headers: responseHeaders });
 }

@@ -16,6 +16,8 @@ export const settingsSections: readonly SettingsSection[] = [
   { title: "OpenAI", description: "AI provider status", href: "/platform/settings/openai", capabilities: ["platform.integration.read"], ready: true },
   { title: "PesaPal", description: "Payment provider configuration", href: "/platform/settings/pesapal", capabilities: ["platform.integration.read"], ready: true },
   { title: "Countries & Localisation", description: "Supported markets and defaults", href: "/platform/settings/countries", capabilities: ["platform.reference.read"], ready: true },
+  { title: "Business types", description: "Organization business type options", href: "/platform/settings/business-types", capabilities: ["platform.reference.read"], ready: true },
+  { title: "Industries", description: "Organization industry options", href: "/platform/settings/industries", capabilities: ["platform.reference.read"], ready: true },
   { title: "Notifications", description: "Delivery rules and templates", href: "/platform/settings/notifications", capabilities: ["platform.announcement.manage"], ready: true },
   { title: "Operational Policies", description: "Approved operational controls", href: "/platform/settings/policies", capabilities: ["platform.reference.read", "platform.retention.policy.read"], ready: true },
 ];

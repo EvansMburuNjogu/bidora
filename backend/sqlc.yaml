@@ -2,6 +2,32 @@ version: "2"
 sql:
   - engine: "postgresql"
     schema: "migrations/control"
+    queries: "queries/provisioning_verifier"
+    gen:
+      go:
+        package: "provisioningverifiersql"
+        out: "internal/tenancy/provisioning/verifier/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: false
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
+    queries: "queries/provisioning"
+    gen:
+      go:
+        package: "provisioningsql"
+        out: "internal/tenancy/provisioning/persistence/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: false
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        emit_prepared_queries: false
+        emit_result_struct_pointers: false
+  - engine: "postgresql"
+    schema: "migrations/control"
     queries: "queries/control"
     gen:
       go:

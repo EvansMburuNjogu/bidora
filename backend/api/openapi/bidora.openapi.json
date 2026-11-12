@@ -660,6 +660,62 @@
           "type": "string"
         }
       },
+      "platform_organization_references__OrganizationReferenceCSRF": {
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "platform_organization_references__OrganizationReferenceCode": {
+        "in": "path",
+        "name": "code",
+        "required": true,
+        "schema": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "platform_organization_references__OrganizationReferenceContext": {
+        "in": "header",
+        "name": "X-Bidora-Platform-Context-Generation",
+        "required": true,
+        "schema": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "platform_organization_references__OrganizationReferenceKey": {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "platform_organization_references__OrganizationReferenceKind": {
+        "in": "path",
+        "name": "kind",
+        "required": true,
+        "schema": {
+          "enum": [
+            "business-types",
+            "industries"
+          ],
+          "type": "string"
+        }
+      },
+      "platform_organization_references__OrganizationReferenceVersion": {
+        "in": "header",
+        "name": "If-Match",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
       "platform_plan_management__ContextGeneration": {
         "in": "header",
         "name": "X-Bidora-Platform-Context-Generation",
@@ -1349,6 +1405,9 @@
           }
         },
         "description": "Stable safe error without secret/provider diagnostics"
+      },
+      "platform_organization_references__Error": {
+        "description": "Safe failure response"
       },
       "platform_regional_policy__Error": {
         "content": {
@@ -7302,6 +7361,101 @@
         ],
         "type": "object"
       },
+      "platform_organization_references__OrganizationReferenceEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "BUSINESS_TYPE",
+              "INDUSTRY"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "code",
+          "label",
+          "enabled",
+          "version",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "platform_organization_references__OrganizationReferenceListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceEntry"
+            },
+            "maxItems": 500,
+            "type": "array"
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "platform_organization_references__OrganizationReferenceResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceEntry"
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "platform_organization_references__OrganizationReferenceWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "enabled"
+        ],
+        "type": "object"
+      },
       "platform_plan_management__Draft": {
         "additionalProperties": false,
         "properties": {
@@ -8879,6 +9033,93 @@
               "state"
             ],
             "type": "object"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/tenderpreneur_organization_creation__Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "tenderpreneur_organization_creation__OrganizationCreationStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "commercial_path": {
+                    "enum": [
+                      "TRIAL",
+                      "PAID"
+                    ],
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "job_state": {
+                    "enum": [
+                      "WAITING_PAYMENT",
+                      "PENDING",
+                      "RUNNING",
+                      "RETRYABLE",
+                      "REVIEW_REQUIRED",
+                      "COMPLETED",
+                      "CANCELLED"
+                    ],
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "operation_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "state": {
+                    "enum": [
+                      "REQUESTED",
+                      "PLAN_SELECTED",
+                      "PROVISIONING",
+                      "SUBSCRIPTION_ACTIVATION",
+                      "ACTIVE",
+                      "FAILED",
+                      "REVIEW_REQUIRED",
+                      "CANCELLED"
+                    ],
+                    "type": "string"
+                  },
+                  "tenant_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "format": "date-time",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation_id",
+                  "tenant_id",
+                  "name",
+                  "state",
+                  "job_state",
+                  "commercial_path",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "meta": {
             "$ref": "#/components/schemas/tenderpreneur_organization_creation__Meta"
@@ -16748,6 +16989,217 @@
         "x-source-status": "source-connected-verification-separate"
       }
     },
+    "/v1/platform/organization-references/{kind}": {
+      "get": {
+        "description": "Read current catalogue under platform.reference.read.",
+        "operationId": "listPlatformOrganizationReferences",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceKind"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceListResponse"
+                }
+              }
+            },
+            "description": "All entries"
+          },
+          "400": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "summary": "List platform organization references",
+        "tags": [
+          "Platform Administration"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-organization-references.json",
+        "x-source-status": "source-connected-verification-separate"
+      },
+      "post": {
+        "description": "Create an entry under current reference-management authority, with fresh assurance, idempotency and audit.",
+        "operationId": "createPlatformOrganizationReference",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceKind"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceContext"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceCSRF"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceKey"
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceResponse"
+                }
+              }
+            },
+            "description": "Saved entry"
+          },
+          "400": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "summary": "Create platform organization reference",
+        "tags": [
+          "Platform Administration"
+        ],
+        "x-normalized-cross-cutting": true,
+        "x-source-contract": "api/openapi/drafts/platform-organization-references.json",
+        "x-source-status": "source-connected-verification-separate"
+      }
+    },
+    "/v1/platform/organization-references/{kind}/{code}": {
+      "put": {
+        "description": "Update an entry using its current version; historical organization values are not rewritten.",
+        "operationId": "updatePlatformOrganizationReference",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceKind"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceCode"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceContext"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceCSRF"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceKey"
+          },
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceVersion"
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceResponse"
+                }
+              }
+            },
+            "description": "Saved entry"
+          },
+          "400": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrfCookie": []
+          }
+        ],
+        "summary": "Update platform organization reference",
+        "tags": [
+          "Platform Administration"
+        ],
+        "x-normalized-cross-cutting": true,
+        "x-source-contract": "api/openapi/drafts/platform-organization-references.json",
+        "x-source-status": "source-connected-verification-separate"
+      }
+    },
     "/v1/platform/overview": {
       "get": {
         "description": "Current administrator authority and recent administrator assurance are rechecked in the same control transaction as totals and audit insertion. Unauthorized metrics are null, not zero. Counts include active unheld trials/paid terms, unpaid non-void KES invoice balances and open support cases. Monthly gross invoicing is not net revenue. No tenant database or provider is opened.",
@@ -19715,6 +20167,55 @@
         ],
         "x-source-contract": "api/openapi/drafts/platform-information.json",
         "x-source-status": "implemented-not-verified"
+      }
+    },
+    "/v1/shared/platform/organization-references/{kind}": {
+      "get": {
+        "description": "Enabled organization reference entries for the authenticated browser; no tenant authority is conferred.",
+        "operationId": "listSharedOrganizationReferences",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/platform_organization_references__OrganizationReferenceKind"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/platform_organization_references__OrganizationReferenceListResponse"
+                }
+              }
+            },
+            "description": "Enabled entries"
+          },
+          "400": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/platform_organization_references__Error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "summary": "List shared organization references",
+        "tags": [
+          "Shared Portal"
+        ],
+        "x-source-contract": "api/openapi/drafts/platform-organization-references.json",
+        "x-source-status": "source-connected-verification-separate"
       }
     },
     "/v1/tenderpreneur/bids": {
@@ -27517,6 +28018,78 @@
       }
     },
     "/v1/tenderpreneur/organizations": {
+      "get": {
+        "description": "Returns the latest creator-owned operation and job state or null. The response does not grant access or prove payment.",
+        "operationId": "getTenderpreneurOrganizationCreationStatus",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Tenant selector only; never authority or a database locator.",
+            "in": "header",
+            "name": "X-Bidora-Tenant-ID",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exact current membership context generation.",
+            "in": "header",
+            "name": "X-Bidora-Context-Generation",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/tenderpreneur_organization_creation__OrganizationCreationStatusResponse"
+                }
+              }
+            },
+            "description": "Creator-owned request status or null"
+          },
+          "400": {
+            "$ref": "#/components/responses/tenderpreneur_organization_creation__Failure"
+          },
+          "401": {
+            "$ref": "#/components/responses/tenderpreneur_organization_creation__Failure"
+          },
+          "403": {
+            "$ref": "#/components/responses/tenderpreneur_organization_creation__Failure"
+          },
+          "503": {
+            "$ref": "#/components/responses/tenderpreneur_organization_creation__Failure"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ],
+        "summary": "Read the current creator's latest organization request",
+        "tags": [
+          "Tenderpreneur"
+        ],
+        "x-normalized-cross-cutting": true,
+        "x-source-contract": "api/openapi/drafts/tenderpreneur-organization-creation.json",
+        "x-source-status": "intake-unmounted-provisioner-unavailable"
+      },
       "post": {
         "description": "Requires a verified enabled Tenderpreneur identity, exact Origin/session/CSRF, authentication no older than 15 minutes, fail-closed creation limits and a UUID idempotency key. If MFA is enrolled, current TOTP-backed AAL2 is required. A successful response is pending provisioning only. The creator's verified email is the initial work contact; no separate contact is accepted here.",
         "operationId": "createTenderpreneurOrganization",
@@ -27638,7 +28211,7 @@
         "x-max-body-bytes": 4096,
         "x-normalized-cross-cutting": true,
         "x-source-contract": "api/openapi/drafts/tenderpreneur-organization-creation.json",
-        "x-source-status": "approved-implementation-unmounted-not-verified"
+        "x-source-status": "intake-unmounted-provisioner-unavailable"
       }
     },
     "/v1/tenderpreneur/review-workloads": {
@@ -27795,7 +28368,7 @@
   "x-contract-status": "IMPLEMENTED_NOT_VERIFIED",
   "x-generation": {
     "command": "cd backend && python3 api/openapi/generate.py",
-    "source_count": 73,
+    "source_count": 74,
     "sources": [
       "api/openapi/health.json",
       "api/openapi/drafts/ai-proposal-writing.json",
@@ -27844,6 +28417,7 @@
       "api/openapi/drafts/platform-notification-history.json",
       "api/openapi/drafts/platform-notification-templates.json",
       "api/openapi/drafts/platform-operational-workflows.json",
+      "api/openapi/drafts/platform-organization-references.json",
       "api/openapi/drafts/platform-plan-management.json",
       "api/openapi/drafts/platform-regional-policy.json",
       "api/openapi/drafts/platform-session-policy.json",

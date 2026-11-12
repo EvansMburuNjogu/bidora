@@ -13,7 +13,7 @@ const operations = {
   "invitation-details": { path: "/v1/auth/invitation-details", body: true, cookie: false, csrf: false },
   "password-recovery": { path: "/v1/auth/password-recovery", body: true, cookie: false, csrf: false },
   "password-reset": { path: "/v1/auth/password-recovery/reset", body: true, cookie: false, csrf: false },
-  "verify-email": { path: "/v1/auth/verify-email", body: true, cookie: false, csrf: false },
+  "verify-email": { path: "/v1/auth/verify-email", body: true, cookie: true, csrf: false },
   "verification-resend": { path: "/v1/auth/verify-email/resend", body: true, cookie: false, csrf: false },
   "login-code": { path: "/v1/auth/login-code/verify", body: true, cookie: true, csrf: false },
   "login-code-resend": { path: "/v1/auth/login-code/resend", body: true, cookie: true, csrf: false },
@@ -161,6 +161,7 @@ export async function proxyAuth(request: Request, operation: ProxyOperation): Pr
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
+  if (operation === "verify-email" && upstream.status === 204 && upstream.headers.get("x-bidora-registration-session") === "1") responseHeaders.set("X-Bidora-Registration-Session", "1");
   const codeChallenge = upstream.headers.get("x-bidora-code-challenge");
   if (upstream.status === 202 && codeChallenge && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(codeChallenge)) responseHeaders.set("X-Bidora-Code-Challenge", codeChallenge);
   const challengeExpiry = upstream.headers.get("x-bidora-challenge-expires-at");
